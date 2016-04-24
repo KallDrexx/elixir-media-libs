@@ -18,7 +18,10 @@ defmodule RtmpServer.Mixfile do
   #
   # Type "mix help compile.app" for more information
   def application do
-    [applications: [:logger]]
+    [
+      mod: {RtmpServer, []},
+      applications: [:logger, :ranch]
+    ]
   end
 
   # Dependencies can be Hex packages:
