@@ -1,28 +1,26 @@
 defmodule RtmpServer.Handler do
+  @moduledoc "Handles the rtmp socket connection"
   
+  require Logger
+  
+  @doc "Starts the handler for an accepted socket"
   def start_link(ref, socket, transport, opts) do
     pid = spawn_link(__MODULE__, :init, [ref, socket, transport, opts])
     {:ok, pid}
   end
   
-  def init(ref, socket, transport, opts) do
+  def init(ref, socket, transport, _opts) do
     :ok = :ranch.accept_ack(ref)
+    
+    Logger.debug "connection received"
     perform_handshake(socket, transport)
   end
 
-  def echo_loop(socket, transport) do
-    case transport.recv(socket, 0, 5000) do
-      {:ok, data} ->
-        transport.send(socket, data)
-        __MODULE__.echo_loop(socket, transport)
-        
-      _ -> :ok = transport.close(socket)
-    end
-  end
- 
   defp perform_handshake(socket, transport) do
-    # Echo server to verify ranch setup
-    echo_loop(socket, transport)
+    case RtmpServer.Handshake.process(socket, transport) do
+      :ok -> Logger.debug "handshake completed"
+      _ -> Logger.debug "handshake failed" 
+    end
   end
   
 end
