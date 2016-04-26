@@ -19,7 +19,7 @@ defmodule RtmpServer.Handshake do
   end
   
   defp validate_c0(byte) when byte < <<32>>, do: :ok
-  defp validate_c0(byte), do: {:error, :bad_c0}
+  defp validate_c0(_), do: {:error, :bad_c0}
   
   defp receive_c1(socket, transport) do
     case transport.recv(socket, 1536, 5000) do
@@ -29,7 +29,7 @@ defmodule RtmpServer.Handshake do
   end
   
   defp transform_c1(bytes) do
-    <<time::8 * 4, zeros::8 * 4, random::binary-size(1528)>> = bytes
+    <<time::8 * 4, _zeros::8 * 4, random::binary-size(1528)>> = bytes
         
     Logger.debug "c1 received"
     {:ok, %RtmpServer.Handshake.Details{time: time, random_data: random}}
@@ -43,7 +43,7 @@ defmodule RtmpServer.Handshake do
   end
   
   defp validate_c2(bytes, sent_details) do
-    <<time1::8 * 4, time2::8 * 4, random_echo::binary-size(1528)>> = bytes
+    <<time1::8 * 4, _time2::8 * 4, random_echo::binary-size(1528)>> = bytes
     if (time1 == sent_details.time) && (random_echo == sent_details.random_data) do
       Logger.debug "c2 received"
       :ok
