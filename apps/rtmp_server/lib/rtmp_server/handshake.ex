@@ -3,26 +3,29 @@ defmodule RtmpServer.Handshake do
   
   @doc "Processes a handshake for a new rtmp connection"
   def process(socket, transport) do
-      with {:ok, _} <- receive_c0(socket, transport),
+      with :ok <- receive_c0(socket, transport),
            :ok <- send_s0(socket, transport),
            {:ok, sent_details} <- send_s1(socket, transport),
            {:ok, received_details} <- receive_c1(socket, transport),
            :ok <- send_s2(socket, transport, received_details),
-           :ok <- receive_c2(socket, transport, sent_details),
-           do: :ok
+           do: receive_c2(socket, transport, sent_details)
   end
   
-  defp receive_c0(socket, transport) do   
-    with {:ok, byte} <- transport.recv(socket, 1, 5000),
-          do: validate_c0(byte)
+  defp receive_c0(socket, transport) do
+    case transport.recv(socket, 1, 5000) do
+      {:ok, byte} -> validate_c0(byte)
+      {:error, reason} -> {:error, reason}
+    end
   end
   
   defp validate_c0(byte) when byte < <<32>>, do: :ok
   defp validate_c0(byte), do: {:error, :bad_c0}
   
   defp receive_c1(socket, transport) do
-    with {:ok, bytes} <- transport.recv(socket, 1536, 5000),
-          do: transform_c1(bytes)
+    case transport.recv(socket, 1536, 5000) do
+      {:ok, bytes} -> transform_c1(bytes)
+      {:error, reason} -> {:error, reason}
+    end
   end
   
   defp transform_c1(bytes) do
@@ -33,8 +36,10 @@ defmodule RtmpServer.Handshake do
   end
   
   defp receive_c2(socket, transport, sent_details) do
-    with {:ok, bytes} <- transport.recv(socket, 1536, 5000),
-          do: validate_c2(bytes, sent_details)
+    case transport.recv(socket, 1536, 5000) do
+      {:ok, bytes} -> validate_c2(bytes, sent_details)
+      {:error, reason} -> {:error, reason}
+    end
   end
   
   defp validate_c2(bytes, sent_details) do
@@ -51,7 +56,10 @@ defmodule RtmpServer.Handshake do
   end
   
   defp send_s0(socket, transport) do
-    transport.send(socket, <<3>>)
+    case transport.send(socket, <<3>>) do
+      :ok -> :ok
+      {:error, reason} -> {:error, reason}
+    end
   end
   
   defp send_s1(socket, transport) do
@@ -59,8 +67,10 @@ defmodule RtmpServer.Handshake do
     zeros = <<0::8 * 4>>
     random = generate_random_binary(1528, <<>>)
     
-    with :ok <- transport.send(socket, <<time::8 * 4>> <> zeros <> random),
-         do: {:ok, %RtmpServer.Handshake.Details{time: time, random_data: random}}
+    case transport.send(socket, <<time::8 * 4>> <> zeros <> random) do
+      :ok -> {:ok, %RtmpServer.Handshake.Details{time: time, random_data: random}}
+      {:error, reason} -> {:error, reason}
+    end
   end
   
   defp send_s2(socket, transport, received_details) do
@@ -68,7 +78,10 @@ defmodule RtmpServer.Handshake do
     time2 = <<0::8 * 4>>
     random = received_details.random_data
     
-    transport.send(socket, time1 <> time2 <> random)
+    case transport.send(socket, time1 <> time2 <> random) do
+      :ok -> :ok
+      {:error, reason} -> {:error, reason}
+    end
   end
   
   defp generate_random_binary(0, accumulator), do: accumulator
