@@ -12,14 +12,14 @@ defmodule RtmpServer.Handler do
   def init(ref, socket, transport, _opts) do
     :ok = :ranch.accept_ack(ref)
     
-    Logger.debug "connection received"
+    Logger.debug "connection started"
     perform_handshake(socket, transport)
   end
 
   defp perform_handshake(socket, transport) do
     case RtmpServer.Handshake.process(socket, transport) do
       :ok -> Logger.debug "handshake completed"
-      _ -> Logger.debug "handshake failed" 
+      {:error, reason} -> Logger.debug "handshake failed due to #{reason}" 
     end
   end
   

@@ -2,6 +2,7 @@ defmodule RtmpServer.Handshake do
   require Logger
   
   @doc "Processes a handshake for a new rtmp connection"
+  @spec process(port(), any()) :: :ok | {:error, any()}
   def process(socket, transport) do
       with :ok <- receive_c0(socket, transport),
            :ok <- send_s0(socket, transport),
@@ -30,8 +31,6 @@ defmodule RtmpServer.Handshake do
   
   defp transform_c1(bytes) do
     <<time::8 * 4, _zeros::8 * 4, random::binary-size(1528)>> = bytes
-        
-    Logger.debug "c1 received"
     {:ok, %RtmpServer.Handshake.Details{time: time, random_data: random}}
   end
   
@@ -44,14 +43,11 @@ defmodule RtmpServer.Handshake do
   
   defp validate_c2(bytes, sent_details) do
     <<time1::8 * 4, _time2::8 * 4, random_echo::binary-size(1528)>> = bytes
-    if (time1 == sent_details.time) && (random_echo == sent_details.random_data) do
-      Logger.debug "c2 received"
-      :ok
-    else
-      Logger.debug "Time: #{inspect(time1)} / #{inspect(sent_details.time)}"
-      Logger.debug "random: #{inspect(random_echo)} / #{inspect(sent_details.random_data)}"
-      
-      {:error, :value_mismatch}
+    
+    cond do
+      time1 != sent_details.time -> {:error, :bad_c2_time}
+      random_echo != sent_details.random_data -> {:error, :bad_c2_random}      
+      true -> :ok      
     end
   end
   
