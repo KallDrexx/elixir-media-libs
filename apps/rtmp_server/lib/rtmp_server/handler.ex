@@ -12,14 +12,14 @@ defmodule RtmpServer.Handler do
   def init(ref, socket, transport, _opts) do
     :ok = :ranch.accept_ack(ref)
     
-    {:ok, {{ip1, ip2, ip3, ip4}, _port}} = :inet.peername(socket)
-    client_ip = "#{ip1}.#{ip2}.#{ip3}.#{ip4}"
+    {:ok, {ip, _port}} = :inet.peername(socket)
+    client_ip_string = ip |> Tuple.to_list() |> Enum.join(".")
         
-    Logger.info "#{client_ip}: client connected"
+    Logger.info "#{client_ip_string}: client connected"
     
     case RtmpServer.Handshake.process(socket, transport) do
-      {:error, reason} -> Logger.info "#{client_ip}: handshake failed (#{reason})"
-      :ok -> Logger.debug "#{client_ip}: handshake successful"
+      {:error, reason} -> Logger.info "#{client_ip_string}: handshake failed (#{reason})"
+      :ok -> Logger.debug "#{client_ip_string}: handshake successful"
     end
   end  
 end
