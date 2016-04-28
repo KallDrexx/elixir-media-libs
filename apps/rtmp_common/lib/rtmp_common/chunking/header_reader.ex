@@ -1,6 +1,6 @@
 defmodule RtmpCommon.Chunking.HeaderReader do
   
-  @doc "Reads the next rtmp chunk from the socket"
+  @doc "Reads the header for the next rtmp chunk"
   def read(socket, transport) do
     with {:ok, {type_id, rest_of_first_byte}} <- get_chunk_type(socket, transport),
           {:ok, stream_id} <- get_stream_id(rest_of_first_byte, socket, transport),
@@ -39,7 +39,8 @@ defmodule RtmpCommon.Chunking.HeaderReader do
                     {:ok, <<message_length::size(3)-unit(8)>>} <- transport.recv(socket, 3, 5000),
                     {:ok, <<message_type_id::8>>} <- transport.recv(socket, 1, 5000),
                     {:ok, <<message_stream_id::size(4)-unit(8)>>} <- transport.recv(socket, 4, 5000),
-                    do: {:ok, %RtmpCommon.Chunking.ChunkHeader{timestamp: timestamp,
+                    {:ok, final_timestamp} <- parse_extended_timestamp(timestamp, socket, transport),
+                    do: {:ok, %RtmpCommon.Chunking.ChunkHeader{timestamp: final_timestamp,
                                                           message_length: message_length,
                                                           message_type_id: message_type_id,
                                                           message_stream_id: message_stream_id}}
@@ -55,7 +56,8 @@ defmodule RtmpCommon.Chunking.HeaderReader do
     result = with {:ok, <<timestamp::size(3)-unit(8)>>} <- transport.recv(socket, 3, 5000),
                     {:ok, <<message_length::size(3)-unit(8)>>} <- transport.recv(socket, 3, 5000),
                     {:ok, <<message_type_id::8>>} <- transport.recv(socket, 1, 5000),
-                    do: {:ok, %RtmpCommon.Chunking.ChunkHeader{timestamp: timestamp,
+                    {:ok, final_timestamp} <- parse_extended_timestamp(timestamp, socket, transport),
+                    do: {:ok, %RtmpCommon.Chunking.ChunkHeader{timestamp: final_timestamp,
                                                           message_length: message_length,
                                                           message_type_id: message_type_id}}
           
@@ -68,7 +70,8 @@ defmodule RtmpCommon.Chunking.HeaderReader do
   # Parses chunk type 2 headers
   defp parse_header(2, socket, transport) do
     result = with {:ok, <<timestamp::size(3)-unit(8)>>} <- transport.recv(socket, 3, 5000),
-                    do: {:ok, %RtmpCommon.Chunking.ChunkHeader{timestamp: timestamp}}
+                    {:ok, final_timestamp} <- parse_extended_timestamp(timestamp, socket, transport),
+                    do: {:ok, %RtmpCommon.Chunking.ChunkHeader{timestamp: final_timestamp}}
           
     case result do
       {:ok, chunk = %RtmpCommon.Chunking.ChunkHeader{}} -> {:ok, chunk}
@@ -80,4 +83,14 @@ defmodule RtmpCommon.Chunking.HeaderReader do
   defp parse_header(3, _socket, _transport) do
     {:ok, %RtmpCommon.Chunking.ChunkHeader{}}
   end
+  
+  defp parse_extended_timestamp(original_timestamp, _, _) when original_timestamp < 16777215, do: {:ok, original_timestamp}
+  defp parse_extended_timestamp(original_timestamp, socket, transport) do
+    case transport.recv(socket, 4, 5000) do
+      {:ok, <<extended_timestamp::size(4)-unit(8)>>} -> {:ok, original_timestamp + extended_timestamp}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+  
+  
 end
