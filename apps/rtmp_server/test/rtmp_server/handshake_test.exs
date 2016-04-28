@@ -67,7 +67,7 @@ defmodule RtmpServer.HandshakeTest do
     end
     
     def start_link do
-      Agent.start_link fn -> %State{} end
+      Agent.start_link(fn -> %State{} end)
     end
     
     def set_mode(agent, mode) do
