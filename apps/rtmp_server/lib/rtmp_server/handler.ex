@@ -41,11 +41,11 @@ defmodule RtmpServer.Handler do
             {:ok, data} <- RtmpCommon.Chunking.DataReader.read(previous_header, current_header, socket, transport),
             filled_in_header = fill_previous_header(previous_header, current_header),
             updated_header_map = Map.put(state.previous_headers, current_header.stream_id, filled_in_header),
-            do: {:ok, { %{state | previous_headers: updated_header_map}, current_header, data}}
+            do: {:ok, { %{state | previous_headers: updated_header_map}, filled_in_header, data}}
             
     case result do
-      {:ok, {new_state, header, _data}} ->
-        Logger.debug "#{client_ip}: Chunk type #{header.type} received for stream id #{header.stream_id}"
+      {:ok, {new_state, header, data}} ->
+        Logger.debug "#{client_ip}: Chunk type #{header.type} received for stream id #{header.stream_id}, message id #{header.message_type_id}, size #{header.message_length}: #{inspect(data)}"
         __MODULE__.read_next_chunk(socket, transport, new_state)
         
       {:error, reason} -> Logger.debug "#{client_ip}: read failure: #{reason}"
