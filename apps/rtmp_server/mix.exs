@@ -38,6 +38,9 @@ defmodule RtmpServer.Mixfile do
   #
   # Type "mix help deps" for more examples and options
   defp deps do
-    [{:ranch, "~> 1.2.1", manager: :rebar}]
+    [
+      {:ranch, "~> 1.2.1", manager: :rebar},
+      {:rtmp_common, in_umbrella: true}
+    ]
   end
 end
