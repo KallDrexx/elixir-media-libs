@@ -1,11 +1,56 @@
-defmodule RtmpCommon.Chunking.HeaderReader do
+defmodule RtmpCommon.Chunking do
   
-  @doc "Reads the header for the next rtmp chunk"
-  def read(socket, transport) do
+  @doc "reads the next RTMP chunk from the socket"
+  def read_next_chunk(socket, transport, previous_headers) do
+    with {:ok, current_header} <- read_header(socket, transport),
+            previous_header = Map.get(previous_headers, current_header.stream_id),
+            {:ok, data} <- read_data(previous_header, current_header, socket, transport),
+            filled_in_header = fill_previous_header(previous_header, current_header),
+            updated_header_map = Map.put(previous_headers, current_header.stream_id, filled_in_header),
+            do: {:ok, {updated_header_map, filled_in_header, data}}
+  end
+  
+  defp read_header(socket, transport) do
     with {:ok, {type_id, rest_of_first_byte}} <- get_chunk_type(socket, transport),
           {:ok, stream_id} <- get_stream_id(rest_of_first_byte, socket, transport),
           {:ok, chunk = %RtmpCommon.Chunking.ChunkHeader{}} <- parse_header(type_id, socket, transport),
           do: {:ok, %{chunk | type: type_id, stream_id: stream_id}}
+  end
+  
+  defp read_data(previous_chunk_header, current_chunk_header, socket, transport) do
+    do_read_data(previous_chunk_header, current_chunk_header, socket, transport)
+  end 
+  
+  # Since some headers are missing information, we want to fill the previous header 
+  # with as much information as possible, so we can have that data
+  # for the next chunk that may come down without that info
+  defp fill_previous_header(nil, current_header) do
+    current_header
+  end
+  
+  defp fill_previous_header(_, current_header = %RtmpCommon.Chunking.ChunkHeader{type: 0}) do
+    current_header
+  end
+    
+  defp fill_previous_header(previous_header, current_header = %RtmpCommon.Chunking.ChunkHeader{type: 1}) do
+    %{current_header | message_stream_id: previous_header.message_stream_id}
+  end
+    
+  defp fill_previous_header(previous_header, current_header = %RtmpCommon.Chunking.ChunkHeader{type: 2}) do
+    %{current_header | 
+      message_stream_id: previous_header.message_stream_id,
+      message_type_id: previous_header.message_type_id,
+      message_length: previous_header.message_length    
+    }
+  end
+    
+  defp fill_previous_header(previous_header, current_header = %RtmpCommon.Chunking.ChunkHeader{type: 3}) do
+    %{current_header | 
+      message_stream_id: previous_header.message_stream_id,
+      message_type_id: previous_header.message_type_id,
+      message_length: previous_header.message_length,
+      timestamp: previous_header.timestamp    
+    }
   end
   
   defp get_chunk_type(socket, transport) do
@@ -92,5 +137,37 @@ defmodule RtmpCommon.Chunking.HeaderReader do
     end
   end
   
+  def do_read_data(_, %RtmpCommon.Chunking.ChunkHeader{type: 0, message_length: length}, socket, transport) do
+    case transport.recv(socket, length, 5000) do
+      {:ok, bytes} -> {:ok, bytes}
+      {:error, reason} -> {:error, reason}
+    end
+  end
   
+  def do_read_data(_, %RtmpCommon.Chunking.ChunkHeader{type: 1, message_length: length}, socket, transport) do
+    case transport.recv(socket, length, 5000) do
+      {:ok, bytes} -> {:ok, bytes}
+      {:error, reason} -> {:error, reason}
+    end
+  end  
+  
+  def do_read_data(%RtmpCommon.Chunking.ChunkHeader{message_length: length, stream_id: stream_id}, 
+              %RtmpCommon.Chunking.ChunkHeader{type: 2, stream_id: stream_id}, socket, transport) do
+    case transport.recv(socket, length, 5000) do
+      {:ok, bytes} -> {:ok, bytes}
+      {:error, reason} -> {:error, reason}
+    end
+  end  
+  
+  def do_read_data(%RtmpCommon.Chunking.ChunkHeader{message_length: length, stream_id: stream_id}, 
+              %RtmpCommon.Chunking.ChunkHeader{type: 3, stream_id: stream_id}, socket, transport) do
+    case transport.recv(socket, length, 5000) do
+      {:ok, bytes} -> {:ok, bytes}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+  
+  def do_read_data(nil, _, socket, transport) do
+    {:error, :no_previous_chunk}
+  end
 end
