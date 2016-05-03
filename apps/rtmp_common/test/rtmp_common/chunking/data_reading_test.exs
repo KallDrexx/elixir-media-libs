@@ -9,12 +9,12 @@ defmodule RtmpCommon.Chunking.DataReadingTest do
   
   test "Type 0 chunk reads data specified in current header", %{transport: transport, binary_data: binary_data} do
     {:ok, socket} = __MODULE__.Mock.start_type_0_chunk(binary_data)
-    {:ok, {_, _, ^binary_data}} = RtmpCommon.Chunking.read_next_chunk(socket, transport, %{})
+    assert {:ok, {_, _, ^binary_data}} = RtmpCommon.Chunking.read_next_chunk(socket, transport, %{})
   end
   
   test "Type 1 chunk reads data specified in current header", %{transport: transport, binary_data: binary_data} do
     {:ok, socket} = __MODULE__.Mock.start_type_0_chunk(binary_data)
-    {:ok, {_, _, ^binary_data}} = RtmpCommon.Chunking.read_next_chunk(socket, transport, %{})
+    assert {:ok, {_, _, ^binary_data}} = RtmpCommon.Chunking.read_next_chunk(socket, transport, %{})
   end
   
   test "Type 2 chunk reads data specified in previous header", %{transport: transport, binary_data: binary_data} do
@@ -29,7 +29,7 @@ defmodule RtmpCommon.Chunking.DataReadingTest do
     previous_headers = Map.put(%{}, 50, previous_header)    
     {:ok, socket} = __MODULE__.Mock.start_type_2_chunk(binary_data)
                                           
-    {:ok, {_, _, ^binary_data}} = RtmpCommon.Chunking.read_next_chunk(socket, transport, previous_headers)
+    assert {:ok, {_, _, ^binary_data}} = RtmpCommon.Chunking.read_next_chunk(socket, transport, previous_headers)
   end
   
   test "Type 3 chunk reads data specified in previous header", %{transport: transport, binary_data: binary_data} do
@@ -44,19 +44,19 @@ defmodule RtmpCommon.Chunking.DataReadingTest do
     previous_headers = Map.put(%{}, 50, previous_header)    
     {:ok, socket} = __MODULE__.Mock.start_type_3_chunk(binary_data)
                                           
-    {:ok, {_, _, ^binary_data}} = RtmpCommon.Chunking.read_next_chunk(socket, transport, previous_headers)
+    assert {:ok, {_, _, ^binary_data}} = RtmpCommon.Chunking.read_next_chunk(socket, transport, previous_headers)
   end
   
   test "Error when no previous header for stream id and chunk type is 2", %{transport: transport, binary_data: binary_data} do
     {:ok, socket} = __MODULE__.Mock.start_type_2_chunk(binary_data)
     
-    {:error, :no_previous_chunk} = RtmpCommon.Chunking.read_next_chunk(socket, transport, %{})
+    assert {:error, :no_previous_chunk} == RtmpCommon.Chunking.read_next_chunk(socket, transport, %{})
   end  
   
   test "Error when no previous header for stream id and chunk type is 3", %{transport: transport, binary_data: binary_data} do
     {:ok, socket} = __MODULE__.Mock.start_type_3_chunk(binary_data)
     
-    {:error, :no_previous_chunk} = RtmpCommon.Chunking.read_next_chunk(socket, transport, %{})
+    assert {:error, :no_previous_chunk} == RtmpCommon.Chunking.read_next_chunk(socket, transport, %{})
   end  
   
   defp create_repeated_binary(byte, count) do

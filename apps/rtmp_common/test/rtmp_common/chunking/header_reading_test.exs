@@ -15,7 +15,7 @@ defmodule RtmpCommon.Chunking.HeaderReadingTest do
                                       message_type_id: 3,
                                       message_stream_id: 55}
                                       
-    {:ok, {_, ^expected_header, _}} = RtmpCommon.Chunking.read_next_chunk(socket, transport, %{})
+    assert {:ok, {_, ^expected_header, _}} = RtmpCommon.Chunking.read_next_chunk(socket, transport, %{})
   end
   
   test "Can read chnk header for valid type 0 chunk with basic header 2", %{transport: transport} do
@@ -28,7 +28,7 @@ defmodule RtmpCommon.Chunking.HeaderReadingTest do
                                       message_type_id: 3,
                                       message_stream_id: 55}
     
-    {:ok, {_, ^expected_header, _}} = RtmpCommon.Chunking.read_next_chunk(socket, transport, %{})
+    assert {:ok, {_, ^expected_header, _}} = RtmpCommon.Chunking.read_next_chunk(socket, transport, %{})
   end
   
   test "Can read valid header for type 0 chunk with basic header 3", %{transport: transport} do
@@ -41,7 +41,7 @@ defmodule RtmpCommon.Chunking.HeaderReadingTest do
                                       message_type_id: 3,
                                       message_stream_id: 55}
     
-    {:ok, {_, ^expected_header, _}} = RtmpCommon.Chunking.read_next_chunk(socket, transport, %{})
+    assert {:ok, {_, ^expected_header, _}} = RtmpCommon.Chunking.read_next_chunk(socket, transport, %{})
   end
   
   test "Can read valid header for type 1 chunk", %{transport: transport} do
@@ -54,7 +54,7 @@ defmodule RtmpCommon.Chunking.HeaderReadingTest do
                                       message_type_id: 3,
                                       message_stream_id: nil} 
     
-    {:ok, {_, ^expected_header, _}} = RtmpCommon.Chunking.read_next_chunk(socket, transport, %{})
+    assert {:ok, {_, ^expected_header, _}} = RtmpCommon.Chunking.read_next_chunk(socket, transport, %{})
   end
   
   test "Can read valid header for type 2 chunk", %{transport: transport} do
@@ -69,7 +69,7 @@ defmodule RtmpCommon.Chunking.HeaderReadingTest do
     
     previous_headers = Map.put(%{}, 50, expected_header)
                                       
-    {:ok, {_, ^expected_header, _}} = RtmpCommon.Chunking.read_next_chunk(socket, transport, previous_headers)
+    assert {:ok, {_, ^expected_header, _}} = RtmpCommon.Chunking.read_next_chunk(socket, transport, previous_headers)
   end
   
   test "Can read valid header for type 3 chunk", %{transport: transport} do
@@ -84,7 +84,7 @@ defmodule RtmpCommon.Chunking.HeaderReadingTest do
                                       
     previous_headers = Map.put(%{}, 50, expected_header)
     
-    {:ok, {_, ^expected_header, _}} = RtmpCommon.Chunking.read_next_chunk(socket, transport, previous_headers)
+    assert {:ok, {_, ^expected_header, _}} = RtmpCommon.Chunking.read_next_chunk(socket, transport, previous_headers)
   end
   
   test "Can read valid header for type 0 chunk with extended timestamp header", %{transport: transport} do
@@ -97,7 +97,7 @@ defmodule RtmpCommon.Chunking.HeaderReadingTest do
                                       message_type_id: 3,
                                       message_stream_id: 55}
     
-    {:ok, {_, ^expected_header, _}} = RtmpCommon.Chunking.read_next_chunk(socket, transport, %{})
+    assert {:ok, {_, ^expected_header, _}} = RtmpCommon.Chunking.read_next_chunk(socket, transport, %{})
   end
   
   test "Can read valid header for type 1 chunk with extended timestamp header", %{transport: transport} do
@@ -112,7 +112,7 @@ defmodule RtmpCommon.Chunking.HeaderReadingTest do
                                       
     previous_headers = Map.put(%{}, 50, expected_header)
     
-    {:ok, {_, ^expected_header, _}} = RtmpCommon.Chunking.read_next_chunk(socket, transport, previous_headers)
+    assert {:ok, {_, ^expected_header, _}} = RtmpCommon.Chunking.read_next_chunk(socket, transport, previous_headers)
   end
   
   test "Can read valid header for type 2 chunk with extended timestamp header", %{transport: transport} do
@@ -127,7 +127,7 @@ defmodule RtmpCommon.Chunking.HeaderReadingTest do
     
     previous_headers = Map.put(%{}, 50, expected_header)
     
-    {:ok, {_, ^expected_header, _}} = RtmpCommon.Chunking.read_next_chunk(socket, transport, previous_headers)
+    assert {:ok, {_, ^expected_header, _}} = RtmpCommon.Chunking.read_next_chunk(socket, transport, previous_headers)
   end
   
   defmodule Mock do      
