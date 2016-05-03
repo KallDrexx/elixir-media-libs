@@ -16,4 +16,11 @@ defmodule RtmpCommon.Messages.Types.WindowAcknowledgementSize do
     
     %__MODULE__{size: size}
   end
+  
+  def to_response(message = %__MODULE__{}) do
+    {:ok, %RtmpCommon.Messages.Response{
+      message_type_id: 5,
+      data: <<message.size::32>>
+    }}
+  end
 end

@@ -16,4 +16,11 @@ defmodule RtmpCommon.Messages.Types.Abort do
     
     %__MODULE__{stream_id: stream_id}
   end
+  
+  def to_response(message = %__MODULE__{}) do
+    {:ok, %RtmpCommon.Messages.Response{
+      message_type_id: 2,
+      data: <<message.stream_id::size(4)-unit(8)>>
+    }}
+  end
 end

@@ -1,6 +1,7 @@
 defmodule RtmpCommon.Chunking do
   
   @doc "reads the next RTMP chunk from the socket"
+  @spec read_next_chunk(port(), :ranch_transport.t, map()) :: {:ok, {map(), %RtmpCommon.Chunking.ChunkHeader{}, binary()}}
   def read_next_chunk(socket, transport, previous_headers) do
     with {:ok, current_header} <- read_header(socket, transport),
             previous_header = Map.get(previous_headers, current_header.stream_id),
@@ -137,21 +138,21 @@ defmodule RtmpCommon.Chunking do
     end
   end
   
-  def do_read_data(_, %RtmpCommon.Chunking.ChunkHeader{type: 0, message_length: length}, socket, transport) do
+  defp do_read_data(_, %RtmpCommon.Chunking.ChunkHeader{type: 0, message_length: length}, socket, transport) do
     case transport.recv(socket, length, 5000) do
       {:ok, bytes} -> {:ok, bytes}
       {:error, reason} -> {:error, reason}
     end
   end
   
-  def do_read_data(_, %RtmpCommon.Chunking.ChunkHeader{type: 1, message_length: length}, socket, transport) do
+  defp do_read_data(_, %RtmpCommon.Chunking.ChunkHeader{type: 1, message_length: length}, socket, transport) do
     case transport.recv(socket, length, 5000) do
       {:ok, bytes} -> {:ok, bytes}
       {:error, reason} -> {:error, reason}
     end
   end  
   
-  def do_read_data(%RtmpCommon.Chunking.ChunkHeader{message_length: length, stream_id: stream_id}, 
+  defp do_read_data(%RtmpCommon.Chunking.ChunkHeader{message_length: length, stream_id: stream_id}, 
               %RtmpCommon.Chunking.ChunkHeader{type: 2, stream_id: stream_id}, socket, transport) do
     case transport.recv(socket, length, 5000) do
       {:ok, bytes} -> {:ok, bytes}
@@ -159,7 +160,7 @@ defmodule RtmpCommon.Chunking do
     end
   end  
   
-  def do_read_data(%RtmpCommon.Chunking.ChunkHeader{message_length: length, stream_id: stream_id}, 
+  defp do_read_data(%RtmpCommon.Chunking.ChunkHeader{message_length: length, stream_id: stream_id}, 
               %RtmpCommon.Chunking.ChunkHeader{type: 3, stream_id: stream_id}, socket, transport) do
     case transport.recv(socket, length, 5000) do
       {:ok, bytes} -> {:ok, bytes}
@@ -167,7 +168,7 @@ defmodule RtmpCommon.Chunking do
     end
   end
   
-  def do_read_data(nil, _, socket, transport) do
+  defp do_read_data(nil, _, _socket, _transport) do
     {:error, :no_previous_chunk}
   end
 end
