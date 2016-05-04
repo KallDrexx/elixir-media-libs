@@ -31,4 +31,81 @@ defmodule RtmpCommon.Messages.ParserTest do
     assert %RtmpCommon.Messages.Types.SetPeerBandwidth{window_size: 20, limit_type: :soft} = message
   end
   
+  test "Can parse User Control Stream Begin" do
+    expected = %RtmpCommon.Messages.Types.UserControl{
+      type: :stream_begin,
+      stream_id: 521,
+      buffer_length: nil,
+      timestamp: nil
+    }
+    
+    assert {:ok, ^expected} = RtmpCommon.Messages.Parser.parse(4, <<0::16, 521::32>>)
+  end
+  
+  test "Can parse User Control Stream EOF" do
+    expected = %RtmpCommon.Messages.Types.UserControl{
+      type: :stream_eof,
+      stream_id: 555,
+      buffer_length: nil,
+      timestamp: nil
+    }
+    
+    assert {:ok, ^expected} = RtmpCommon.Messages.Parser.parse(4, <<1::16, 555::32>>)
+  end
+  
+  test "Can parse User Control Stream Dry" do
+    expected = %RtmpCommon.Messages.Types.UserControl{
+      type: :stream_dry,
+      stream_id: 666,
+      buffer_length: nil,
+      timestamp: nil
+    }
+    
+    assert {:ok, ^expected} = RtmpCommon.Messages.Parser.parse(4, <<2::16, 666::32>>)
+  end
+  
+  test "Can parse User Control Set Buffer Length" do
+    expected = %RtmpCommon.Messages.Types.UserControl{
+      type: :set_buffer_length,
+      stream_id: 500,
+      buffer_length: 300,
+      timestamp: nil
+    }
+    
+    assert {:ok, ^expected} = RtmpCommon.Messages.Parser.parse(4, <<3::16, 500::32, 300::32>>)
+  end
+  
+  test "Can parse User Control Stream Is Recorded" do
+    expected = %RtmpCommon.Messages.Types.UserControl{
+      type: :stream_is_recorded,
+      stream_id: 333,
+      buffer_length: nil,
+      timestamp: nil
+    }
+    
+    assert {:ok, ^expected} = RtmpCommon.Messages.Parser.parse(4, <<4::16, 333::32>>)
+  end
+  
+  test "Can parse User Control Ping Request" do
+    expected = %RtmpCommon.Messages.Types.UserControl{
+      type: :ping_request,
+      stream_id: nil,
+      buffer_length: nil,
+      timestamp: 999
+    }
+    
+    assert {:ok, ^expected} = RtmpCommon.Messages.Parser.parse(4, <<6::16, 999::32>>)
+  end
+  
+  test "Can parse User Control Ping Response" do
+    expected = %RtmpCommon.Messages.Types.UserControl{
+      type: :ping_response,
+      stream_id: nil,
+      buffer_length: nil,
+      timestamp: 900
+    }
+    
+    assert {:ok, ^expected} = RtmpCommon.Messages.Parser.parse(4, <<7::16, 900::32>>)
+  end
+ 
 end

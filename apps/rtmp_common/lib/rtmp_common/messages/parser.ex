@@ -13,6 +13,7 @@ defmodule RtmpCommon.Messages.Parser do
       {1, RtmpCommon.Messages.Types.SetChunkSize},
       {2, RtmpCommon.Messages.Types.Abort},
       {3, RtmpCommon.Messages.Types.Acknowledgement},
+      {4, RtmpCommon.Messages.Types.UserControl},
       {5, RtmpCommon.Messages.Types.WindowAcknowledgementSize},
       {6, RtmpCommon.Messages.Types.SetPeerBandwidth}
     ]

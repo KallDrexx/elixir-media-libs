@@ -26,7 +26,9 @@ defmodule RtmpServer.Handler do
         Logger.debug "#{client_ip_string}: handshake successful"
         
         state = %State{ip: ip}
-        read_next_chunk(socket, transport, state)
+        
+        {:error, reason} = read_next_chunk(socket, transport, state)
+        Logger.debug "#{client_ip_string}: connection error: #{reason}"
       
       {:error, reason} -> Logger.info "#{client_ip_string}: handshake failed (#{reason})"
     end
@@ -35,13 +37,13 @@ defmodule RtmpServer.Handler do
   def read_next_chunk(socket, transport, state = %State{}) do
     client_ip = state.ip |> Tuple.to_list() |> Enum.join(".")
     
-    result = RtmpCommon.Chunking.read_next_chunk(socket, transport, state.previous_headers)
-    case result do
-      {:ok, {updated_headers, header, data}} ->
-        Logger.debug "#{client_ip}: Chunk type #{header.type} received for stream id #{header.stream_id}, message id #{header.message_type_id}, size #{header.message_length}: #{inspect(data)}"
-        __MODULE__.read_next_chunk(socket, transport, %{state | previous_headers: updated_headers})
-        
-      {:error, reason} -> Logger.debug "#{client_ip}: read failure: #{reason}"
-    end
+    with {:ok, {updated_headers, header, data}} <- RtmpCommon.Chunking.read_next_chunk(socket, transport, state.previous_headers),
+              :ok <- log_chunk_details(client_ip, header, data),
+              do: __MODULE__.read_next_chunk(socket, transport, %{state | previous_headers: updated_headers})
+  end
+  
+  defp log_chunk_details(client_ip, header, data) do
+    Logger.debug "#{client_ip}: Chunk type #{header.type} received for stream id #{header.stream_id}, " <>
+                    "message id #{header.message_type_id}, size #{header.message_length}: #{inspect(data)}"
   end
 end
