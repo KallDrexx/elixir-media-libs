@@ -39,7 +39,7 @@ defmodule RtmpCommon.Messages.ParserTest do
       timestamp: nil
     }
     
-    assert {:ok, ^expected} = RtmpCommon.Messages.Parser.parse(4, <<0::16, 521::32>>)
+    assert {:ok, expected} == RtmpCommon.Messages.Parser.parse(4, <<0::16, 521::32>>)
   end
   
   test "Can parse User Control Stream EOF" do
@@ -50,7 +50,7 @@ defmodule RtmpCommon.Messages.ParserTest do
       timestamp: nil
     }
     
-    assert {:ok, ^expected} = RtmpCommon.Messages.Parser.parse(4, <<1::16, 555::32>>)
+    assert {:ok, expected} == RtmpCommon.Messages.Parser.parse(4, <<1::16, 555::32>>)
   end
   
   test "Can parse User Control Stream Dry" do
@@ -61,7 +61,7 @@ defmodule RtmpCommon.Messages.ParserTest do
       timestamp: nil
     }
     
-    assert {:ok, ^expected} = RtmpCommon.Messages.Parser.parse(4, <<2::16, 666::32>>)
+    assert {:ok, expected} == RtmpCommon.Messages.Parser.parse(4, <<2::16, 666::32>>)
   end
   
   test "Can parse User Control Set Buffer Length" do
@@ -72,7 +72,7 @@ defmodule RtmpCommon.Messages.ParserTest do
       timestamp: nil
     }
     
-    assert {:ok, ^expected} = RtmpCommon.Messages.Parser.parse(4, <<3::16, 500::32, 300::32>>)
+    assert {:ok, expected} == RtmpCommon.Messages.Parser.parse(4, <<3::16, 500::32, 300::32>>)
   end
   
   test "Can parse User Control Stream Is Recorded" do
@@ -83,7 +83,7 @@ defmodule RtmpCommon.Messages.ParserTest do
       timestamp: nil
     }
     
-    assert {:ok, ^expected} = RtmpCommon.Messages.Parser.parse(4, <<4::16, 333::32>>)
+    assert {:ok, expected} == RtmpCommon.Messages.Parser.parse(4, <<4::16, 333::32>>)
   end
   
   test "Can parse User Control Ping Request" do
@@ -94,7 +94,7 @@ defmodule RtmpCommon.Messages.ParserTest do
       timestamp: 999
     }
     
-    assert {:ok, ^expected} = RtmpCommon.Messages.Parser.parse(4, <<6::16, 999::32>>)
+    assert {:ok, expected} == RtmpCommon.Messages.Parser.parse(4, <<6::16, 999::32>>)
   end
   
   test "Can parse User Control Ping Response" do
@@ -105,7 +105,7 @@ defmodule RtmpCommon.Messages.ParserTest do
       timestamp: 900
     }
     
-    assert {:ok, ^expected} = RtmpCommon.Messages.Parser.parse(4, <<7::16, 900::32>>)
+    assert {:ok, expected} == RtmpCommon.Messages.Parser.parse(4, <<7::16, 900::32>>)
   end
  
 end
