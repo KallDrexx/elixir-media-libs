@@ -1,7 +1,7 @@
 defmodule RtmpCommon.Messages.SerializationTest do
   use ExUnit.Case, async: true
   
-  test "Can convert abort message to response" do
+  test "Can convert abort message to serialized message" do
     message = %RtmpCommon.Messages.Types.Abort{stream_id: 525}
     
     expected = {:ok, %RtmpCommon.Messages.SerializedMessage{
@@ -12,7 +12,7 @@ defmodule RtmpCommon.Messages.SerializationTest do
     assert expected == RtmpCommon.Messages.Types.Abort.serialize(message)
   end
   
-  test "Can convert acknowledgement message to response" do
+  test "Can convert acknowledgement message to serialized message" do
     message = %RtmpCommon.Messages.Types.Acknowledgement{sequence_number: 9321}
     
     expected = {:ok, %RtmpCommon.Messages.SerializedMessage{
@@ -23,7 +23,7 @@ defmodule RtmpCommon.Messages.SerializationTest do
     assert expected == RtmpCommon.Messages.Types.Acknowledgement.serialize(message)
   end 
   
-  test "Can convert set chunk size message to response" do
+  test "Can convert set chunk size message to serialized message" do
     message = %RtmpCommon.Messages.Types.SetChunkSize{size: 4096}
     
     expected = {:ok, %RtmpCommon.Messages.SerializedMessage{
@@ -34,7 +34,7 @@ defmodule RtmpCommon.Messages.SerializationTest do
     assert expected == RtmpCommon.Messages.Types.SetChunkSize.serialize(message)
   end 
   
-  test "Can convert set peer bandwidth message to response" do
+  test "Can convert set peer bandwidth message to serialized message" do
     message = %RtmpCommon.Messages.Types.SetPeerBandwidth{
       window_size: 4096,
       limit_type: :soft
@@ -48,7 +48,7 @@ defmodule RtmpCommon.Messages.SerializationTest do
     assert expected == RtmpCommon.Messages.Types.SetPeerBandwidth.serialize(message)
   end 
   
-  test "Can convert window acknowledgement size message to response" do
+  test "Can convert window acknowledgement size message to serialized message" do
     message = %RtmpCommon.Messages.Types.WindowAcknowledgementSize{
       size: 5022
     }
