@@ -18,8 +18,8 @@ defmodule RtmpCommon.Messages.Types.Acknowledgement do
     %__MODULE__{sequence_number: sequence_number}
   end
   
-  def to_response(message = %__MODULE__{}) do
-    {:ok, %RtmpCommon.Messages.Response{
+  def serialize(message = %__MODULE__{}) do
+    {:ok, %RtmpCommon.Messages.SerializedMessage{
       message_type_id: 3,
       data: <<message.sequence_number::32>>
     }}

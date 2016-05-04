@@ -17,14 +17,14 @@ defmodule RtmpCommon.Messages.Types.SetPeerBandwidth do
     %__MODULE__{window_size: size, limit_type: get_friendly_type(type)}
   end
   
-  def to_response(message = %__MODULE__{}) do
+  def serialize(message = %__MODULE__{}) do
     type = case message.limit_type do
       :hard -> 0
       :soft -> 1
       :dynamic -> 2
     end
     
-    {:ok, %RtmpCommon.Messages.Response{
+    {:ok, %RtmpCommon.Messages.SerializedMessage{
       message_type_id: 6,
       data: <<message.window_size::32, type::8>>
     }}

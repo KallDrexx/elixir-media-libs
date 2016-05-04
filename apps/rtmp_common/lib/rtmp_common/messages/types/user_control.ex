@@ -18,8 +18,8 @@ defmodule RtmpCommon.Messages.Types.UserControl do
     parse(event_type, rest)
   end
   
-  def to_response(message = %__MODULE__{}) do
-    {:ok, %RtmpCommon.Messages.Response{
+  def serialize(message = %__MODULE__{}) do
+    {:ok, %RtmpCommon.Messages.SerializedMessage{
       message_type_id: 2,
       data: <<message.stream_id::size(4)-unit(8)>>
     }}

@@ -16,8 +16,8 @@ defmodule RtmpCommon.Messages.Types.SetChunkSize do
     %__MODULE__{size: size_value}
   end
   
-  def to_response(message = %__MODULE__{}) do
-    {:ok, %RtmpCommon.Messages.Response{
+  def serialize(message = %__MODULE__{}) do
+    {:ok, %RtmpCommon.Messages.SerializedMessage{
       message_type_id: 1,
       data: <<0::1, message.size::31>>
     }}
