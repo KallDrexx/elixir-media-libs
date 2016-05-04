@@ -20,8 +20,8 @@ defmodule RtmpCommon.Messages.Types.UserControl do
   
   def serialize(message = %__MODULE__{}) do
     {:ok, %RtmpCommon.Messages.SerializedMessage{
-      message_type_id: 2,
-      data: <<message.stream_id::size(4)-unit(8)>>
+      message_type_id: 4,
+      data: serialize_data(message)
     }}
   end
   
@@ -58,6 +58,34 @@ defmodule RtmpCommon.Messages.Types.UserControl do
   defp parse(7, data) do
     <<timestamp::32>> = data
     %__MODULE__{type: :ping_response, timestamp: timestamp}
+  end
+  
+  defp serialize_data(%__MODULE__{type: :stream_begin, stream_id: stream_id}) do
+    <<0::16, stream_id::32>>
+  end
+  
+  defp serialize_data(%__MODULE__{type: :stream_eof, stream_id: stream_id}) do
+    <<1::16, stream_id::32>>
+  end
+  
+  defp serialize_data(%__MODULE__{type: :stream_dry, stream_id: stream_id}) do
+    <<2::16, stream_id::32>>
+  end
+  
+  defp serialize_data(%__MODULE__{type: :set_buffer_length, stream_id: stream_id, buffer_length: buffer_length}) do
+    <<3::16, stream_id::32, buffer_length::32>>
+  end
+  
+  defp serialize_data(%__MODULE__{type: :stream_is_recorded, stream_id: stream_id}) do
+    <<4::16, stream_id::32>>
+  end
+  
+  defp serialize_data(%__MODULE__{type: :ping_request, timestamp: timestamp}) do
+    <<6::16, timestamp::32>>
+  end
+  
+  defp serialize_data(%__MODULE__{type: :ping_response, timestamp: timestamp}) do
+    <<7::16, timestamp::32>>
   end
   
 end

@@ -60,4 +60,103 @@ defmodule RtmpCommon.Messages.SerializationTest do
     
     assert expected == RtmpCommon.Messages.Types.WindowAcknowledgementSize.serialize(message)
   end
+  
+  test "Can convert user control stream begin message to serialized message" do
+    message = %RtmpCommon.Messages.Types.UserControl{
+      type: :stream_begin,
+      stream_id: 500
+    }
+    
+    expected = {:ok, %RtmpCommon.Messages.SerializedMessage{
+      message_type_id: 4,
+      data: <<0::16, 500::32>>
+    }}
+    
+    assert expected == RtmpCommon.Messages.Types.UserControl.serialize(message)
+  end
+  
+  test "Can convert user control stream eof message to serialized message" do
+    message = %RtmpCommon.Messages.Types.UserControl{
+      type: :stream_eof,
+      stream_id: 501
+    }
+    
+    expected = {:ok, %RtmpCommon.Messages.SerializedMessage{
+      message_type_id: 4,
+      data: <<1::16, 501::32>>
+    }}
+    
+    assert expected == RtmpCommon.Messages.Types.UserControl.serialize(message)
+  end
+  
+  test "Can convert user control stream dry message to serialized message" do
+    message = %RtmpCommon.Messages.Types.UserControl{
+      type: :stream_dry,
+      stream_id: 502
+    }
+    
+    expected = {:ok, %RtmpCommon.Messages.SerializedMessage{
+      message_type_id: 4,
+      data: <<2::16, 502::32>>
+    }}
+    
+    assert expected == RtmpCommon.Messages.Types.UserControl.serialize(message)
+  end
+  
+  test "Can convert user control set buffer length message to serialized message" do
+    message = %RtmpCommon.Messages.Types.UserControl{
+      type: :set_buffer_length,
+      stream_id: 503,
+      buffer_length: 100
+    }
+    
+    expected = {:ok, %RtmpCommon.Messages.SerializedMessage{
+      message_type_id: 4,
+      data: <<3::16, 503::32, 100::32>>
+    }}
+    
+    assert expected == RtmpCommon.Messages.Types.UserControl.serialize(message)
+  end
+  
+  test "Can convert user control stream is recorded message to serialized message" do
+    message = %RtmpCommon.Messages.Types.UserControl{
+      type: :stream_is_recorded,
+      stream_id: 504
+    }
+    
+    expected = {:ok, %RtmpCommon.Messages.SerializedMessage{
+      message_type_id: 4,
+      data: <<4::16, 504::32>>
+    }}
+    
+    assert expected == RtmpCommon.Messages.Types.UserControl.serialize(message)
+  end
+  
+  test "Can convert user control ping request message to serialized message" do
+    message = %RtmpCommon.Messages.Types.UserControl{
+      type: :ping_request,
+      timestamp: 506
+    }
+    
+    expected = {:ok, %RtmpCommon.Messages.SerializedMessage{
+      message_type_id: 4,
+      data: <<6::16, 506::32>>
+    }}
+    
+    assert expected == RtmpCommon.Messages.Types.UserControl.serialize(message)
+  end
+  
+  test "Can convert user control ping response message to serialized message" do
+    message = %RtmpCommon.Messages.Types.UserControl{
+      type: :ping_response,
+      timestamp: 507
+    }
+    
+    expected = {:ok, %RtmpCommon.Messages.SerializedMessage{
+      message_type_id: 4,
+      data: <<7::16, 507::32>>
+    }}
+    
+    assert expected == RtmpCommon.Messages.Types.UserControl.serialize(message)
+  end
 end
