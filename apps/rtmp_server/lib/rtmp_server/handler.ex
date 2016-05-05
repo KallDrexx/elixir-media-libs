@@ -44,6 +44,6 @@ defmodule RtmpServer.Handler do
   
   defp log_chunk_details(client_ip, header, data) do
     Logger.debug "#{client_ip}: Chunk type #{header.type} received for stream id #{header.stream_id}, " <>
-                    "message id #{header.message_type_id}, size #{header.message_length}: #{inspect(data)}"
+                    "message id #{header.message_type_id}, size #{header.message_length}, msg_stream_id #{header.message_stream_id}: #{inspect(data)}"
   end
 end
