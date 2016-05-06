@@ -9,30 +9,61 @@ defmodule RtmpCommon.Amf0 do
     Enum.reverse(accumulator)
   end
   
-  # Number
-  defp do_deserialize(<<0::8, binary::binary>>, accumulator) do
-    <<number::64, rest::binary>> = binary 
-    
-    do_deserialize(rest, [%RtmpCommon.Amf0.Object{type: :number, value: number} | accumulator])
+  defp do_deserialize(<<marker::8, binary::binary>>, accumulator) do
+    get_marker_type(marker)
+    |> get_object(binary)
+    |> do_deserialize(accumulator)
   end
   
-  # Boolean
-  defp do_deserialize(<<1::8, binary::binary>>, accumulator) do
-    <<bool::8, rest::binary>> = binary
+  defp do_deserialize({object, binary}, accumulator) do
+    # Transforms the get_object results for readability into the
+    # proper arguments for do_deserialize
+    do_deserialize(binary, [object | accumulator])
+  end
+  
+  defp get_marker_type(marker_number) do
+    case marker_number do
+      0 -> :number
+      1 -> :boolean
+      2 -> :"utf8-1" # TODO: support other utf8 markers
+      3 -> :object
+    end
+  end
+   
+  defp get_object(:number, <<number::64, rest::binary>>) do
+    {%RtmpCommon.Amf0.Object{type: :number, value: number}, rest}
+  end
+  
+  defp get_object(:boolean, <<bool::8, rest::binary>>) do
     atom = if bool == 1, do: true, else: false
-    
-    do_deserialize(rest, [%RtmpCommon.Amf0.Object{type: :boolean, value: atom} | accumulator])
+    {%RtmpCommon.Amf0.Object{type: :boolean, value: atom}, rest}
   end
   
-  # Strings
-  defp do_deserialize(<<2::8, binary::binary>>, accumulator) do
-    {string, rest} = get_string(binary)
-    do_deserialize(rest, [%RtmpCommon.Amf0.Object{type: :string, value: string} | accumulator])
-  end
-  
-  ## UTF8-1 string
-  defp get_string(<<length::8, binary::binary>>) when length <= 0x0f do
+  defp get_object(:"utf8-1", <<length::16, binary::binary>>) do
     <<string::binary-size(length), rest::binary>> = binary
-    {string, rest}
+    {%RtmpCommon.Amf0.Object{type: :string, value: string}, rest}
   end
+  
+  # Objects
+  defp get_object(:object, binary) do
+    {properties, rest} = get_object_properties(binary, %{})    
+    {%RtmpCommon.Amf0.Object{type: :object, value: properties}, rest}
+  end
+  
+  defp get_object_properties(<<0, 0, 9, binary::binary>>, properties) do
+    {properties, binary}
+  end
+  
+  defp get_object_properties(<<length::16, binary::binary>>, properties) do
+    <<name::binary-size(length), type_marker::8, rest::binary>> = binary
+    
+    get_marker_type(type_marker)
+    |> get_object(rest)
+    |> form_object_property(name, properties)
+  end
+  
+  defp form_object_property({object, binary}, property_name, properties) do
+    get_object_properties(binary, Map.put(properties, property_name, object))
+  end
+  
 end
