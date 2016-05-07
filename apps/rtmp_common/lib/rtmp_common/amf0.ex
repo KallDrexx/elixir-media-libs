@@ -30,6 +30,7 @@ defmodule RtmpCommon.Amf0 do
       1 -> :boolean
       2 -> :"utf8-1" # TODO: support other utf8 markers
       3 -> :object
+      5 -> :null
     end
   end
    
@@ -47,7 +48,10 @@ defmodule RtmpCommon.Amf0 do
     {%RtmpCommon.Amf0.Object{type: :string, value: string}, rest}
   end
   
-  # Objects
+  defp get_object(:null, binary) do
+    {%RtmpCommon.Amf0.Object{type: :null, value: nil}, binary}
+  end
+  
   defp get_object(:object, binary) do
     {properties, rest} = get_object_properties(binary, %{})    
     {%RtmpCommon.Amf0.Object{type: :object, value: properties}, rest}
@@ -87,6 +91,10 @@ defmodule RtmpCommon.Amf0 do
     length = String.length(value)
         
     do_serialize(rest, binary <> <<2::8, length::16>> <> value)
+  end
+  
+  defp do_serialize([%RtmpCommon.Amf0.Object{type: :null, value: _} | rest], binary) do
+    do_serialize(rest, binary <> <<5::8>>)
   end
   
   defp do_serialize([%RtmpCommon.Amf0.Object{type: :object, value: properties} | rest], binary) when is_map(properties) do

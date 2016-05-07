@@ -118,4 +118,18 @@ defmodule RtmpCommon.Amf0.Amf0Test do
     
     assert [object] == result
   end
+  
+  test "Can deserialize null value" do
+    binary = <<5::8>>
+    expected = [%RtmpCommon.Amf0.Object{type: :null, value: nil}]
+    
+    assert expected == RtmpCommon.Amf0.deserialize(binary)
+  end
+  
+  test "Can serialize null value" do
+    object = %RtmpCommon.Amf0.Object{type: :null, value: nil}
+    
+    expected = <<5::8>>
+    assert expected == RtmpCommon.Amf0.serialize(object)
+  end
 end
