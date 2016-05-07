@@ -8,6 +8,13 @@ defmodule RtmpCommon.Amf0.Amf0Test do
     assert expected == RtmpCommon.Amf0.deserialize(binary)
   end
   
+  test "Can serialize number" do
+    object = %RtmpCommon.Amf0.Object{type: :number, value: 332}
+    expected = <<0::8, 332::64>>
+    
+    assert expected == RtmpCommon.Amf0.serialize(object)
+  end
+  
   test "Can deserialize boolean" do
     binary = <<1::8, 1::8>>
     expected = [%RtmpCommon.Amf0.Object{type: :boolean, value: true}]
@@ -15,11 +22,25 @@ defmodule RtmpCommon.Amf0.Amf0Test do
     assert expected == RtmpCommon.Amf0.deserialize(binary)
   end
   
+  test "Can serialize boolean" do
+    object = %RtmpCommon.Amf0.Object{type: :boolean, value: true}
+    expected = <<1::8, 1::8>>
+    
+    assert expected == RtmpCommon.Amf0.serialize(object)
+  end
+  
   test "Can deserialize UTF8-1 string" do
     binary = <<2::8, 4::16>> <> "test"
     expected = [%RtmpCommon.Amf0.Object{type: :string, value: "test"}]
     
     assert expected == RtmpCommon.Amf0.deserialize(binary)
+  end
+  
+  test "Can serialize UTF8-1 string" do
+    object = %RtmpCommon.Amf0.Object{type: :string, value: "test"}
+    expected = <<2::8, 4::16>> <> "test"
+    
+    assert expected == RtmpCommon.Amf0.serialize(object)
   end
   
   test "Can deserialize object" do
@@ -32,6 +53,17 @@ defmodule RtmpCommon.Amf0.Amf0Test do
     assert expected == RtmpCommon.Amf0.deserialize(binary)
   end
   
+  test "Can serialize object" do
+    object = %RtmpCommon.Amf0.Object{
+      type: :object,
+      value: %{"test" => %RtmpCommon.Amf0.Object{type: :string, value: "value"}}
+    }
+    
+    expected = <<3::8, 4::16>> <> "test" <> <<2::8, 5::16>> <> "value" <> <<0, 0, 9>>
+    
+    assert expected == RtmpCommon.Amf0.serialize(object)
+  end
+  
   test "Can deserialize consecutive values" do
     binary = <<0::8, 532::64, 1::8, 1::8>>
     expected = [
@@ -40,6 +72,16 @@ defmodule RtmpCommon.Amf0.Amf0Test do
     ]
     
     assert expected == RtmpCommon.Amf0.deserialize(binary)
+  end
+  
+  test "Can serialize multiple values" do
+    objects = [
+      %RtmpCommon.Amf0.Object{type: :number, value: 532},
+      %RtmpCommon.Amf0.Object{type: :boolean, value: true}
+    ]
+    expected = <<0::8, 532::64, 1::8, 1::8>>
+    
+    assert expected == RtmpCommon.Amf0.serialize(objects)
   end
   
   test "Can deserialize object with multiple properties (rtmp connect object)" do
@@ -57,48 +99,6 @@ defmodule RtmpCommon.Amf0.Amf0Test do
     }]
     
     assert expected == RtmpCommon.Amf0.deserialize(binary)
-  end
-  
-  test "Can serialize number" do
-    object = %RtmpCommon.Amf0.Object{type: :number, value: 332}
-    expected = <<0::8, 332::64>>
-    
-    assert expected == RtmpCommon.Amf0.serialize(object)
-  end
-  
-  test "Can serialize boolean" do
-    object = %RtmpCommon.Amf0.Object{type: :boolean, value: true}
-    expected = <<1::8, 1::8>>
-    
-    assert expected == RtmpCommon.Amf0.serialize(object)
-  end
-  
-  test "Can serialize UTF8-1 string" do
-    object = %RtmpCommon.Amf0.Object{type: :string, value: "test"}
-    expected = <<2::8, 4::16>> <> "test"
-    
-    assert expected == RtmpCommon.Amf0.serialize(object)
-  end
-  
-  test "Can serialize object" do
-    object = %RtmpCommon.Amf0.Object{
-      type: :object,
-      value: %{"test" => %RtmpCommon.Amf0.Object{type: :string, value: "value"}}
-    }
-    
-    expected = <<3::8, 4::16>> <> "test" <> <<2::8, 5::16>> <> "value" <> <<0, 0, 9>>
-    
-    assert expected == RtmpCommon.Amf0.serialize(object)
-  end
-  
-  test "Can serialize multiple values" do
-    objects = [
-      %RtmpCommon.Amf0.Object{type: :number, value: 532},
-      %RtmpCommon.Amf0.Object{type: :boolean, value: true}
-    ]
-    expected = <<0::8, 532::64, 1::8, 1::8>>
-    
-    assert expected == RtmpCommon.Amf0.serialize(objects)
   end
   
   test "Can serialize then deserialize complex object (rtmp connect)" do
