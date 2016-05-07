@@ -159,4 +159,27 @@ defmodule RtmpCommon.Messages.SerializationTest do
     
     assert expected == RtmpCommon.Messages.Types.UserControl.serialize(message)
   end
+  
+  test "Can convert amf 0 command message to serialized message" do
+    amf_objects = [
+      %RtmpCommon.Amf0.Object{type: :string, value: "something"},
+      %RtmpCommon.Amf0.Object{type: :number, value: 1221},
+      %RtmpCommon.Amf0.Object{type: :null, value: nil},
+      %RtmpCommon.Amf0.Object{type: :string, value: "test"}
+    ]
+    
+    expected = {:ok, %RtmpCommon.Messages.SerializedMessage{
+      message_type_id: 20,
+      data: RtmpCommon.Amf0.serialize(amf_objects) 
+    }}
+    
+    message = %RtmpCommon.Messages.Types.Amf0Command{
+      command_name: "something",
+      transaction_id: 1221,
+      command_object: %RtmpCommon.Amf0.Object{type: :null, value: nil},
+      additional_values: [%RtmpCommon.Amf0.Object{type: :string, value: "test"}]
+    }
+    
+    assert expected == RtmpCommon.Messages.Types.Amf0Command.serialize(message)
+  end
 end

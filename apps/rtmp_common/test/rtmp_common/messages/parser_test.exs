@@ -108,4 +108,24 @@ defmodule RtmpCommon.Messages.ParserTest do
     assert {:ok, expected} == RtmpCommon.Messages.Parser.parse(4, <<7::16, 900::32>>)
   end
  
+  test "Can parse amf 0 encoded command message" do
+    expected = %RtmpCommon.Messages.Types.Amf0Command{
+      command_name: "something",
+      transaction_id: 1221,
+      command_object: %RtmpCommon.Amf0.Object{type: :null, value: nil},
+      additional_values: [%RtmpCommon.Amf0.Object{type: :string, value: "test"}]
+    }
+    
+    amf_objects = [
+      %RtmpCommon.Amf0.Object{type: :string, value: "something"},
+      %RtmpCommon.Amf0.Object{type: :number, value: 1221},
+      %RtmpCommon.Amf0.Object{type: :null, value: nil},
+      %RtmpCommon.Amf0.Object{type: :string, value: "test"}
+    ]
+    
+    binary = RtmpCommon.Amf0.serialize(amf_objects)
+    
+    assert {:ok, expected} == RtmpCommon.Messages.Parser.parse(20, binary)
+  end
+ 
 end

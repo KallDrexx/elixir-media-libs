@@ -15,7 +15,8 @@ defmodule RtmpCommon.Messages.Parser do
       {3, RtmpCommon.Messages.Types.Acknowledgement},
       {4, RtmpCommon.Messages.Types.UserControl},
       {5, RtmpCommon.Messages.Types.WindowAcknowledgementSize},
-      {6, RtmpCommon.Messages.Types.SetPeerBandwidth}
+      {6, RtmpCommon.Messages.Types.SetPeerBandwidth},
+      {20, RtmpCommon.Messages.Types.Amf0Command}
     ]
     |> Map.new
     |> Map.get(type_id)
