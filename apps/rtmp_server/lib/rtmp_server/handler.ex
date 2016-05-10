@@ -1,7 +1,8 @@
 defmodule RtmpServer.Handler do
   defmodule State do
     defstruct ip: nil,
-              previous_headers: %{}
+              previous_headers: %{},
+              connection_details: %RtmpCommon.ConnectionDetails{}
   end
   
   require Logger
