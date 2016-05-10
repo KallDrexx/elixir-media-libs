@@ -35,16 +35,33 @@ defmodule RtmpServer.Handler do
     end
   end
   
-  def read_next_chunk(socket, transport, state = %State{}) do
-    client_ip = state.ip |> Tuple.to_list() |> Enum.join(".")
-    
-    with {:ok, {updated_headers, header, data}} <- RtmpCommon.Chunking.read_next_chunk(socket, transport, state.previous_headers),
-              :ok <- log_chunk_details(client_ip, header, data),
-              do: __MODULE__.read_next_chunk(socket, transport, %{state | previous_headers: updated_headers})
+  def read_next_chunk(socket, transport, state = %State{}) do    
+    case RtmpCommon.Chunking.read_next_chunk(socket, transport, state.previous_headers) do
+      {:ok, {updated_headers, header, data}} ->
+        process_chunk(socket, transport, %{state | previous_headers: updated_headers}, header, data)
+        
+      {:error, reason} -> {:error, reason}
+    end
   end
   
-  defp log_chunk_details(client_ip, header, data) do
-    Logger.debug "#{client_ip}: Chunk type #{header.type} received for stream id #{header.stream_id}, " <>
-                    "message id #{header.message_type_id}, size #{header.message_length}, msg_stream_id #{header.message_stream_id}: #{inspect(data)}"
+  defp process_chunk(socket, transport, state, chunk_header, chunk_data) do
+    client_ip = state.ip |> Tuple.to_list() |> Enum.join(".")
+    
+    result = with {:ok, received_message} <- RtmpCommon.Messages.Parser.parse(chunk_header.message_type_id, chunk_data),
+                  :ok <- log_received_message(client_ip, received_message),
+                  do: RtmpCommon.MessageHandler.handle(received_message, state.connection_details)
+                  
+    case result do
+      {:ok, {new_connection_details, _response}} ->
+        __MODULE__.read_next_chunk(socket, transport, %{state | connection_details: new_connection_details})
+        
+      {:error, {:no_handler_for_message, message_type}} ->
+        Logger.debug "#{client_ip}: no handler for message: #{inspect(message_type)}"
+        __MODULE__.read_next_chunk(socket, transport, state)
+    end
+  end
+  
+  defp log_received_message(client_ip, message) do
+    Logger.debug "#{client_ip}: Message received: #{inspect(message)}"
   end
 end
