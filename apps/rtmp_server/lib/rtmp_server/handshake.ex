@@ -9,7 +9,8 @@ defmodule RtmpServer.Handshake do
            {:ok, sent_details} <- send_s1(socket, transport),
            {:ok, received_details} <- receive_c1(socket, transport),
            :ok <- send_s2(socket, transport, received_details),
-           do: receive_c2(socket, transport, sent_details)
+           :ok <- receive_c2(socket, transport, sent_details),
+           do: {:ok, received_details.time}
   end
   
   defp receive_c0(socket, transport) do

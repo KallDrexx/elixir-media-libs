@@ -34,11 +34,15 @@ defmodule RtmpCommon.Chunking do
   end
     
   defp fill_previous_header(previous_header, current_header = %RtmpCommon.Chunking.ChunkHeader{type: 1}) do
-    %{current_header | message_stream_id: previous_header.message_stream_id}
+    %{current_header | 
+      timestamp: previous_header.timestamp + current_header.timestamp, 
+      message_stream_id: previous_header.message_stream_id
+    }
   end
     
   defp fill_previous_header(previous_header, current_header = %RtmpCommon.Chunking.ChunkHeader{type: 2}) do
-    %{current_header | 
+    %{current_header |
+      timestamp: previous_header.timestamp + current_header.timestamp, 
       message_stream_id: previous_header.message_stream_id,
       message_type_id: previous_header.message_type_id,
       message_length: previous_header.message_length    

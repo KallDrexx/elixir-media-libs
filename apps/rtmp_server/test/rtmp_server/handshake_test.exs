@@ -8,52 +8,52 @@ defmodule RtmpServer.HandshakeTest do
   end
   
   test "Valid Rtmp Handshake", %{socket: socket, transport: transport} do
-    assert :ok = RtmpServer.Handshake.process(socket, transport)
+    assert {:ok, 151} == RtmpServer.Handshake.process(socket, transport)
   end
   
   test "Invalid C0", %{socket: socket, transport: transport} do
     transport.set_mode(socket, :bad_c0)
-    assert {:error, :bad_c0} = RtmpServer.Handshake.process(socket, transport)
+    assert {:error, :bad_c0} == RtmpServer.Handshake.process(socket, transport)
   end
   
   test "C0 timeout", %{socket: socket, transport: transport} do
     transport.set_mode(socket, :c0_timeout)
-    assert {:error, :timeout} = RtmpServer.Handshake.process(socket, transport)
+    assert {:error, :timeout} == RtmpServer.Handshake.process(socket, transport)
   end
   
   test "C1 timeout", %{socket: socket, transport: transport} do
     transport.set_mode(socket, :c1_timeout)
-    assert {:error, :timeout} = RtmpServer.Handshake.process(socket, transport)
+    assert {:error, :timeout} == RtmpServer.Handshake.process(socket, transport)
   end
   
   test "C2 timeout", %{socket: socket, transport: transport} do
     transport.set_mode(socket, :c2_timeout)
-    assert {:error, :timeout} = RtmpServer.Handshake.process(socket, transport)
+    assert {:error, :timeout} == RtmpServer.Handshake.process(socket, transport)
   end
  
  test "S0 timeout", %{socket: socket, transport: transport} do
     transport.set_mode(socket, :s0_timeout)
-    assert {:error, :timeout} = RtmpServer.Handshake.process(socket, transport)
+    assert {:error, :timeout} == RtmpServer.Handshake.process(socket, transport)
   end
   
   test "S1 timeout", %{socket: socket, transport: transport} do
     transport.set_mode(socket, :s1_timeout)
-    assert {:error, :timeout} = RtmpServer.Handshake.process(socket, transport)
+    assert {:error, :timeout} == RtmpServer.Handshake.process(socket, transport)
   end
   
   test "S2 timeout", %{socket: socket, transport: transport} do
     transport.set_mode(socket, :s2_timeout)
-    assert {:error, :timeout} = RtmpServer.Handshake.process(socket, transport)
+    assert {:error, :timeout} == RtmpServer.Handshake.process(socket, transport)
   end
   
   test "Incorrect c2 time", %{socket: socket, transport: transport} do
     transport.set_mode(socket, :bad_c2_time)
-    assert {:error, :bad_c2_time} = RtmpServer.Handshake.process(socket, transport)
+    assert {:error, :bad_c2_time} == RtmpServer.Handshake.process(socket, transport)
   end
   
   test "Incorrect c2 random", %{socket: socket, transport: transport} do
     transport.set_mode(socket, :bad_c2_random)
-    assert {:error, :bad_c2_random} = RtmpServer.Handshake.process(socket, transport)
+    assert {:error, :bad_c2_random} == RtmpServer.Handshake.process(socket, transport)
   end
   
   defmodule HandshakeClient do
@@ -121,7 +121,7 @@ defmodule RtmpServer.HandshakeTest do
     
     defp do_recv(1536, state = %State{stage: :s1_received}) do
       # server receiving c1
-      new_state = %{state | stage: :c1_sent, c1_time: 1, c1_random: <<55::1528 * 8>> }
+      new_state = %{state | stage: :c1_sent, c1_time: 151, c1_random: <<55::1528 * 8>> }
       response = <<new_state.c1_time::4 * 8>> <> <<0::4 * 8>> <> new_state.c1_random
       {:ok, {response, new_state}}
     end

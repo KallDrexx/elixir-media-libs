@@ -23,10 +23,13 @@ defmodule RtmpServer.Handler do
     Logger.info "#{client_ip_string}: client connected"
     
     case RtmpServer.Handshake.process(socket, transport) do
-      :ok -> 
+      {:ok, client_epoch} -> 
         Logger.debug "#{client_ip_string}: handshake successful"
         
-        state = %State{ip: ip}
+        state = %State{
+          ip: ip, 
+          connection_details: %RtmpCommon.ConnectionDetails{peer_epoch: client_epoch}
+        }
         
         {:error, reason} = read_next_chunk(socket, transport, state)
         Logger.debug "#{client_ip_string}: connection error: #{reason}"

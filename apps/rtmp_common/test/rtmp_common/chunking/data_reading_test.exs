@@ -57,8 +57,8 @@ defmodule RtmpCommon.Chunking.DataReadingTest do
     {:ok, socket} = __MODULE__.Mock.start_type_3_chunk(binary_data)
     
     assert {:error, :no_previous_chunk} == RtmpCommon.Chunking.read_next_chunk(socket, transport, %{})
-  end  
-  
+  end
+    
   defp create_repeated_binary(byte, count) do
     List.duplicate(byte, count)
     |> IO.iodata_to_binary
