@@ -61,6 +61,7 @@ defmodule RtmpCommon.Chunking.HeaderReadingTest do
       type: 1, 
       stream_id: 50,
       timestamp: 172,
+      last_timestamp_delta: 72,
       message_length: 100,
       message_type_id: 3,
       message_stream_id: 55
@@ -85,6 +86,7 @@ defmodule RtmpCommon.Chunking.HeaderReadingTest do
       type: 2, 
       stream_id: 50,
       timestamp: 172,
+      last_timestamp_delta: 72,
       message_length: 100,
       message_type_id: 3,
       message_stream_id: 55
@@ -95,15 +97,24 @@ defmodule RtmpCommon.Chunking.HeaderReadingTest do
   
   test "Can read valid header for type 3 chunk", %{transport: transport} do
     {:ok, socket} =  __MODULE__.Mock.start_valid_type_3_chunk
+    
+    previous_headers = Map.put(%{}, 50, %ChunkHeader{
+      type: 0, 
+      stream_id: 50,
+      timestamp: 100,
+      last_timestamp_delta: 72,
+      message_length: 100,
+      message_type_id: 3,
+      message_stream_id: 55
+    })
      
     expected_header = %ChunkHeader{type: 3, 
                                       stream_id: 50,
-                                      timestamp: 72,
+                                      timestamp: 172,
+                                      last_timestamp_delta: 72,
                                       message_length: 100,
                                       message_type_id: 3,
                                       message_stream_id: 55}
-                                      
-    previous_headers = Map.put(%{}, 50, expected_header)
     
     assert {:ok, {_, ^expected_header, _}} = RtmpCommon.Chunking.read_next_chunk(socket, transport, previous_headers)
   end
@@ -136,6 +147,7 @@ defmodule RtmpCommon.Chunking.HeaderReadingTest do
     expected_header = %ChunkHeader{type: 1, 
                                       stream_id: 50,
                                       timestamp: 16777316,
+                                      last_timestamp_delta: 16777216,
                                       message_length: 100,
                                       message_type_id: 3,
                                       message_stream_id: 55}
@@ -158,6 +170,7 @@ defmodule RtmpCommon.Chunking.HeaderReadingTest do
     expected_header = %ChunkHeader{type: 2, 
                                       stream_id: 50,
                                       timestamp: 16777316,
+                                      last_timestamp_delta: 16777216,
                                       message_length: 100,
                                       message_type_id: 3,
                                       message_stream_id: 55}

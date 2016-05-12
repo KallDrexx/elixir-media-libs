@@ -1,4 +1,5 @@
 defmodule RtmpCommon.Chunking do
+  require Logger
   
   @doc "reads the next RTMP chunk from the socket"
   @spec read_next_chunk(port(), :ranch_transport.t, map()) :: {:ok, {map(), %RtmpCommon.Chunking.ChunkHeader{}, binary()}}
@@ -35,14 +36,16 @@ defmodule RtmpCommon.Chunking do
     
   defp fill_previous_header(previous_header, current_header = %RtmpCommon.Chunking.ChunkHeader{type: 1}) do
     %{current_header | 
-      timestamp: previous_header.timestamp + current_header.timestamp, 
+      timestamp: previous_header.timestamp + current_header.timestamp,
+      last_timestamp_delta: current_header.timestamp,
       message_stream_id: previous_header.message_stream_id
     }
   end
     
   defp fill_previous_header(previous_header, current_header = %RtmpCommon.Chunking.ChunkHeader{type: 2}) do
     %{current_header |
-      timestamp: previous_header.timestamp + current_header.timestamp, 
+      timestamp: previous_header.timestamp + current_header.timestamp,
+      last_timestamp_delta: current_header.timestamp, 
       message_stream_id: previous_header.message_stream_id,
       message_type_id: previous_header.message_type_id,
       message_length: previous_header.message_length    
@@ -50,11 +53,14 @@ defmodule RtmpCommon.Chunking do
   end
     
   defp fill_previous_header(previous_header, current_header = %RtmpCommon.Chunking.ChunkHeader{type: 3}) do
+    delta = if previous_header.last_timestamp_delta == nil, do: 0, else: previous_header.last_timestamp_delta
+    
     %{current_header | 
       message_stream_id: previous_header.message_stream_id,
+      timestamp: previous_header.timestamp + delta,
+      last_timestamp_delta: delta,
       message_type_id: previous_header.message_type_id,
-      message_length: previous_header.message_length,
-      timestamp: previous_header.timestamp    
+      message_length: previous_header.message_length    
     }
   end
   
