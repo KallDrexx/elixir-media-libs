@@ -57,7 +57,7 @@ defmodule RtmpCommon.MessageHandler do
     ]}}
   end
   
-  defp handle_amf0_command(transaction_id, command_name, _, _, _) do
+  defp handle_amf0_command(_transaction_id, command_name, _, _, _) do
     {:error, {:no_handler_for_command, command_name}}
   end
   
