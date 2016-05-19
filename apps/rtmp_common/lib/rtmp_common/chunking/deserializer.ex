@@ -23,16 +23,19 @@ defmodule RtmpCommon.Chunking.Deserializer do
   end
   
   @doc "Creates a new deserializer instance"
+  @spec new() :: %State{}
   def new() do
     %State{}
   end
   
   @doc "Returns the deserializer instance with all unretrieved completed chunks"
+  @spec get_deserialized_chunks(%State{}) :: {%State{}, [{%RtmpCommon.Chunking.ChunkHeader{}, binary()}]}
   def get_deserialized_chunks(state = %State{}) do
     {%{state | completed_chunks: []}, Enum.reverse(state.completed_chunks)}
   end
   
   @doc "Processes the passed in binary"  
+  @spec process(%State{}, binary()) -> %State{}
   def process(state = %State{parse_stage: :chunk_type}, new_binary) when is_binary(new_binary) do   
     unparsed_binary = state.unparsed_binary <> new_binary
     
