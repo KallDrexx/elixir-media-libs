@@ -1,1 +1,2 @@
-%{"ranch": {:hex, :ranch, "1.2.1"}}
+%{"ranch": {:hex, :ranch, "1.2.1"},
+  "uuid": {:hex, :uuid, "1.1.3"}}

@@ -40,6 +40,7 @@ defmodule RtmpServer.Mixfile do
   defp deps do
     [
       {:ranch, "~> 1.2.1", manager: :rebar},
+      {:uuid, "~> 1.1"},
       {:rtmp_common, in_umbrella: true}
     ]
   end

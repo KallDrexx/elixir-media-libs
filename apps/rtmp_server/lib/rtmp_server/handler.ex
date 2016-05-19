@@ -1,70 +1,94 @@
 defmodule RtmpServer.Handler do
-  defmodule State do
-    defstruct ip: nil,
-              previous_headers: %{},
-              connection_details: %RtmpCommon.ConnectionDetails{}
-  end
-  
-  require Logger
   @moduledoc "Handles the rtmp socket connection"
+  require Logger
+  use GenServer
+  
+  defmodule State do
+    defstruct socket: nil,
+              transport: nil,
+              session_id: nil,
+              chunk_deserializer: nil              
+  end  
   
   @doc "Starts the handler for an accepted socket"
   def start_link(ref, socket, transport, opts) do
-    pid = spawn_link(__MODULE__, :init, [ref, socket, transport, opts])
-    {:ok, pid}
+    :proc_lib.start_link(__MODULE__, :init, [ref, socket, transport, opts])
   end
   
-  def init(ref, socket, transport, _opts) do
+  def init(ref, socket, transport, _opts) do   
+    :ok = :proc_lib.init_ack({:ok, self()})
     :ok = :ranch.accept_ack(ref)
     
-    {:ok, {ip, _port}} = :inet.peername(socket)
+    send(self(), :perform_handshake)    
+    :gen_server.enter_loop(__MODULE__, [], %State{socket: socket, transport: transport})    
+  end
+  
+  def handle_info(:perform_handshake, state) do
+    session_id = UUID.uuid4()
+    
+    {:ok, {ip, _port}} = :inet.peername(state.socket)
     client_ip_string = ip |> Tuple.to_list() |> Enum.join(".")
         
-    Logger.info "#{client_ip_string}: client connected"
+    Logger.info "#{session_id}: client connected from ip #{client_ip_string}"
     
-    case RtmpServer.Handshake.process(socket, transport) do
-      {:ok, client_epoch} -> 
-        Logger.debug "#{client_ip_string}: handshake successful"
+    case RtmpServer.Handshake.process(state.socket, state.transport) do
+      {:ok, _client_epoch} -> 
+        set_socket_options(state)
+        Logger.debug "#{session_id}: handshake successful"
         
-        state = %State{
-          ip: ip, 
-          connection_details: %RtmpCommon.ConnectionDetails{peer_epoch: client_epoch}
+        new_state = %{state | 
+          session_id: session_id,
+          chunk_deserializer: RtmpCommon.Chunking.Deserializer.new
         }
         
-        {:error, reason} = read_next_chunk(socket, transport, state)
-        Logger.debug "#{client_ip_string}: connection error: #{reason}"
+        {:noreply, new_state}
       
-      {:error, reason} -> Logger.info "#{client_ip_string}: handshake failed (#{reason})"
-    end
-  end
-  
-  def read_next_chunk(socket, transport, state = %State{}) do    
-    case RtmpCommon.Chunking.read_next_chunk(socket, transport, state.previous_headers) do
-      {:ok, {updated_headers, header, data}} ->
-        process_chunk(socket, transport, %{state | previous_headers: updated_headers}, header, data)
+      {:error, reason} -> 
+        Logger.info "#{session_id}: handshake failed (#{reason})"
         
-      {:error, reason} -> {:error, reason}
+        {:stop, {:handshake_failed, reason}, state}
     end
   end
   
-  defp process_chunk(socket, transport, state, chunk_header, chunk_data) do
-    client_ip = state.ip |> Tuple.to_list() |> Enum.join(".")
+  def handle_info({:tcp, _, binary}, state = %State{}) do
+    {deserializer, chunks} = 
+      RtmpCommon.Chunking.Deserializer.process(state.chunk_deserializer, binary)
+      |> RtmpCommon.Chunking.Deserializer.get_deserialized_chunks()
+      
+    state_after_processing = process_chunk(state, chunks)
+    new_state = %{state_after_processing | chunk_deserializer: deserializer}
     
-    result = with {:ok, received_message} <- RtmpCommon.Messages.Parser.parse(chunk_header.message_type_id, chunk_data),
-                  :ok <- log_received_message(client_ip, received_message),
-                  do: RtmpCommon.MessageHandler.handle(received_message, state.connection_details)
-                  
-    case result do
-      {:ok, {new_connection_details, _response}} ->
-        __MODULE__.read_next_chunk(socket, transport, %{state | connection_details: new_connection_details})
-        
-      {:error, {:no_handler_for_message, message_type}} ->
-        Logger.debug "#{client_ip}: no handler for message: #{inspect(message_type)}"
-        __MODULE__.read_next_chunk(socket, transport, state)
-    end
+    set_socket_options(state)
+    {:noreply, new_state}
   end
   
-  defp log_received_message(client_ip, message) do
-    Logger.debug "#{client_ip}: Message received: #{inspect(message)}"
+  def handle_info({:tcp_closed, _}, state = %State{}) do
+    Logger.info "#{state.session_id}: socket closed" 
+    {:stop, :normal, state}
+  end
+  
+  def handle_info(message, state = %State{}) do
+    Logger.error "#{state.session_id}: Unknown message: #{inspect(message)}"
+    
+    set_socket_options(state)
+    {:noreply, state}
+  end
+  
+  defp set_socket_options(state = %State{}) do
+    :ok = state.transport.setopts(state.socket, active: :once, packet: :raw)
+  end
+  
+  defp process_chunk(state = %State{}, []) do
+    state
+  end
+  
+  defp process_chunk(state = %State{}, [{header = %RtmpCommon.Chunking.ChunkHeader{}, data} | rest]) do
+    Logger.debug "#{state.session_id}: Chunk received " <> 
+      "(csid: #{header.stream_id}, " <> 
+      "message type: #{header.message_type_id}, " <>
+      "message stream: #{header.message_stream_id}, " <>
+      "data: #{inspect(data)})"
+    
+    process_chunk(state, rest)
   end
 end
