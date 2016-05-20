@@ -35,7 +35,7 @@ defmodule RtmpCommon.Chunking.Deserializer do
   end
   
   @doc "Processes the passed in binary"  
-  @spec process(%State{}, binary()) -> %State{}
+  @spec process(%State{}, binary()) :: %State{}
   def process(state = %State{parse_stage: :chunk_type}, new_binary) when is_binary(new_binary) do   
     unparsed_binary = state.unparsed_binary <> new_binary
     
