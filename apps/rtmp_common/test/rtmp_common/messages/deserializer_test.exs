@@ -1,32 +1,32 @@
-defmodule RtmpCommon.Messages.ParserTest do
+defmodule RtmpCommon.Messages.DeserializerTest do
   use ExUnit.Case, async: true
   
   test "Can Parse SetChunkSize message" do
-    {:ok, message} = RtmpCommon.Messages.Parser.parse(1, <<4000::32>>)
+    {:ok, message} = RtmpCommon.Messages.Deserializer.deserialize(1, <<4000::32>>)
     
     assert %RtmpCommon.Messages.Types.SetChunkSize{size: 4000} = message
   end
   
   test "Can parse Abort message" do
-    {:ok, message} = RtmpCommon.Messages.Parser.parse(2, <<500::32>>)
+    {:ok, message} = RtmpCommon.Messages.Deserializer.deserialize(2, <<500::32>>)
     
     assert %RtmpCommon.Messages.Types.Abort{stream_id: 500} = message
   end
   
   test "Can parse Acknowledgement message" do
-    {:ok, message} = RtmpCommon.Messages.Parser.parse(3, <<25::32>>)
+    {:ok, message} = RtmpCommon.Messages.Deserializer.deserialize(3, <<25::32>>)
     
     assert %RtmpCommon.Messages.Types.Acknowledgement{sequence_number: 25} = message
   end
   
   test "Can parse Window Acknowlegement Size message" do
-    {:ok, message} = RtmpCommon.Messages.Parser.parse(5, <<26::32>>)
+    {:ok, message} = RtmpCommon.Messages.Deserializer.deserialize(5, <<26::32>>)
     
     assert %RtmpCommon.Messages.Types.WindowAcknowledgementSize{size: 26} = message
   end
   
   test "Can parse Set Peer Bandwidth message" do
-    {:ok, message} = RtmpCommon.Messages.Parser.parse(6, <<20::32, 1::8>>)
+    {:ok, message} = RtmpCommon.Messages.Deserializer.deserialize(6, <<20::32, 1::8>>)
     
     assert %RtmpCommon.Messages.Types.SetPeerBandwidth{window_size: 20, limit_type: :soft} = message
   end
@@ -39,7 +39,7 @@ defmodule RtmpCommon.Messages.ParserTest do
       timestamp: nil
     }
     
-    assert {:ok, expected} == RtmpCommon.Messages.Parser.parse(4, <<0::16, 521::32>>)
+    assert {:ok, expected} == RtmpCommon.Messages.Deserializer.deserialize(4, <<0::16, 521::32>>)
   end
   
   test "Can parse User Control Stream EOF" do
@@ -50,7 +50,7 @@ defmodule RtmpCommon.Messages.ParserTest do
       timestamp: nil
     }
     
-    assert {:ok, expected} == RtmpCommon.Messages.Parser.parse(4, <<1::16, 555::32>>)
+    assert {:ok, expected} == RtmpCommon.Messages.Deserializer.deserialize(4, <<1::16, 555::32>>)
   end
   
   test "Can parse User Control Stream Dry" do
@@ -61,7 +61,7 @@ defmodule RtmpCommon.Messages.ParserTest do
       timestamp: nil
     }
     
-    assert {:ok, expected} == RtmpCommon.Messages.Parser.parse(4, <<2::16, 666::32>>)
+    assert {:ok, expected} == RtmpCommon.Messages.Deserializer.deserialize(4, <<2::16, 666::32>>)
   end
   
   test "Can parse User Control Set Buffer Length" do
@@ -72,7 +72,7 @@ defmodule RtmpCommon.Messages.ParserTest do
       timestamp: nil
     }
     
-    assert {:ok, expected} == RtmpCommon.Messages.Parser.parse(4, <<3::16, 500::32, 300::32>>)
+    assert {:ok, expected} == RtmpCommon.Messages.Deserializer.deserialize(4, <<3::16, 500::32, 300::32>>)
   end
   
   test "Can parse User Control Stream Is Recorded" do
@@ -83,7 +83,7 @@ defmodule RtmpCommon.Messages.ParserTest do
       timestamp: nil
     }
     
-    assert {:ok, expected} == RtmpCommon.Messages.Parser.parse(4, <<4::16, 333::32>>)
+    assert {:ok, expected} == RtmpCommon.Messages.Deserializer.deserialize(4, <<4::16, 333::32>>)
   end
   
   test "Can parse User Control Ping Request" do
@@ -94,7 +94,7 @@ defmodule RtmpCommon.Messages.ParserTest do
       timestamp: 999
     }
     
-    assert {:ok, expected} == RtmpCommon.Messages.Parser.parse(4, <<6::16, 999::32>>)
+    assert {:ok, expected} == RtmpCommon.Messages.Deserializer.deserialize(4, <<6::16, 999::32>>)
   end
   
   test "Can parse User Control Ping Response" do
@@ -105,7 +105,7 @@ defmodule RtmpCommon.Messages.ParserTest do
       timestamp: 900
     }
     
-    assert {:ok, expected} == RtmpCommon.Messages.Parser.parse(4, <<7::16, 900::32>>)
+    assert {:ok, expected} == RtmpCommon.Messages.Deserializer.deserialize(4, <<7::16, 900::32>>)
   end
  
   test "Can parse amf 0 encoded command message" do
@@ -125,7 +125,7 @@ defmodule RtmpCommon.Messages.ParserTest do
     
     binary = RtmpCommon.Amf0.serialize(amf_objects)
     
-    assert {:ok, expected} == RtmpCommon.Messages.Parser.parse(20, binary)
+    assert {:ok, expected} == RtmpCommon.Messages.Deserializer.deserialize(20, binary)
   end
  
 end

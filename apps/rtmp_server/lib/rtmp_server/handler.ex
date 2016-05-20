@@ -83,7 +83,7 @@ defmodule RtmpServer.Handler do
   end
   
   defp process_chunk(state = %State{}, [{header = %RtmpCommon.Chunking.ChunkHeader{}, data} | rest]) do
-    updated_state = case RtmpCommon.Messages.Parser.parse(header.message_type_id, data) do
+    updated_state = case RtmpCommon.Messages.Deserializer.deserialize(header.message_type_id, data) do
       {:error, :unknown_message_type} ->
         Logger.error "#{state.session_id}: Unknown message received with type id: #{header.message_type_id}"
         state
