@@ -7,7 +7,8 @@ defmodule RtmpServer.Handler do
     defstruct socket: nil,
               transport: nil,
               session_id: nil,
-              chunk_deserializer: nil              
+              chunk_deserializer: nil,
+              bytes_read: 0              
   end  
   
   @doc "Starts the handler for an accepted socket"
@@ -56,9 +57,12 @@ defmodule RtmpServer.Handler do
       |> RtmpCommon.Chunking.Deserializer.get_deserialized_chunks()
       
     state_after_processing = process_chunk(state, chunks)
-    new_state = %{state_after_processing | chunk_deserializer: deserializer}
+    new_state = %{state_after_processing | 
+      chunk_deserializer: deserializer, 
+      bytes_read: state_after_processing.bytes_read + byte_size(binary)
+    }
     
-    set_socket_options(state)
+    set_socket_options(new_state)
     {:noreply, new_state}
   end
   
