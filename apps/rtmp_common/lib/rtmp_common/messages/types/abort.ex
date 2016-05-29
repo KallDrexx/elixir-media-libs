@@ -23,4 +23,6 @@ defmodule RtmpCommon.Messages.Types.Abort do
       data: <<message.stream_id::size(4)-unit(8)>>
     }}
   end
+  
+  def get_default_chunk_stream_id(%__MODULE__{}),  do: 2
 end

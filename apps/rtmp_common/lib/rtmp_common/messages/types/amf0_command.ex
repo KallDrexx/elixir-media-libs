@@ -27,6 +27,8 @@ defmodule RtmpCommon.Messages.Types.Amf0Command do
     }} 
   end
   
+  def get_default_chunk_stream_id(%__MODULE__{}),  do: 3
+  
   defp populate_command(_, [], command) do
     command
   end

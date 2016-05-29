@@ -25,6 +25,8 @@ defmodule RtmpCommon.Messages.Types.UserControl do
     }}
   end
   
+  def get_default_chunk_stream_id(%__MODULE__{}),  do: 2
+  
   defp parse(0, data) do
     <<stream_id::32>> = data
     %__MODULE__{type: :stream_begin, stream_id: stream_id}

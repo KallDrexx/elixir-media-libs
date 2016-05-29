@@ -24,4 +24,6 @@ defmodule RtmpCommon.Messages.Types.Acknowledgement do
       data: <<message.sequence_number::32>>
     }}
   end
+  
+  def get_default_chunk_stream_id(%__MODULE__{}),  do: 2
 end

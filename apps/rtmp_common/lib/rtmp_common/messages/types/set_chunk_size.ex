@@ -23,4 +23,6 @@ defmodule RtmpCommon.Messages.Types.SetChunkSize do
     }}
   end
   
+  def get_default_chunk_stream_id(%__MODULE__{}),  do: 2
+  
 end

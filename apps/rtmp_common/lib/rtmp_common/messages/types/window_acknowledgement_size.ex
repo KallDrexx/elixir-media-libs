@@ -23,4 +23,6 @@ defmodule RtmpCommon.Messages.Types.WindowAcknowledgementSize do
       data: <<message.size::32>>
     }}
   end
+  
+  def get_default_chunk_stream_id(%__MODULE__{}),  do: 2
 end

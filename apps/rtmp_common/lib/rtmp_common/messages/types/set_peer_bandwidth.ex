@@ -30,6 +30,8 @@ defmodule RtmpCommon.Messages.Types.SetPeerBandwidth do
     }}
   end
   
+  def get_default_chunk_stream_id(%__MODULE__{}),  do: 2
+  
   defp get_friendly_type(0), do: :hard
   defp get_friendly_type(1), do: :soft
   defp get_friendly_type(2), do: :dynamic
