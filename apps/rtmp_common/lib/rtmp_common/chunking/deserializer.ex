@@ -1,6 +1,4 @@
 defmodule RtmpCommon.Chunking.Deserializer do
-  alias RtmpCommon.Chunking.ChunkHeader, as: ChunkHeader
-    
   @moduledoc """
   
   Deserializes RTMP chunks from passed in binary.  This is setup
@@ -12,6 +10,8 @@ defmodule RtmpCommon.Chunking.Deserializer do
   One instance of the deserializer should be created for each data stream.
   
   """
+  
+  alias RtmpCommon.Chunking.ChunkHeader, as: ChunkHeader
   
   defmodule State do
     defstruct parse_stage: :chunk_type,
