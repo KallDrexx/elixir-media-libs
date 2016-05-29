@@ -8,7 +8,8 @@ defmodule RtmpServer.Handler do
               transport: nil,
               session_id: nil,
               chunk_deserializer: nil,
-              bytes_read: 0              
+              bytes_read: 0,
+              start_epoch: nil              
   end  
   
   @doc "Starts the handler for an accepted socket"
@@ -39,7 +40,8 @@ defmodule RtmpServer.Handler do
         
         new_state = %{state | 
           session_id: session_id,
-          chunk_deserializer: RtmpCommon.Chunking.Deserializer.new
+          chunk_deserializer: RtmpCommon.Chunking.Deserializer.new,
+          start_epoch: :erlang.system_time(:milli_seconds)
         }
         
         {:noreply, new_state}
