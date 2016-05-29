@@ -12,6 +12,25 @@ defmodule RtmpCommon.RtmpTime do
   @adjacent_threshold :math.pow(2, 31) - 1
   
   @doc """
+  Converts a timestamp into a valid RTMP timestamp
+  (i.e. rolls it over if it's too high)
+  
+  ## Examples
+  
+    iex> RtmpCommon.RtmpTime.to_rtmp_timestamp(1000)
+    1000
+    
+    iex> RtmpCommon.RtmpTime.to_rtmp_timestamp(-1000)
+    4294966296
+    
+    iex> RtmpCommon.RtmpTime.to_rtmp_timestamp(4294968296)
+    1000
+  """
+  def to_rtmp_timestamp(timestamp) when timestamp < 0, do: to_rtmp_timestamp(@max_timestamp + timestamp)
+  def to_rtmp_timestamp(timestamp) when timestamp > @max_timestamp, do: to_rtmp_timestamp(timestamp - @max_timestamp)
+  def to_rtmp_timestamp(timestamp), do: trunc(timestamp)
+  
+  @doc """
   Applies the specified delta to a timestamp
   
   ## Examples
@@ -29,12 +48,8 @@ defmodule RtmpCommon.RtmpTime do
     1000
   """
   def apply_delta(timestamp, delta) do
-    new_timestamp = timestamp + delta
-    cond do
-      new_timestamp < 0 -> @max_timestamp + new_timestamp |> trunc
-      new_timestamp > @max_timestamp -> new_timestamp - @max_timestamp |> trunc
-      true -> new_timestamp |> trunc
-    end
+    timestamp + delta
+    |> to_rtmp_timestamp
   end
   
   
