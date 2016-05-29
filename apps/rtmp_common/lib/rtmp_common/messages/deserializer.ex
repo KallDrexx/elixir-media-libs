@@ -8,17 +8,13 @@ defmodule RtmpCommon.Messages.Deserializer do
     end
   end
   
-  defp get_message_structure_type(type_id) do
-    [
-      {1, RtmpCommon.Messages.Types.SetChunkSize},
-      {2, RtmpCommon.Messages.Types.Abort},
-      {3, RtmpCommon.Messages.Types.Acknowledgement},
-      {4, RtmpCommon.Messages.Types.UserControl},
-      {5, RtmpCommon.Messages.Types.WindowAcknowledgementSize},
-      {6, RtmpCommon.Messages.Types.SetPeerBandwidth},
-      {20, RtmpCommon.Messages.Types.Amf0Command}
-    ]
-    |> Map.new
-    |> Map.get(type_id)
-  end
+  defp get_message_structure_type(1), do: RtmpCommon.Messages.Types.SetChunkSize
+  defp get_message_structure_type(2), do: RtmpCommon.Messages.Types.Abort
+  defp get_message_structure_type(3), do: RtmpCommon.Messages.Types.Acknowledgement
+  defp get_message_structure_type(4), do: RtmpCommon.Messages.Types.UserControl
+  defp get_message_structure_type(5), do: RtmpCommon.Messages.Types.WindowAcknowledgementSize
+  defp get_message_structure_type(6), do: RtmpCommon.Messages.Types.SetPeerBandwidth
+  defp get_message_structure_type(20), do: RtmpCommon.Messages.Types.Amf0Command
+  defp get_message_structure_type(_), do: nil
+  
 end
