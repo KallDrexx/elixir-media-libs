@@ -31,7 +31,7 @@ defmodule RtmpCommon.Chunking.SerializerTest do
     {serializer, _} = Serializer.new() |> Serializer.serialize(72, 50, message1, 55)
     {_, binary} = Serializer.serialize(serializer, 82, 50, message2, 55)
     
-    expected_binary = <<0::2, 50::6, 10::size(3)-unit(8), 101::size(3)-unit(8), 
+    expected_binary = <<1::2, 50::6, 10::size(3)-unit(8), 101::size(3)-unit(8), 
                         3::8, 152::size(101)-unit(8)>>
                         
     assert expected_binary == binary
@@ -43,7 +43,7 @@ defmodule RtmpCommon.Chunking.SerializerTest do
     {serializer, _} = Serializer.new() |> Serializer.serialize(72, 50, message, 55)
     {_, binary} = Serializer.serialize(serializer, 82, 50, message, 55)
     
-    expected_binary = <<0::2, 50::6, 10::size(3)-unit(8), 152::size(100)-unit(8)>>
+    expected_binary = <<2::2, 50::6, 10::size(3)-unit(8), 152::size(100)-unit(8)>>
                             
     assert expected_binary == binary
   end
@@ -55,7 +55,19 @@ defmodule RtmpCommon.Chunking.SerializerTest do
     {serializer, _} = Serializer.serialize(serializer, 82, 50, message, 55)
     {_, binary} = Serializer.serialize(serializer, 92, 50, message, 55)
     
-    expected_binary = <<0::2, 50::6, 152::size(100)-unit(8)>>
+    expected_binary = <<3::2, 50::6, 152::size(100)-unit(8)>>
+                            
+    assert expected_binary == binary
+  end
+  
+  test "Serialize: Can force no header compression" do
+    message = %TestMessage{data: <<152::size(100)-unit(8)>>}
+    
+    {serializer, _} = Serializer.new() |> Serializer.serialize(72, 50, message, 55)
+    {_, binary} = Serializer.serialize(serializer, 82, 50, message, 55, true)
+    
+    expected_binary = <<0::2, 50::6, 82::size(3)-unit(8), 100::size(3)-unit(8), 
+                        3::8, 55::size(4)-unit(8), 152::size(100)-unit(8)>>
                             
     assert expected_binary == binary
   end

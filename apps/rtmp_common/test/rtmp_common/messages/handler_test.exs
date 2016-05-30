@@ -23,6 +23,7 @@ defmodule RtmpCommon.Messages.HandlerTest do
     
     assert %Messages.Response{
       stream_id: 0,
+      force_uncompressed: true,
       message: %Types.WindowAcknowledgementSize{}
     } = message
   end
@@ -38,6 +39,7 @@ defmodule RtmpCommon.Messages.HandlerTest do
     
     assert %Messages.Response{
       stream_id: 0,
+      force_uncompressed: true,
       message: %Types.SetChunkSize{}
     } = message
   end
@@ -53,6 +55,7 @@ defmodule RtmpCommon.Messages.HandlerTest do
     
     assert %Messages.Response{
       stream_id: 0,
+      force_uncompressed: true,
       message: %Types.SetPeerBandwidth{}
     } = message
   end

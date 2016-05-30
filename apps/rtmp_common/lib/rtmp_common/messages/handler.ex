@@ -24,6 +24,7 @@ defmodule RtmpCommon.Messages.Handler do
     
     bandwith_response = %RtmpCommon.Messages.Response{
       stream_id: 0,
+      force_uncompressed: true,
       message: %RtmpCommon.Messages.Types.SetPeerBandwidth{
         window_size: 2500000, # TODO: this should be configurable
         limit_type: :dynamic
@@ -32,6 +33,7 @@ defmodule RtmpCommon.Messages.Handler do
     
     ack_size_response = %RtmpCommon.Messages.Response{
       stream_id: 0,
+      force_uncompressed: true,
       message: %RtmpCommon.Messages.Types.WindowAcknowledgementSize{
         size: 1048576, #TODO: should be configurable
       }
@@ -39,6 +41,7 @@ defmodule RtmpCommon.Messages.Handler do
     
     chunk_size_response = %RtmpCommon.Messages.Response{
       stream_id: 0,
+      force_uncompressed: true,
       message: %RtmpCommon.Messages.Types.SetChunkSize{
         size: 4096, # TODO: should be configurable
       }
@@ -46,6 +49,7 @@ defmodule RtmpCommon.Messages.Handler do
     
     stream_begin = %RtmpCommon.Messages.Response{
       stream_id: 0,
+      force_uncompressed: true,
       message: %RtmpCommon.Messages.Types.UserControl{
         type: :stream_begin,
         stream_id: 0

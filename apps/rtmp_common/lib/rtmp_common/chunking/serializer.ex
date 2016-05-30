@@ -14,12 +14,18 @@ defmodule RtmpCommon.Chunking.Serializer do
     %State{}
   end
   
-  def serialize(state = %State{}, rtmp_timestamp, chunk_stream_id, message = %{__struct__: struct_type}, message_stream_id) do
+  def serialize(state = %State{}, 
+                rtmp_timestamp, 
+                chunk_stream_id, 
+                message = %{__struct__: struct_type}, 
+                message_stream_id,
+                force_uncompressed \\ false) 
+  do
     {:ok, serialized_message} = struct_type.serialize(message)
     previous_header = Map.get(state.previously_serialized_chunks, chunk_stream_id)
     
     {current_header, chunk_binary} = 
-      do_serialize(previous_header, rtmp_timestamp, chunk_stream_id, serialized_message, message_stream_id)
+      do_serialize(previous_header, rtmp_timestamp, chunk_stream_id, serialized_message, message_stream_id, force_uncompressed)
       
     updated_headers = Map.put(state.previously_serialized_chunks, chunk_stream_id, current_header)
     new_state = %State{state | previously_serialized_chunks: updated_headers}
@@ -27,10 +33,16 @@ defmodule RtmpCommon.Chunking.Serializer do
     {new_state, chunk_binary}
   end
   
-  defp do_serialize(previous_header, timestamp, chunk_stream_id, serialized_message, message_stream_id) do
+  defp do_serialize(previous_header, 
+                    timestamp, 
+                    chunk_stream_id, 
+                    serialized_message, 
+                    message_stream_id,
+                    force_uncompressed) 
+  do
     header = 
       create_header(timestamp, chunk_stream_id, serialized_message, message_stream_id) 
-      |> update_header(previous_header)
+      |> update_header(previous_header, force_uncompressed)
       
       
     result = header_to_binary(header) <> serialized_message.data
@@ -51,11 +63,15 @@ defmodule RtmpCommon.Chunking.Serializer do
     header
   end
   
-  defp update_header(current_header, nil) do
+  defp update_header(current_header, _, true) do
     current_header
   end
   
-  defp update_header(current_header, previous_header) do
+  defp update_header(current_header, nil, false) do
+    current_header
+  end
+  
+  defp update_header(current_header, previous_header, false) do
     delta = RtmpTime.get_delta(previous_header.timestamp, current_header.timestamp)
     
     cond do
@@ -98,7 +114,7 @@ defmodule RtmpCommon.Chunking.Serializer do
   end
   
   defp header_to_binary(header = %ChunkHeader{type: 1, stream_id: csid}) when csid < 64 do
-    <<0::2, 
+    <<1::2, 
       csid::6, 
       header.last_timestamp_delta::3 * 8,
       header.message_length::3 * 8, 
@@ -107,13 +123,13 @@ defmodule RtmpCommon.Chunking.Serializer do
   end
   
   defp header_to_binary(header = %ChunkHeader{type: 2, stream_id: csid}) when csid < 64 do
-    <<0::2, 
+    <<2::2, 
       csid::6, 
       header.last_timestamp_delta::3 * 8
     >>
   end
   
   defp header_to_binary(%ChunkHeader{type: 3, stream_id: csid}) when csid < 64 do
-    <<0::2, csid::6>>
+    <<3::2, csid::6>>
   end
 end

@@ -129,7 +129,14 @@ defmodule RtmpServer.Handler do
                   "sid: #{stream_id}, message: #{inspect(message)}"
     
     {serializer, binary} = 
-      RtmpCommon.Chunking.Serializer.serialize(state.chunk_serializer, timestamp, csid, message, stream_id)
+      RtmpCommon.Chunking.Serializer.serialize(state.chunk_serializer, 
+                                                timestamp, 
+                                                csid, 
+                                                message, 
+                                                stream_id, 
+                                                response.force_uncompressed)
+      
+    Logger.debug "#{state.session_id}: Sending binary: #{inspect(output_hex(binary, []))}"
       
     state.transport.send(state.socket, binary)
     
@@ -140,4 +147,7 @@ defmodule RtmpServer.Handler do
     
     send_messages(rest, new_state)    
   end
+  
+  defp output_hex(<<>>, acc), do: Enum.reverse(acc)
+  defp output_hex(<<byte::8, rest::binary>>, acc), do: output_hex(rest, [Base.encode16(<<byte>>) | acc])
 end
