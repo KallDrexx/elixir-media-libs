@@ -2,7 +2,7 @@ defmodule RtmpCommon.Amf0.Amf0Test do
   use ExUnit.Case, async: true
   
   test "Can deserialize number" do
-    binary = <<0::8, 532::64>>
+    binary = <<0::8, 532::float-64>>
     expected = [%RtmpCommon.Amf0.Object{type: :number, value: 532}]
     
     assert expected == RtmpCommon.Amf0.deserialize(binary)
@@ -10,7 +10,7 @@ defmodule RtmpCommon.Amf0.Amf0Test do
   
   test "Can serialize number" do
     object = %RtmpCommon.Amf0.Object{type: :number, value: 332}
-    expected = <<0::8, 332::64>>
+    expected = <<0::8, 332::float-64>>
     
     assert expected == RtmpCommon.Amf0.serialize(object)
   end
@@ -65,7 +65,7 @@ defmodule RtmpCommon.Amf0.Amf0Test do
   end
   
   test "Can deserialize consecutive values" do
-    binary = <<0::8, 532::64, 1::8, 1::8>>
+    binary = <<0::8, 532::float-64, 1::8, 1::8>>
     expected = [
       %RtmpCommon.Amf0.Object{type: :number, value: 532},
       %RtmpCommon.Amf0.Object{type: :boolean, value: true}
@@ -79,7 +79,7 @@ defmodule RtmpCommon.Amf0.Amf0Test do
       %RtmpCommon.Amf0.Object{type: :number, value: 532},
       %RtmpCommon.Amf0.Object{type: :boolean, value: true}
     ]
-    expected = <<0::8, 532::64, 1::8, 1::8>>
+    expected = <<0::8, 532::float-64, 1::8, 1::8>>
     
     assert expected == RtmpCommon.Amf0.serialize(objects)
   end

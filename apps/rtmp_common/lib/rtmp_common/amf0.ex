@@ -34,7 +34,7 @@ defmodule RtmpCommon.Amf0 do
     end
   end
    
-  defp get_object(:number, <<number::64, rest::binary>>) do
+  defp get_object(:number, <<number::float-64, rest::binary>>) do
     {%RtmpCommon.Amf0.Object{type: :number, value: number}, rest}
   end
   
@@ -78,7 +78,7 @@ defmodule RtmpCommon.Amf0 do
   end
   
   defp do_serialize([%RtmpCommon.Amf0.Object{type: :number, value: value} | rest], binary) do
-    do_serialize(rest, binary <> <<0::8, value::64>>)
+    do_serialize(rest, binary <> <<0::8, value::float-64>>)
   end
   
   defp do_serialize([%RtmpCommon.Amf0.Object{type: :boolean, value: value} | rest], binary) do
