@@ -12,6 +12,7 @@ defmodule RtmpCommon.Messages.Handler do
               self_bandwidth: 2500000,
               self_window_ack_size: 1048576,
               peer_window_ack_size: 900000000,
+              peer_chunk_size: 128,
               session_id: nil,
               stage: :waiting_for_connection
   end
@@ -36,7 +37,14 @@ defmodule RtmpCommon.Messages.Handler do
       }
     }
     
-    %State{session_id: session_id, responses: [bandwith_response, ack_size_response]}
+    chunk_size_response = %RtmpCommon.Messages.Response{
+      stream_id: 0,
+      message: %RtmpCommon.Messages.Types.SetChunkSize{
+        size: 4096, # TODO: should be configurable
+      }
+    }
+    
+    %State{session_id: session_id, responses: [bandwith_response, ack_size_response, chunk_size_response]}
   end
   
   @doc "Gets any queued responses"
@@ -71,6 +79,10 @@ defmodule RtmpCommon.Messages.Handler do
   
   defp do_handle(state, %RtmpCommon.Messages.Types.WindowAcknowledgementSize{size: size}) do
     %{state | peer_window_ack_size: size}
+  end
+  
+  defp do_handle(state, %RtmpCommon.Messages.Types.SetChunkSize{size: size}) do
+    %{state | peer_chunk_size: size}
   end
   
   defp do_handle(state = %State{stage: :waiting_for_connection}, %Types.Amf0Command{command_name: "connect"}) do

@@ -8,7 +8,10 @@ defmodule RtmpServer.Handler do
               transport: nil,
               session_id: nil,
               chunk_deserializer: nil,
+              chunk_serializer: nil,
+              message_handler: nil,
               bytes_read: 0,
+              bytes_sent: 0,
               start_epoch: nil              
   end  
   
@@ -40,7 +43,9 @@ defmodule RtmpServer.Handler do
         
         new_state = %{state | 
           session_id: session_id,
-          chunk_deserializer: RtmpCommon.Chunking.Deserializer.new,
+          chunk_deserializer: RtmpCommon.Chunking.Deserializer.new(),
+          chunk_serializer: RtmpCommon.Chunking.Serializer.new(),
+          message_handler: RtmpCommon.Messages.Handler.new(session_id),          
           start_epoch: :erlang.system_time(:milli_seconds)
         }
         
@@ -96,10 +101,43 @@ defmodule RtmpServer.Handler do
         
       {:ok, message} -> 
         Logger.debug "#{state.session_id}: Message received: #{inspect(message)}"
-        state
+        
+        {handler, responses} =
+          RtmpCommon.Messages.Handler.handle(state.message_handler, message)
+          |> RtmpCommon.Messages.Handler.get_responses()
+          
+        send_messages(responses, %{state | message_handler: handler})
     end
     
     process_chunk(updated_state, rest)
   end
 
+  defp send_messages([], state) do
+    state
+  end 
+  
+  defp send_messages([response = %RtmpCommon.Messages.Response{} | rest], state) do    
+    timestamp = 
+      :erlang.system_time(:milli_seconds) - state.start_epoch
+      |> RtmpCommon.RtmpTime.to_rtmp_timestamp()
+      
+    csid = RtmpCommon.Chunking.DefaultCsidResolver.get_csid(response.message)
+    message = response.message
+    stream_id = response.stream_id
+    
+    Logger.debug "#{state.session_id}: Sending message: csid: #{csid}, timestamp: #{timestamp}, " <>
+                  "sid: #{stream_id}, message: #{inspect(message)}"
+    
+    {serializer, binary} = 
+      RtmpCommon.Chunking.Serializer.serialize(state.chunk_serializer, timestamp, csid, message, stream_id)
+      
+    state.transport.send(state.socket, binary)
+    
+    new_state = %{state |
+      bytes_sent: state.bytes_sent + byte_size(binary),
+      chunk_serializer: serializer
+    }
+    
+    send_messages(rest, new_state)    
+  end
 end

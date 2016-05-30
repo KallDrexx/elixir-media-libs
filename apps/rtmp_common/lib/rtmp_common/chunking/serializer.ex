@@ -3,7 +3,6 @@ defmodule RtmpCommon.Chunking.Serializer do
   Serializes RTMP messages into bytes representing RTMP chunks.
   """
   
-  require Logger
   alias RtmpCommon.Chunking.ChunkHeader, as: ChunkHeader
   alias RtmpCommon.RtmpTime, as: RtmpTime
   
@@ -48,8 +47,6 @@ defmodule RtmpCommon.Chunking.Serializer do
       message_stream_id: message_stream_id,
       message_length: byte_size(serialized_message.data)
     }
-    
-    Logger.debug "create_header: #{inspect(header)}"
     
     header
   end
@@ -116,7 +113,7 @@ defmodule RtmpCommon.Chunking.Serializer do
     >>
   end
   
-  defp header_to_binary(header = %ChunkHeader{type: 3, stream_id: csid}) when csid < 64 do
+  defp header_to_binary(%ChunkHeader{type: 3, stream_id: csid}) when csid < 64 do
     <<0::2, csid::6>>
   end
 end
