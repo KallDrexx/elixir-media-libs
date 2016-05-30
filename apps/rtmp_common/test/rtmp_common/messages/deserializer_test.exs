@@ -127,5 +127,19 @@ defmodule RtmpCommon.Messages.DeserializerTest do
     
     assert {:ok, expected} == RtmpCommon.Messages.Deserializer.deserialize(20, binary)
   end
+  
+  test "Can parse amf0 encoded data message" do
+    amf_objects = [
+      %RtmpCommon.Amf0.Object{type: :string, value: "something"},
+      %RtmpCommon.Amf0.Object{type: :number, value: 1221},
+      %RtmpCommon.Amf0.Object{type: :null, value: nil},
+      %RtmpCommon.Amf0.Object{type: :string, value: "test"}
+    ]
+    
+    binary = RtmpCommon.Amf0.serialize(amf_objects)
+    
+    expected = %RtmpCommon.Messages.Types.Amf0Data{parameters: amf_objects}
+    assert {:ok, expected} == RtmpCommon.Messages.Deserializer.deserialize(18, binary)
+  end
  
 end
