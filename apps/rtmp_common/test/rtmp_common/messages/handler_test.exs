@@ -118,7 +118,7 @@ defmodule RtmpCommon.Messages.HandlerTest do
       }}
     }
     
-    {_, [message]} =
+    {_, [message, _]} =
       RtmpCommon.Messages.Handler.handle(handler, message)
       |> RtmpCommon.Messages.Handler.get_responses()
       
