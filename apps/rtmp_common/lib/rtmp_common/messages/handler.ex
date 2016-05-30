@@ -127,9 +127,21 @@ defmodule RtmpCommon.Messages.Handler do
       }
     }
     
+    response2 = %RtmpCommon.Messages.Response{
+      stream_id: 0,
+      message: %Types.Amf0Command{
+        command_name: "onBWDone",
+        transaction_id: 0,
+        command_object: %RtmpCommon.Amf0.Object{type: :null},
+        additional_values: [
+          %RtmpCommon.Amf0.Object{type: :number, value: 8192}
+        ]
+      }
+    }
+    
     %{state |
       stage: :connected,
-      responses: [response | state.responses] 
+      responses: [response, response2 | state.responses] 
     }
   end
   
