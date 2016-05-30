@@ -118,7 +118,7 @@ defmodule RtmpCommon.Messages.HandlerTest do
       }}
     }
     
-    {_, [message, _]} =
+    {_, [message | _]} =
       RtmpCommon.Messages.Handler.handle(handler, message)
       |> RtmpCommon.Messages.Handler.get_responses()
       
@@ -144,6 +144,30 @@ defmodule RtmpCommon.Messages.HandlerTest do
               "objectEncoding" => %Amf0.Object{type: :number, value: 0}
             }
           }
+        ]
+      }
+    } = message
+  end
+  
+  test "CreateStream message can be handled", %{handler: handler} do
+    message = %Types.Amf0Command{
+      command_name: "createStream",
+      transaction_id: 5,
+      command_object: %Amf0.Object{type: :null}
+    }
+    
+    {_, [message | _]} =
+      RtmpCommon.Messages.Handler.handle(handler, message)
+      |> RtmpCommon.Messages.Handler.get_responses()
+      
+    assert %Messages.Response{
+      stream_id: 0,
+      message: %Types.Amf0Command{
+        command_name: "_result",
+        transaction_id: 5,
+        command_object: %Amf0.Object{type: :null},
+        additional_values: [
+          %Amf0.Object{type: :number, value: 1}
         ]
       }
     } = message

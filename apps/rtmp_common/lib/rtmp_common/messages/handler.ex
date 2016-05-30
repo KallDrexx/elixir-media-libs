@@ -14,7 +14,7 @@ defmodule RtmpCommon.Messages.Handler do
               peer_window_ack_size: 900000000,
               peer_chunk_size: 128,
               session_id: nil,
-              stage: :waiting_for_connection
+              active_stream_ids: [0]
   end
   
   @doc "Creates a new message handler"
@@ -100,7 +100,7 @@ defmodule RtmpCommon.Messages.Handler do
     %{state | peer_chunk_size: size}
   end
   
-  defp do_handle(state = %State{stage: :waiting_for_connection}, %Types.Amf0Command{command_name: "connect"}) do
+  defp do_handle(state, %Types.Amf0Command{command_name: "connect"}) do
     response = %RtmpCommon.Messages.Response{
       stream_id: 0,
       message: %Types.Amf0Command{
@@ -140,13 +140,28 @@ defmodule RtmpCommon.Messages.Handler do
     }
     
     %{state |
-      stage: :connected,
       responses: [response, response2 | state.responses] 
     }
   end
   
+  defp do_handle(state, command = %Types.Amf0Command{command_name: "createStream"}) do
+    next_stream_id = Enum.max(state.active_stream_ids) + 1
+    
+    response = %RtmpCommon.Messages.Response{
+      stream_id: 0,
+      message: %Types.Amf0Command{
+        command_name: "_result",
+        transaction_id: command.transaction_id,
+        command_object: %RtmpCommon.Amf0.Object{type: :null},
+        additional_values: [%RtmpCommon.Amf0.Object{type: :number, value: next_stream_id}]
+      }
+    }
+    
+    %{state | responses: [response | state.responses]}
+  end
+  
   defp do_handle(state, message) do
-    Logger.error "#{state.session_id}: No handler for message: #{inspect(message)}"
+    Logger.error "#{state.session_id}:  No handler for message: #{inspect(message)}"
     
     state
   end
