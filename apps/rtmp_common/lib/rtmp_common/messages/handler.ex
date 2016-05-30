@@ -160,8 +160,33 @@ defmodule RtmpCommon.Messages.Handler do
     %{state | responses: [response | state.responses]}
   end
   
+  defp do_handle(state, command = %Types.Amf0Command{command_name: "publish"}) do
+    [amf0_stream_name, amf0_stream_type] = command.additional_values
+    
+    stream_name = amf0_stream_name.value
+    "live" = amf0_stream_type.value
+    
+    response = %RtmpCommon.Messages.Response{
+      stream_id: 0,
+      message: %Types.Amf0Command{
+        command_name: "onStatus",
+        transaction_id: 0,
+        command_object: %RtmpCommon.Amf0.Object{type: :null},
+        additional_values: [
+          %RtmpCommon.Amf0.Object{type: :object, value: %{
+            "level" => %RtmpCommon.Amf0.Object{type: :string, value: "status"},
+            "code" => %RtmpCommon.Amf0.Object{type: :string, value: "NetStream.Publish.Start"},
+            "description" => %RtmpCommon.Amf0.Object{type: :string, value: "Stream '" <> stream_name <> "' is now published."}
+          }}
+        ]
+      }
+    }
+    
+    %{state | responses: [response | state.responses]}
+  end
+  
   defp do_handle(state, message) do
-    Logger.error "#{state.session_id}:  No handler for message: #{inspect(message)}"
+    Logger.warn "#{state.session_id}: No handler for message: #{inspect(message)}"
     
     state
   end

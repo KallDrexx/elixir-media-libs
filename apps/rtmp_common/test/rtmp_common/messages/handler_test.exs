@@ -156,7 +156,7 @@ defmodule RtmpCommon.Messages.HandlerTest do
       command_object: %Amf0.Object{type: :null}
     }
     
-    {_, [message | _]} =
+    {_, [response | _]} =
       RtmpCommon.Messages.Handler.handle(handler, message)
       |> RtmpCommon.Messages.Handler.get_responses()
       
@@ -170,6 +170,38 @@ defmodule RtmpCommon.Messages.HandlerTest do
           %Amf0.Object{type: :number, value: 1}
         ]
       }
-    } = message
+    } = response
+  end
+  
+  test "Publish live command can be handled", %{handler: handler} do
+    message = %Types.Amf0Command{
+      command_name: "publish",
+      transaction_id: 394,
+      command_object: %Amf0.Object{type: :null},
+      additional_values: [
+        %Amf0.Object{type: :string, value: "test-stream"},
+        %Amf0.Object{type: :string, value: "live"}
+      ]
+    }
+    
+    {_, [response | _]} =
+      RtmpCommon.Messages.Handler.handle(handler, message)
+      |> RtmpCommon.Messages.Handler.get_responses()
+    
+    assert %Messages.Response{
+      stream_id: 0,
+      message: %Types.Amf0Command{
+        command_name: "onStatus",
+        transaction_id: 0,
+        command_object: %Amf0.Object{type: :null},
+        additional_values: [
+          %Amf0.Object{type: :object, value: %{
+            "level" => %Amf0.Object{type: :string, value: "status"},
+            "code" => %Amf0.Object{type: :string, value: "NetStream.Publish.Start"},
+            "description" => %Amf0.Object{type: :string, value: "Stream 'test-stream' is now published."}
+          }}
+        ]
+      }
+    } = response
   end
 end
