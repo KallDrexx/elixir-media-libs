@@ -12,37 +12,67 @@ defmodule RtmpCommon.Messages.HandlerTest do
     {:ok, handler: handler}
   end
   
-  test "New handler queues up initial responses" do
-    {_, [message1, message2, message3]} =
+  test "New handler queues up window acknowledgement size message" do
+    {_, responses} =
       RtmpCommon.Messages.Handler.new("abc")
       |> RtmpCommon.Messages.Handler.get_responses()
       
-    window_message = Enum.find([message1, message2, message3], 
+    message = Enum.find(responses, 
       fn(x) -> match?(%Messages.Response{message: %Types.WindowAcknowledgementSize{}}, x) end
     )      
-      
-    bandwidth_message = Enum.find([message1, message2, message3], 
-      fn(x) -> match?(%Messages.Response{message: %Types.SetPeerBandwidth{}}, x) end
-    )
-    
-    chunk_size_message = Enum.find([message1, message2, message3], 
-      fn(x) -> match?(%Messages.Response{message: %Types.SetChunkSize{}}, x) end
-    )
     
     assert %Messages.Response{
       stream_id: 0,
       message: %Types.WindowAcknowledgementSize{}
-    } = window_message
-    
-    assert %Messages.Response{
-      stream_id: 0,
-      message: %Types.SetPeerBandwidth{}
-    } = bandwidth_message
+    } = message
+  end
+  
+  test "New handler queues up set chunk size message" do
+    {_, responses} =
+      RtmpCommon.Messages.Handler.new("abc")
+      |> RtmpCommon.Messages.Handler.get_responses()
+      
+    message = Enum.find(responses, 
+      fn(x) -> match?(%Messages.Response{message: %Types.SetChunkSize{}}, x) end
+    )      
     
     assert %Messages.Response{
       stream_id: 0,
       message: %Types.SetChunkSize{}
-    } = chunk_size_message
+    } = message
+  end
+  
+  test "New handler queues up set peer bandwidth message" do
+    {_, responses} =
+      RtmpCommon.Messages.Handler.new("abc")
+      |> RtmpCommon.Messages.Handler.get_responses()
+      
+    message = Enum.find(responses, 
+      fn(x) -> match?(%Messages.Response{message: %Types.SetPeerBandwidth{}}, x) end
+    )      
+    
+    assert %Messages.Response{
+      stream_id: 0,
+      message: %Types.SetPeerBandwidth{}
+    } = message
+  end
+  
+  test "New handler queues up user control stream begin" do
+    {_, responses} =
+      RtmpCommon.Messages.Handler.new("abc")
+      |> RtmpCommon.Messages.Handler.get_responses()
+      
+    message = Enum.find(responses, 
+      fn(x) -> match?(%Messages.Response{message: %Types.UserControl{}}, x) end
+    )      
+    
+    assert %Messages.Response{
+      stream_id: 0,
+      message: %Types.UserControl{
+        type: :stream_begin,
+        stream_id: 0
+      }
+    } = message
   end
   
   test "Getting responses clears response state" do

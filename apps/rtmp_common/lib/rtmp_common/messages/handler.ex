@@ -44,7 +44,18 @@ defmodule RtmpCommon.Messages.Handler do
       }
     }
     
-    %State{session_id: session_id, responses: [bandwith_response, ack_size_response, chunk_size_response]}
+    stream_begin = %RtmpCommon.Messages.Response{
+      stream_id: 0,
+      message: %RtmpCommon.Messages.Types.UserControl{
+        type: :stream_begin,
+        stream_id: 0
+      }
+    }
+    
+    %State{
+      session_id: session_id, 
+      responses: [bandwith_response, ack_size_response, chunk_size_response, stream_begin]
+    }
   end
   
   @doc "Gets any queued responses"
