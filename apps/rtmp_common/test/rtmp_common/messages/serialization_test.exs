@@ -199,4 +199,28 @@ defmodule RtmpCommon.Messages.SerializationTest do
     
     assert {:ok, expected} == RtmpCommon.Messages.Types.Amf0Data.serialize(message) 
   end
+  
+  test "Can convert video data to serialized message" do
+    binary = <<1,2,3,4,5,6>>
+    
+    message = %RtmpCommon.Messages.Types.VideoData{data: binary}
+    expected = %RtmpCommon.Messages.SerializedMessage{
+      message_type_id: 9,
+      data: binary
+    }
+    
+    assert {:ok, expected} == RtmpCommon.Messages.Types.VideoData.serialize(message)
+  end
+  
+  test "Can convert audio data to serialized message" do
+    binary = <<1,2,3,4,5,6>>
+    
+    message = %RtmpCommon.Messages.Types.AudioData{data: binary}
+    expected = %RtmpCommon.Messages.SerializedMessage{
+      message_type_id: 8,
+      data: binary
+    }
+    
+    assert {:ok, expected} == RtmpCommon.Messages.Types.AudioData.serialize(message)
+  end
 end

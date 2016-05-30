@@ -14,6 +14,8 @@ defmodule RtmpCommon.Messages.Deserializer do
   defp get_message_structure_type(4), do: RtmpCommon.Messages.Types.UserControl
   defp get_message_structure_type(5), do: RtmpCommon.Messages.Types.WindowAcknowledgementSize
   defp get_message_structure_type(6), do: RtmpCommon.Messages.Types.SetPeerBandwidth
+  defp get_message_structure_type(8), do: RtmpCommon.Messages.Types.AudioData
+  defp get_message_structure_type(9), do: RtmpCommon.Messages.Types.VideoData
   defp get_message_structure_type(20), do: RtmpCommon.Messages.Types.Amf0Command
   defp get_message_structure_type(18), do: RtmpCommon.Messages.Types.Amf0Data
   defp get_message_structure_type(_), do: nil

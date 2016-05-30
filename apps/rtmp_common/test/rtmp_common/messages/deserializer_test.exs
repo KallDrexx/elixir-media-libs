@@ -141,5 +141,17 @@ defmodule RtmpCommon.Messages.DeserializerTest do
     expected = %RtmpCommon.Messages.Types.Amf0Data{parameters: amf_objects}
     assert {:ok, expected} == RtmpCommon.Messages.Deserializer.deserialize(18, binary)
   end
+  
+  test "Can parse Video data message" do
+    binary = <<1,2,3,4,5,6>>
+    expected = %RtmpCommon.Messages.Types.VideoData{data: binary}
+    assert {:ok, expected} == RtmpCommon.Messages.Deserializer.deserialize(9, binary)
+  end
+  
+  test "Can parse Audio data message" do
+    binary = <<1,2,3,4,5,6>>
+    expected = %RtmpCommon.Messages.Types.AudioData{data: binary}
+    assert {:ok, expected} == RtmpCommon.Messages.Deserializer.deserialize(8, binary)
+  end
  
 end
