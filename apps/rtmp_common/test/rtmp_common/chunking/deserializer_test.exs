@@ -215,4 +215,27 @@ defmodule RtmpCommon.Chunking.DeserializerTest do
     
     assert {_, []} = result
   end
+  
+  test "Can read message spread across multiple chunks" do
+    {_, [{header, data}]} =
+      Deserializer.new()
+      |> Deserializer.set_max_chunk_size(90)
+      |> Deserializer.process(<<0::2, 50::6, 72::size(3)-unit(8), 100::size(3)-unit(8), 3::8>>)
+      |> Deserializer.process(<<55::size(4)-unit(8), 0::size(90)-unit(8)>>)
+      |> Deserializer.process(<<3::2, 50::6, 152::size(10)-unit(8)>>)
+      |> Deserializer.get_deserialized_chunks()
+      
+    expected_header = %ChunkHeader{
+      type: 3, 
+      stream_id: 50,
+      timestamp: 72,
+      last_timestamp_delta: 0,
+      message_length: 100,
+      message_type_id: 3,
+      message_stream_id: 55
+    }
+    
+    assert expected_header == header
+    assert <<152::size(100)-unit(8)>> == data
+  end
 end

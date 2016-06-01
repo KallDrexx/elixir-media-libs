@@ -42,6 +42,8 @@ defmodule RtmpCommon.Messages.HandlerTest do
       force_uncompressed: true,
       message: %Types.SetChunkSize{}
     } = message
+    
+    
   end
   
   test "New handler queues up set peer bandwidth message" do
@@ -204,4 +206,13 @@ defmodule RtmpCommon.Messages.HandlerTest do
       }
     } = response
   end
+ 
+  test "Can handle SetChunkSize message and retrieve current max", %{handler: handler} do
+    new_chunk_size = 
+      RtmpCommon.Messages.Handler.handle(handler, %Types.SetChunkSize{size: 100})
+      |> RtmpCommon.Messages.Handler.get_peer_chunk_size()
+      
+    assert new_chunk_size == 100
+  end
+ 
 end

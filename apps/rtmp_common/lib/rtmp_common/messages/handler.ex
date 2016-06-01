@@ -87,6 +87,11 @@ defmodule RtmpCommon.Messages.Handler do
     end
   end
   
+  @doc "Retrieves the current maximum chunk size for the peer"
+  def get_peer_chunk_size(%State{peer_chunk_size: chunk_size}) do
+    chunk_size
+  end
+  
   @doc "Handles the specified message"
   def handle(state = %State{}, message) do
     do_handle(state, message)

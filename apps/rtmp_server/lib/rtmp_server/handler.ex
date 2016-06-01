@@ -63,10 +63,12 @@ defmodule RtmpServer.Handler do
       RtmpCommon.Chunking.Deserializer.process(state.chunk_deserializer, binary)
       |> RtmpCommon.Chunking.Deserializer.get_deserialized_chunks()
       
-    state_after_processing = process_chunk(state, chunks)
-    new_state = %{state_after_processing | 
-      chunk_deserializer: deserializer, 
-      bytes_read: state_after_processing.bytes_read + byte_size(binary)
+    state = process_chunk(state, chunks)    
+    peer_chunk_size = RtmpCommon.Messages.Handler.get_peer_chunk_size(state.message_handler)
+    
+    new_state = %{state | 
+      bytes_read: state.bytes_read + byte_size(binary),
+      chunk_deserializer: RtmpCommon.Chunking.Deserializer.set_max_chunk_size(deserializer, peer_chunk_size)
     }
     
     set_socket_options(new_state)
