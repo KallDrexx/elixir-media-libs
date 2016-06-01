@@ -238,4 +238,22 @@ defmodule RtmpCommon.Chunking.DeserializerTest do
     assert expected_header == header
     assert <<152::size(100)-unit(8)>> == data
   end
+  
+  test "Status of processing while parsable binary exists for 2nd chunk after initial processing" do
+    status = 
+      Deserializer.new()
+      |> Deserializer.process(@previous_chunk_0_binary <> <<0::2, 50::6, 100::size(3)-unit(8), 100::size(3)-unit(8)>>)
+      |> Deserializer.get_status
+      
+    assert :processing = status
+  end
+  
+  test "Status of waiting_for_data when partial chunk passed in" do
+    status = 
+      Deserializer.new()
+      |> Deserializer.process(<<0::2, 50::6, 100::size(3)-unit(8), 100::size(3)-unit(8)>>)
+      |> Deserializer.get_status
+      
+    assert :waiting_for_data = status
+  end
 end

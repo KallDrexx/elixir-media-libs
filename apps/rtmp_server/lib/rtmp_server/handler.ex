@@ -59,17 +59,7 @@ defmodule RtmpServer.Handler do
   end
   
   def handle_info({:tcp, _, binary}, state = %State{}) do
-    {deserializer, chunks} = 
-      RtmpCommon.Chunking.Deserializer.process(state.chunk_deserializer, binary)
-      |> RtmpCommon.Chunking.Deserializer.get_deserialized_chunks()
-      
-    state = process_chunk(state, chunks)    
-    peer_chunk_size = RtmpCommon.Messages.Handler.get_peer_chunk_size(state.message_handler)
-    
-    new_state = %{state | 
-      bytes_read: state.bytes_read + byte_size(binary),
-      chunk_deserializer: RtmpCommon.Chunking.Deserializer.set_max_chunk_size(deserializer, peer_chunk_size)
-    }
+    new_state = deserialize_chunks(binary, state)
     
     set_socket_options(new_state)
     {:noreply, new_state}
@@ -89,6 +79,25 @@ defmodule RtmpServer.Handler do
   
   defp set_socket_options(state = %State{}) do
     :ok = state.transport.setopts(state.socket, active: :once, packet: :raw)
+  end
+  
+  defp deserialize_chunks(binary, state) do
+    {deserializer, chunks} = 
+      RtmpCommon.Chunking.Deserializer.process(state.chunk_deserializer, binary)
+      |> RtmpCommon.Chunking.Deserializer.get_deserialized_chunks()
+      
+    state = process_chunk(state, chunks)    
+    peer_chunk_size = RtmpCommon.Messages.Handler.get_peer_chunk_size(state.message_handler)
+    
+    new_state = %{state | 
+      bytes_read: state.bytes_read + byte_size(binary),
+      chunk_deserializer: RtmpCommon.Chunking.Deserializer.set_max_chunk_size(deserializer, peer_chunk_size)
+    }
+    
+    case RtmpCommon.Chunking.Deserializer.get_status(new_state.chunk_deserializer) do
+      :processing -> deserialize_chunks(<<>>, new_state)
+      :waiting_for_data -> new_state
+    end
   end
   
   defp process_chunk(state = %State{}, []) do

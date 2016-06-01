@@ -26,7 +26,8 @@ defmodule RtmpCommon.Chunking.Deserializer do
               current_chunk_binary: <<>>,
               completed_chunk_count: 0,
               max_chunk_size: 128,
-              data_in_progress: <<>>
+              data_in_progress: <<>>,
+              process_status: :waiting_for_data
   end
   
   @doc "Creates a new deserializer instance"
@@ -47,13 +48,19 @@ defmodule RtmpCommon.Chunking.Deserializer do
     %{state | max_chunk_size: size}
   end
   
+  @doc "Gets the current deserialization status"
+  @spec get_status(%State{}) :: :waiting_for_data | :processing
+  def get_status(%State{process_status: status}) do
+    status
+  end
+  
   @doc "Processes the passed in binary"  
   @spec process(%State{}, binary()) :: %State{}
   def process(state = %State{parse_stage: :chunk_type}, new_binary) when is_binary(new_binary) do  
     unparsed_binary = state.unparsed_binary <> new_binary
     
     if byte_size(unparsed_binary) == 0 do
-      %{state | unparsed_binary: unparsed_binary}
+      %{state | unparsed_binary: unparsed_binary, process_status: :waiting_for_data}
     else
       <<type::2, first_byte_rest::6, rest::binary>> = unparsed_binary   
       current_header = %ChunkHeader{type: type}
@@ -72,7 +79,7 @@ defmodule RtmpCommon.Chunking.Deserializer do
     unparsed_binary = state.unparsed_binary <> new_binary
     
     case get_stream_id(state.header_format, unparsed_binary) do
-      {:error, :not_enough_binary} -> %{state | unparsed_binary: unparsed_binary}
+      {:error, :not_enough_binary} -> %{state | unparsed_binary: unparsed_binary, process_status: :waiting_for_data}
       {:ok, id, remaining_binary, read_binary} -> 
         updated_header = %{state.current_header | stream_id: id}
         
@@ -89,7 +96,7 @@ defmodule RtmpCommon.Chunking.Deserializer do
     unparsed_binary = state.unparsed_binary <> new_binary
     
     if byte_size(unparsed_binary) < 11 do
-      %{state | unparsed_binary: unparsed_binary}
+      %{state | unparsed_binary: unparsed_binary, process_status: :waiting_for_data}
     else
       <<timestamp::3 * 8, message_length::3 * 8, message_type_id::1 * 8, message_stream_id::4 * 8, rest::binary>> = unparsed_binary
       updated_header = %{state.current_header |
@@ -113,7 +120,7 @@ defmodule RtmpCommon.Chunking.Deserializer do
     unparsed_binary = state.unparsed_binary <> new_binary
     
     if byte_size(unparsed_binary) < 7 do
-      %{state | unparsed_binary: unparsed_binary}
+      %{state | unparsed_binary: unparsed_binary, process_status: :waiting_for_data}
     else
       %ChunkHeader{        
         timestamp: previous_timestamp,
@@ -143,7 +150,7 @@ defmodule RtmpCommon.Chunking.Deserializer do
     unparsed_binary = state.unparsed_binary <> new_binary
     
     if byte_size(unparsed_binary) < 3 do
-      %{state | unparsed_binary: unparsed_binary}
+      %{state | unparsed_binary: unparsed_binary, process_status: :waiting_for_data}
     else
       %ChunkHeader{
         timestamp: previous_timestamp,
@@ -255,9 +262,8 @@ defmodule RtmpCommon.Chunking.Deserializer do
     chunk_data_length = min(state.max_chunk_size, payload_remaining)
     
     if byte_size(unparsed_binary) < chunk_data_length do
-      %{state | parse_stage: :data, unparsed_binary: unparsed_binary}
+      %{state | parse_stage: :data, unparsed_binary: unparsed_binary, process_status: :waiting_for_data}
     else
-      Logger.debug "Test"
       <<data::size(chunk_data_length)-binary, rest::binary>> = unparsed_binary
             
       completed_chunk_binary = state.current_chunk_binary <> data
@@ -277,11 +283,16 @@ defmodule RtmpCommon.Chunking.Deserializer do
       else
         # Message is finished
         
-        # ERROR: I need to handle the rtmp message now before parsing the next chunk!!!
+        # NOTE: We can't recursively call process(<<>>) here to automatically process the next chunk
+        #   because if we have a complete RTMP message we must handle that message prior to
+        #   deserializing the next chunk.  Otherwise a SetChunkSize message might be received
+        #   which will be needed in order to correctly deserialize the next RTMP message. 
+        
         %{new_state |
+          process_status: :processing,
           data_in_progress: <<>>,
           completed_chunks: [{state.current_header, state.data_in_progress <> data} | state.completed_chunks]
-        }  |> process(<<>>)
+        }
       end 
     end
   end
