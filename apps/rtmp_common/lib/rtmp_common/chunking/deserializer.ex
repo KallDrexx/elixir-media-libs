@@ -11,7 +11,11 @@ defmodule RtmpCommon.Chunking.Deserializer do
   
   """
   
-  @log_chunk_binary true
+  # When true, it will output each chunk's binary into 
+  #   individual files in order to debug the RTMP chunk stream
+  #   (and possibly replay it back later).  See the log_chunk_binary 
+  #   function.
+  @log_chunk_binary false
   
   alias RtmpCommon.Chunking.ChunkHeader, as: ChunkHeader
   require Logger
@@ -279,7 +283,7 @@ defmodule RtmpCommon.Chunking.Deserializer do
       
       if payload_remaining - chunk_data_length > 0 do
         # Message is not complete
-        %{new_state | data_in_progress: data}  |> process(<<>>)
+        %{new_state | data_in_progress: new_state.data_in_progress <> data}  |> process(<<>>)
       else
         # Message is finished
         
@@ -337,7 +341,7 @@ defmodule RtmpCommon.Chunking.Deserializer do
       chunk_number = 
         completed_chunk_count + 1
         |> Integer.to_string()
-        |> String.rjust(4, 48)        
+        |> String.rjust(10, 48)        
       
       directory = "C:/temp/rtmp_chunks/#{date}"
       :ok = File.mkdir_p(directory)
