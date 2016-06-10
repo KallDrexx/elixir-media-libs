@@ -75,7 +75,7 @@ defmodule RtmpHandshake do
       {%{state | unparsed_binary: binary},  %RtmpHandshake.ParseResult{current_state: :waiting_for_data}}
     else
       <<time::4 * 8, 0::4 * 8, random::binary-size(1528), rest::binary>> = binary
-      binary_response = <<time::4 * 8, 0::4 * 8>> <> state.random_data
+      binary_response = <<time::4 * 8, 0::4 * 8>> <> random # send packet 2
 
       {new_state, parse_result} = 
         %{state | current_state: :waiting_for_p2, peer_start_timestamp: time}
