@@ -39,9 +39,10 @@ defmodule RtmpServer.Mixfile do
   # Type "mix help deps" for more examples and options
   defp deps do
     [
+      {:rtmp_handshake, in_umbrella: true},
+      {:rtmp_common, in_umbrella: true},
       {:ranch, "~> 1.2.1", manager: :rebar},
-      {:uuid, "~> 1.1"},
-      {:rtmp_common, in_umbrella: true}
+      {:uuid, "~> 1.1"}
     ]
   end
 end

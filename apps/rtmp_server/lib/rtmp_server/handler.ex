@@ -12,7 +12,9 @@ defmodule RtmpServer.Handler do
               message_handler: nil,
               bytes_read: 0,
               bytes_sent: 0,
-              start_epoch: nil              
+              start_epoch: nil,
+              handshake_completed: false,
+              handshake_instance: nil             
   end  
   
   @doc "Starts the handler for an accepted socket"
@@ -23,9 +25,9 @@ defmodule RtmpServer.Handler do
   def init(ref, socket, transport, _opts) do   
     :ok = :proc_lib.init_ack({:ok, self()})
     :ok = :ranch.accept_ack(ref)
-    
+
     send(self(), :perform_handshake)    
-    :gen_server.enter_loop(__MODULE__, [], %State{socket: socket, transport: transport})    
+    :gen_server.enter_loop(__MODULE__, [], %State{socket: socket, transport: transport})   
   end
   
   def handle_info(:perform_handshake, state) do
@@ -35,27 +37,48 @@ defmodule RtmpServer.Handler do
     client_ip_string = ip |> Tuple.to_list() |> Enum.join(".")
         
     Logger.info "#{session_id}: client connected from ip #{client_ip_string}"
-    
-    case RtmpServer.Handshake.process(state.socket, state.transport) do
-      {:ok, _client_epoch} -> 
-        set_socket_options(state)
-        Logger.debug "#{session_id}: handshake successful"
-        
-        new_state = %{state | 
-          session_id: session_id,
-          chunk_deserializer: RtmpCommon.Chunking.Deserializer.new(),
-          chunk_serializer: RtmpCommon.Chunking.Serializer.new(),
-          message_handler: RtmpCommon.Messages.Handler.new(session_id),          
-          start_epoch: :erlang.system_time(:milli_seconds)
-        }
-        
+
+    {handshake_instance, %RtmpHandshake.ParseResult{bytes_to_send: bytes_to_send}} 
+      = RtmpHandshake.new()
+
+    :ok = state.transport.send(state.socket, bytes_to_send)
+
+    new_state = %{state |
+      handshake_instance: handshake_instance,
+      session_id: session_id,
+      chunk_deserializer: RtmpCommon.Chunking.Deserializer.new(),
+      chunk_serializer: RtmpCommon.Chunking.Serializer.new(),
+      message_handler: RtmpCommon.Messages.Handler.new(session_id),          
+      start_epoch: :erlang.system_time(:milli_seconds)
+    }
+
+    set_socket_options(new_state)
+    {:noreply, new_state}
+  end
+
+  def handle_info({:tcp, _, binary}, state = %State{handshake_completed: false}) do
+    case RtmpHandshake.process_bytes(state.handshake_instance, binary) do
+      {instance, result = %RtmpHandshake.ParseResult{current_state: :waiting_for_data}} ->
+        if byte_size(result.bytes_to_send) > 0, do: state.transport.send(state.socket, result.bytes_to_send)
+
+        new_state = %{state | handshake_instance: instance}
+        set_socket_options(new_state)
         {:noreply, new_state}
       
-      {:error, reason} -> 
-        Logger.info "#{session_id}: handshake failed (#{reason})"
-        
-        {:stop, {:handshake_failed, reason}, state}
-    end
+      {instance, result = %RtmpHandshake.ParseResult{current_state: :success}} ->
+        if byte_size(result.bytes_to_send) > 0, do: state.transport.send(state.socket, result.bytes_to_send)
+
+        {_, %RtmpHandshake.HandshakeResult{remaining_binary: remaining_binary}}
+          = RtmpHandshake.get_handshake_result(instance)
+
+        new_state = %{state |
+          handshake_instance: nil,
+          handshake_completed: true  
+        }
+
+        set_socket_options(new_state)
+        {:noreply, new_state}
+    end    
   end
   
   def handle_info({:tcp, _, binary}, state = %State{}) do
