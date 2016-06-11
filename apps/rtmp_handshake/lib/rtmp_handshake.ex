@@ -53,14 +53,19 @@ defmodule RtmpHandshake do
     }
   end
 
-  defp generate_random_binary(0, accumulator), do: accumulator
+  defp generate_random_binary(0, accumulator),     do: accumulator
   defp generate_random_binary(count, accumulator), do: generate_random_binary(count - 1,  accumulator <> <<:random.uniform(254)>> )
 
-  defp do_process(state, <<>>) do
+  defp do_process(state, <<>>),                                            do: do_process_fallthrough(state)
+  defp do_process(state = %State{current_state: :waiting_for_p0}, binary), do: do_process_waiting_for_p0(state, binary)
+  defp do_process(state = %State{current_state: :waiting_for_p1}, binary), do: do_process_waiting_for_p1(state, binary)
+  defp do_process(state = %State{current_state: :waiting_for_p2}, binary), do: do_process_waiting_for_p2(state, binary)
+
+  defp do_process_fallthrough(state) do
     {state, %RtmpHandshake.ParseResult{current_state: :waiting_for_data}}
   end
 
-  defp do_process(state = %State{current_state: :waiting_for_p0}, binary) do
+  defp do_process_waiting_for_p0(state, binary) do
     case binary do
       <<3::8, rest::binary>> -> 
         %{state | current_state: :waiting_for_p1}
@@ -70,7 +75,7 @@ defmodule RtmpHandshake do
     end
   end
 
-  defp do_process(state = %State{current_state: :waiting_for_p1}, binary) do
+  defp do_process_waiting_for_p1(state, binary) do
     if byte_size(binary) < 1536 do
       {%{state | unparsed_binary: binary},  %RtmpHandshake.ParseResult{current_state: :waiting_for_data}}
     else
@@ -85,7 +90,7 @@ defmodule RtmpHandshake do
     end
   end
 
-  defp do_process(state = %State{current_state: :waiting_for_p2}, binary) do
+  defp do_process_waiting_for_p2(state, binary) do
     if byte_size(binary) < 1536 do
       {%{state | unparsed_binary: binary},  %RtmpHandshake.ParseResult{current_state: :waiting_for_data}}
     else
