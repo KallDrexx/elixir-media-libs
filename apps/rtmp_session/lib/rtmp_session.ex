@@ -36,13 +36,13 @@ defmodule RtmpSession do
     raise("not implemented")
   end
 
-  @spec get_queued_results(%State{}) :: {%State{}, %RtmpSession.Results.QueuedData{}}
+  @spec get_queued_results(%State{}) :: {%State{}, %RtmpSession.SessionResults{}}
   def get_queued_results(state = %State{}) do
     bytes_to_send = state.bytes_waiting_to_be_sent
     queued_events = Enum.reverse(state.queued_events)
     new_state = %{state | bytes_waiting_to_be_sent: <<>>, queued_events: []}
 
-    {new_state, %RtmpSession.Results.QueuedData{
+    {new_state, %RtmpSession.SessionResults{
       bytes_to_send: bytes_to_send,
       queued_events: queued_events
     }}
