@@ -7,7 +7,7 @@ defmodule RtmpSession.ChunkIoTest do
   @previous_chunk_1_binary <<1::2, 50::6, 72::size(3)-unit(8), 100::size(3)-unit(8), 3::8, 152::size(100)-unit(8)>>
 
   test "Can read full type 0 chunk with small chunk stream id" do
-    binary = <<0::2, 50::6, 100::size(3)-unit(8), 100::size(3)-unit(8), 3::8, 55::size(4)-unit(8), 152::size(100)-unit(8)>>
+    binary = <<0::2, 50::6, 72::size(3)-unit(8), 100::size(3)-unit(8), 3::8, 55::size(4)-unit(8), 152::size(100)-unit(8)>>
     result = ChunkIo.new() |> ChunkIo.deserialize(binary)
 
     assert {_, %RtmpMessage{
@@ -65,7 +65,7 @@ defmodule RtmpSession.ChunkIoTest do
     binary = <<3::2, 50::6, 152::size(100)-unit(8)>>
     
     assert {io, %RtmpMessage{}} = ChunkIo.new() |> ChunkIo.deserialize(@previous_chunk_0_binary)
-    assert {io, %RtmpMessage{}} = ChunkIo.deserialize(@previous_chunk_1_binary)
+    assert {io, %RtmpMessage{}} = ChunkIo.deserialize(io, @previous_chunk_1_binary)
     assert {_, %RtmpMessage{
       timestamp: 244,
       message_type_id: 3,
@@ -89,7 +89,7 @@ defmodule RtmpSession.ChunkIoTest do
 
     assert {io, %RtmpMessage{}} = ChunkIo.new() |> ChunkIo.deserialize(@previous_chunk_0_binary)
     assert {_, %RtmpMessage{
-      timestamp: 172,
+      timestamp: 16777316,
       message_type_id: 3,
       payload: <<152::100 * 8>>
     }} = ChunkIo.deserialize(io, binary)
@@ -100,7 +100,7 @@ defmodule RtmpSession.ChunkIoTest do
 
     assert {io, %RtmpMessage{}} = ChunkIo.new() |> ChunkIo.deserialize(@previous_chunk_0_binary)
     assert {_, %RtmpMessage{
-      timestamp: 172,
+      timestamp: 16777316,
       message_type_id: 3,
       payload: <<152::100 * 8>>
     }} = ChunkIo.deserialize(io, binary)
@@ -115,7 +115,7 @@ defmodule RtmpSession.ChunkIoTest do
   test "Can read message spread across multiple deserialization calls" do
     binary1 = <<0::2, 50::6, 72::size(3)-unit(8), 100::size(3)-unit(8), 3::8>>
     binary2 = <<55::size(4)-unit(8), 0::size(90)-unit(8)>>
-    binary3 = <<3::2, 50::6, 152::size(10)-unit(8)>>
+    binary3 = <<152::size(10)-unit(8)>>
 
     io = ChunkIo.new()
     assert {io, :incomplete} = ChunkIo.deserialize(io, binary1)
