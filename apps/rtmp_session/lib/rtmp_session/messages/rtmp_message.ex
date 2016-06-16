@@ -1,4 +1,5 @@
 defmodule RtmpSession.Messages.RtmpMessage do
-  defstruct message_type: nil,
+  defstruct timestamp: nil,
+            message_type_id: nil,
             payload: <<>>
 end
