@@ -10,7 +10,7 @@ defmodule RecordedChunkReader do
     {:ok, files} = File.ls(directory)
     sorted_files = Enum.sort(files)
 
-    %State{file_queue: files, base_directory: directory}
+    %State{file_queue: sorted_files, base_directory: directory}
   end
 
   def read_next(state = %State{file_queue: []}) do

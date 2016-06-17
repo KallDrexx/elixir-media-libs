@@ -1,6 +1,6 @@
 defmodule RtmpSession.ChunkIoTest do
   use ExUnit.Case, async: true
-  alias RtmpSession.Messages.RtmpMessage, as: RtmpMessage
+  alias RtmpSession.RtmpMessage, as: RtmpMessage
   alias RtmpSession.ChunkIo, as: ChunkIo
 
   @previous_chunk_0_binary <<0::2, 50::6, 100::size(3)-unit(8), 100::size(3)-unit(8), 3::8, 55::size(4)-unit(8), 152::size(100)-unit(8)>>

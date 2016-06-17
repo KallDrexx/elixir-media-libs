@@ -7,7 +7,7 @@ defmodule RtmpSessionTest do
     reader = RecordedChunkReader.new("test/captured_sessions/obs-1/")
     session = RtmpSession.new(0)
 
-    {session, reader} = read_data(session, reader)
+    {_session, _reader} = read_data(session, reader)
 
     # TODO: check for expected queued events
   end

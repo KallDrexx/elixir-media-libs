@@ -30,13 +30,13 @@ defmodule RtmpSession.ChunkIo do
     %State{}
   end
 
-  @spec deserialize(%State{}, <<>>) :: {%State{}, :incomplete} | {%State{}, %RtmpSession.Messages.RtmpMessage{}} 
+  @spec deserialize(%State{}, <<>>) :: {%State{}, :incomplete} | {%State{}, %RtmpSession.RtmpMessage{}} 
   def deserialize(state = %State{}, binary) when is_binary(binary) do
     do_deserialize(%{state | unparsed_binary: state.unparsed_binary <> binary})
   end
 
-  @spec serialize(%State{}, %RtmpSession.Messages.RtmpMessage{}) :: {%State{}, <<>>}
-  def serialize(_state = %State{}, _message = %RtmpSession.Messages.RtmpMessage{}) do
+  @spec serialize(%State{}, %RtmpSession.RtmpMessage{}) :: {%State{}, <<>>}
+  def serialize(_state = %State{}, _message = %RtmpSession.RtmpMessage{}) do
     raise("not implemented")
   end
 
@@ -216,7 +216,7 @@ defmodule RtmpSession.ChunkIo do
     else
       <<data::size(chunk_length)-binary, rest::binary>> = state.unparsed_binary
 
-      message = %RtmpSession.Messages.RtmpMessage{
+      message = %RtmpSession.RtmpMessage{
         timestamp: state.current_header.timestamp,
         message_type_id: state.current_header.message_type_id,
         payload: data
