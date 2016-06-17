@@ -8,6 +8,7 @@ defmodule RtmpSession.Messages.WindowAcknowledgementSize do
   """
   
   @behaviour RtmpSession.RtmpMessage
+  @type t :: %__MODULE__{}
   
   defstruct size: 0
   

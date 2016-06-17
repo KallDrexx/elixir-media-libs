@@ -4,6 +4,7 @@ defmodule RtmpSession.Messages.AudioData do
   """  
   
   @behaviour RtmpSession.RtmpMessage
+  @type t :: %__MODULE__{}
   
   defstruct data: <<>>
   

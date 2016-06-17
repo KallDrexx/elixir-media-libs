@@ -4,6 +4,7 @@ defmodule RtmpSession.Messages.Amf0Data do
   """  
   
   @behaviour RtmpSession.RtmpMessage
+  @type t :: %__MODULE__{}
   
   defstruct parameters: []
   

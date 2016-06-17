@@ -4,6 +4,7 @@ defmodule RtmpSession.Messages.VideoData do
   """  
   
   @behaviour RtmpSession.RtmpMessage
+  @type t :: %__MODULE__{}
   
   defstruct data: <<>>
   

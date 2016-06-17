@@ -6,6 +6,7 @@ defmodule RtmpSession.Messages.Amf0Command do
   """
   
   @behaviour RtmpSession.RtmpMessage
+  @type t :: %__MODULE__{}
   
   defstruct command_name: nil,
             transaction_id: nil,

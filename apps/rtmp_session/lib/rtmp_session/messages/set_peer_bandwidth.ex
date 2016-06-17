@@ -10,6 +10,7 @@ defmodule RtmpSession.Messages.SetPeerBandwidth do
   defstruct window_size: 0, limit_type: nil
   
   @behaviour RtmpSession.RtmpMessage
+  @type t :: %__MODULE__{}
   
   def parse(data) do
     <<size::32, type::8>> = data

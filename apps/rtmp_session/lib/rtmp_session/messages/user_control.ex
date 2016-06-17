@@ -6,6 +6,7 @@ defmodule RtmpSession.Messages.UserControl do
   """
   
   @behaviour RtmpSession.RtmpMessage
+  @type t :: %__MODULE__{}
   
   defstruct type: nil,
       stream_id: nil,

@@ -13,6 +13,18 @@ defmodule RtmpSession.RtmpMessage do
   @callback get_default_chunk_stream_id(struct()) :: pos_integer()
 
   @doc "Unpacks the specified RTMP message into it's proper structure"
+  @spec unpack(%__MODULE__{}) :: {:error, :unknown_message_type} | 
+    {:ok, RtmpSession.Messages.SetChunkSize.t} |
+    {:ok, RtmpSession.Messages.Abort.t} |
+    {:ok, RtmpSession.Messages.Acknowledgement.t} |
+    {:ok, RtmpSession.Messages.UserControl.t} |
+    {:ok, RtmpSession.Messages.WindowAcknowledgementSize.t} |
+    {:ok, RtmpSession.Messages.SetPeerBandwidth.t} |
+    {:ok, RtmpSession.Messages.AudioData.t} |
+    {:ok, RtmpSession.Messages.VideoData.t} |
+    {:ok, RtmpSession.Messages.Amf0Command.t} |
+    {:ok, RtmpSession.Messages.Amf0Data.t}
+
   def unpack(message = %__MODULE__{}) do
     case get_message_module(message.message_type_id) do
       nil -> {:error, :unknown_message_type}

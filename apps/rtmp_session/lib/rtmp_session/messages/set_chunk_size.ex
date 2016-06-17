@@ -6,6 +6,7 @@ defmodule RtmpSession.Messages.SetChunkSize do
   """
   
   @behaviour RtmpSession.RtmpMessage
+  @type t :: %__MODULE__{}
   
   defstruct size: 128
   

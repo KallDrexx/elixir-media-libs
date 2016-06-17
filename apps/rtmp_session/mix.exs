@@ -35,6 +35,9 @@ defmodule RtmpSession.Mixfile do
   #
   # Type "mix help deps" for more examples and options
   defp deps do
-    [{:amf0, in_umbrella: true},]
+    [
+      {:amf0, in_umbrella: true},
+      {:dialyxir, "~> 0.3", only: [:dev]}
+    ]
   end
 end

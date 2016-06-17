@@ -9,6 +9,7 @@ defmodule RtmpSession.Messages.Acknowledgement do
   """
   
   @behaviour RtmpSession.RtmpMessage
+  @type t :: %__MODULE__{}
   
   defstruct sequence_number: 0
   

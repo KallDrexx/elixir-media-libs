@@ -8,6 +8,7 @@ defmodule RtmpSession.Messages.Abort do
   """
   
   @behaviour RtmpSession.RtmpMessage
+  @type t :: %__MODULE__{}
   
   defstruct stream_id: nil
   
