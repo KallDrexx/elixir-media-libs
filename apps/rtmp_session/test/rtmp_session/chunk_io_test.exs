@@ -127,7 +127,7 @@ defmodule RtmpSession.ChunkIoTest do
     }} = ChunkIo.deserialize(io, binary3)
   end
 
-  test "Can read message exceeding maximum payload size" do
+  test "Can read message exceeding maximum chunk size" do
     binary1 = <<0::2, 50::6, 72::size(3)-unit(8), 138::size(3)-unit(8), 3::8, 55::size(4)-unit(8), 0::size(128)-unit(8)>>
     binary2 = <<3::2, 50::6, 152::10 * 8>> 
     assert {io, :incomplete} = ChunkIo.new() |> ChunkIo.deserialize(binary1)
@@ -137,6 +137,20 @@ defmodule RtmpSession.ChunkIoTest do
       message_type_id: 3,
       payload: <<152::138 * 8>>
     }} = ChunkIo.deserialize(io, binary2)
+  end
+
+  test "Can change receiving maximum chunk size" do
+    binary = <<0::2, 50::6, 72::size(3)-unit(8), 200::size(3)-unit(8), 3::8, 55::size(4)-unit(8), 152::size(200)-unit(8)>>
+    result = 
+      ChunkIo.new()
+      |> ChunkIo.set_receiving_max_chunk_size(201) 
+      |> ChunkIo.deserialize(binary)
+
+    assert {_, %RtmpMessage{
+      timestamp: 72,
+      message_type_id: 3,
+      payload: <<152::200 * 8>>
+    }} = result
   end
 
 end

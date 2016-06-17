@@ -31,6 +31,11 @@ defmodule RtmpSession.ChunkIo do
     %State{}
   end
 
+  @spec set_receiving_max_chunk_size(%State{}, pos_integer()) :: %State{}
+  def set_receiving_max_chunk_size(state = %State{}, size) do
+    %{state | receiving_max_chunk_size: size}
+  end
+
   @spec deserialize(%State{}, <<>>) :: {%State{}, :incomplete} | {%State{}, %RtmpSession.RtmpMessage{}} 
   def deserialize(state = %State{}, binary) when is_binary(binary) do
     do_deserialize(%{state | unparsed_binary: state.unparsed_binary <> binary})
