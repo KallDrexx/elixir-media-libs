@@ -6,11 +6,12 @@ defmodule RtmpSession.ChunkIo do
   """
 
   defmodule State do
-    defstruct peer_max_chunk_size: 128,
+    defstruct receiving_max_chunk_size: 128,
               received_headers: %{},
               parse_stage: :chunk_type,
               current_header: nil,
-              unparsed_binary: <<>>
+              unparsed_binary: <<>>,
+              incomplete_message: nil
   end
 
   defmodule Header do
@@ -208,27 +209,45 @@ defmodule RtmpSession.ChunkIo do
   end
 
   defp deserialize_data(state) do
-    # TODO: Update to handle messages greater than peer_max_chunk_size
-    chunk_length = state.current_header.message_length
+    message = if state.incomplete_message != nil do
+      state.incomplete_message
+    else
+      %RtmpSession.RtmpMessage{
+        timestamp: state.current_header.timestamp,
+        message_type_id: state.current_header.message_type_id
+      }
+    end
 
-    if byte_size(state.unparsed_binary) < chunk_length do
+    payload_so_far = byte_size(message.payload)
+    full_message_length = state.current_header.message_length
+    length_remaining = full_message_length - payload_so_far
+    chunk_payload_length = Enum.min([length_remaining, state.receiving_max_chunk_size])
+
+    if byte_size(state.unparsed_binary) < chunk_payload_length do
       form_incomplete_result(state)
     else
-      <<data::size(chunk_length)-binary, rest::binary>> = state.unparsed_binary
+      <<data::size(chunk_payload_length)-binary, rest::binary>> = state.unparsed_binary
 
-      message = %RtmpSession.RtmpMessage{
-        timestamp: state.current_header.timestamp,
-        message_type_id: state.current_header.message_type_id,
-        payload: data
-      }
+      message = %{message | payload: message.payload <> data}
+      if byte_size(message.payload) == state.current_header.message_length do
+        new_state = %{state |
+          parse_stage: :chunk_type,
+          received_headers: Map.put(state.received_headers, state.current_header.csid, state.current_header),
+          unparsed_binary: rest,
+          incomplete_message: nil
+        }
 
-      new_state = %{state |
-        parse_stage: :chunk_type,
-        received_headers: Map.put(state.received_headers, state.current_header.csid, state.current_header),
-        unparsed_binary: rest
-      }
+        form_complete_result(new_state, message)
+      else
+        new_state = %{state |
+          parse_stage: :chunk_type,
+          received_headers: Map.put(state.received_headers, state.current_header.csid, state.current_header),
+          unparsed_binary: rest,
+          incomplete_message: message
+        }
 
-      form_complete_result(new_state, message)
+        form_incomplete_result(new_state)
+      end
     end
   end 
 
