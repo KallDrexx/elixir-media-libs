@@ -44,7 +44,7 @@ defmodule RtmpSession.ChunkIo do
     do_deserialize(%{state | unparsed_binary: state.unparsed_binary <> binary})
   end
 
-  @spec serialize(%State{}, %RtmpMessage{}, non_neg_integer(), boolean()) :: {%State{}, <<>>}
+  @spec serialize(%State{}, %RtmpMessage{}, non_neg_integer(), boolean()) :: {%State{}, iodata()}
   def serialize(state = %State{}, message = %RtmpMessage{}, csid, force_uncompressed \\ false) do
     header = %Header{
       type: 0,
@@ -346,5 +346,5 @@ defmodule RtmpSession.ChunkIo do
   defp get_csid_binary(csid) when csid < 64, do: <<csid::6>>
   defp get_csid_binary(csid) when csid < 319, do: <<0::6, csid - 64::8>>
   defp get_csid_binary(csid) when csid < 65599, do: <<1::6, csid - 64::15>>  
-  
+
 end
