@@ -10,7 +10,7 @@ defmodule RtmpSession.Messages.SetChunkSize do
   
   defstruct size: 128
   
-  def parse(data) do
+  def deserialize(data) do
     <<0::1, size_value::31>> = data
     
     %__MODULE__{size: size_value}

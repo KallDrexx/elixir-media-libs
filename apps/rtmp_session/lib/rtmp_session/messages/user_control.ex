@@ -13,7 +13,7 @@ defmodule RtmpSession.Messages.UserControl do
       buffer_length: nil,
       timestamp: nil
   
-  def parse(data) do
+  def deserialize(data) do
     <<event_type::16, rest::binary>> = data
     
     parse(event_type, rest)

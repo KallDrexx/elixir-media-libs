@@ -12,7 +12,7 @@ defmodule RtmpSession.Messages.WindowAcknowledgementSize do
   
   defstruct size: 0
   
-  def parse(data) do
+  def deserialize(data) do
     <<size::32>> = data
     
     %__MODULE__{size: size}

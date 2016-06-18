@@ -8,7 +8,7 @@ defmodule RtmpSession.Messages.Amf0Data do
   
   defstruct parameters: []
   
-  def parse(data) do
+  def deserialize(data) do
     {:ok, objects} = Amf0.deserialize(data)
     
     %__MODULE__{parameters: objects}

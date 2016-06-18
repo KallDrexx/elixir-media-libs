@@ -8,7 +8,7 @@ defmodule RtmpSession.Messages.AudioData do
   
   defstruct data: <<>>
   
-  def parse(data) do
+  def deserialize(data) do
     %__MODULE__{data: data}
   end
   

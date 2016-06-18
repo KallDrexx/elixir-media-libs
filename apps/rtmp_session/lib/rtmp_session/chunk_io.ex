@@ -5,9 +5,12 @@ defmodule RtmpSession.ChunkIo do
   serializing RTMP messages into binary RTMP chunks  
   """
 
+  alias RtmpSession.RtmpMessage, as: RtmpMessage
+
   defmodule State do
     defstruct receiving_max_chunk_size: 128,
               received_headers: %{},
+              sent_headers: %{},
               parse_stage: :chunk_type,
               current_header: nil,
               unparsed_binary: <<>>,
@@ -36,15 +39,32 @@ defmodule RtmpSession.ChunkIo do
     %{state | receiving_max_chunk_size: size}
   end
 
-  @spec deserialize(%State{}, <<>>) :: {%State{}, :incomplete} | {%State{}, %RtmpSession.RtmpMessage{}} 
+  @spec deserialize(%State{}, <<>>) :: {%State{}, :incomplete} | {%State{}, %RtmpMessage{}} 
   def deserialize(state = %State{}, binary) when is_binary(binary) do
     do_deserialize(%{state | unparsed_binary: state.unparsed_binary <> binary})
   end
 
-  @spec serialize(%State{}, %RtmpSession.RtmpMessage{}) :: {%State{}, <<>>}
-  def serialize(_state = %State{}, _message = %RtmpSession.RtmpMessage{}) do
-    raise("not implemented")
+  @spec serialize(%State{}, %RtmpMessage{}, non_neg_integer(), boolean()) :: {%State{}, <<>>}
+  def serialize(state = %State{}, message = %RtmpMessage{}, csid, force_uncompressed \\ false) do
+    header = %Header{
+      type: 0,
+      csid: csid,
+      timestamp: message.timestamp, # TODO: convert to rtmp timestamp
+      last_timestamp_delta: 0,
+      message_length: byte_size(message.payload),
+      message_type_id: message.message_type_id,
+      message_stream_id: message.stream_id
+    }
+
+    header = if force_uncompressed == true, do: header, else: compress_header(state, header)
+
+    {
+      %{state | sent_headers: Map.put(state.sent_headers, csid, header)},
+      serialize_to_bytes(header, message.payload)
+    }
   end
+
+  ## Deserialization functions
 
   defp do_deserialize(state = %State{parse_stage: :chunk_type}), do: deserialize_chunk_type(state)
   defp do_deserialize(state = %State{parse_stage: :csid}), do: deserialize_csid(state)
@@ -265,4 +285,66 @@ defmodule RtmpSession.ChunkIo do
 
   defp form_incomplete_result(state), do: {state, :incomplete}
   defp form_complete_result(state, message), do: {state, message}
+
+  ## Serialization Functions
+
+  
+  
+  defp compress_header(state, header_to_send) do
+    case Map.fetch(state.sent_headers, header_to_send.csid) do
+      :error -> header_to_send
+
+      {:ok, previous_header} ->
+        current_delta = header_to_send.timestamp - previous_header.timestamp # TODO: get rtmp timestamp difference
+
+        cond do
+          header_to_send.message_stream_id != previous_header.message_stream_id -> header_to_send
+          header_to_send.message_type_id != previous_header.message_type_id -> %{header_to_send | type: 1, last_timestamp_delta: current_delta}
+          header_to_send.message_length != previous_header.message_length -> %{header_to_send | type: 1, last_timestamp_delta: current_delta}
+          current_delta != previous_header.last_timestamp_delta -> %{header_to_send | type: 2, last_timestamp_delta: current_delta}
+          true -> %{header_to_send | type: 3, last_timestamp_delta: current_delta}
+        end      
+    end
+  end
+
+  defp serialize_to_bytes(header = %Header{type: 0}, payload), do: serialize_type_0_header(header, payload)
+  defp serialize_to_bytes(header = %Header{type: 1}, payload), do: serialize_type_1_header(header, payload)
+  defp serialize_to_bytes(header = %Header{type: 2}, payload), do: serialize_type_2_header(header, payload)
+  defp serialize_to_bytes(header = %Header{type: 3}, payload), do: serialize_type_3_header(header, payload)
+
+  defp serialize_type_0_header(header, payload) do
+    <<header.type::2, get_csid_binary(header.csid)::bitstring>> <>
+      <<
+        header.timestamp::3 * 8, # TODO: handle extended timestamp
+        header.message_length::3 * 8,
+        header.message_type_id::1 * 8,
+        header.message_stream_id::4 * 8
+      >> <>
+      payload
+  end
+  
+  defp serialize_type_1_header(header, payload) do
+    <<header.type::2, get_csid_binary(header.csid)::bitstring>> <>
+      <<
+        header.last_timestamp_delta::3 * 8, # TODO: handle extended timestamp delta
+        header.message_length::3 * 8,
+        header.message_type_id::1 * 8
+      >> <>
+      payload
+  end 
+
+  defp serialize_type_2_header(header, payload) do
+    <<header.type::2, get_csid_binary(header.csid)::bitstring>><>
+      <<header.last_timestamp_delta::3 * 8>> <> # TODO: handle extended timestamp delta
+      payload
+  end 
+
+  defp serialize_type_3_header(header, payload) do
+    <<header.type::2, get_csid_binary(header.csid)::bitstring>> <> payload
+  end
+
+  defp get_csid_binary(csid) when csid < 64, do: <<csid::6>>
+  defp get_csid_binary(csid) when csid < 319, do: <<0::6, csid - 64::8>>
+  defp get_csid_binary(csid) when csid < 65599, do: <<1::6, csid - 64::15>>  
+  
 end

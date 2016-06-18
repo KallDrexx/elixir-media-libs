@@ -6,29 +6,30 @@ defmodule RtmpSession.RtmpMessage do
 
   defstruct timestamp: nil,
             message_type_id: nil,
+            stream_id: nil,
             payload: <<>>
 
-  @callback parse(binary) :: any
+  @callback deserialize(binary) :: any
   @callback serialize(struct()) :: {:ok, %__MODULE__{}}
   @callback get_default_chunk_stream_id(struct()) :: pos_integer()
 
-  @doc "Unpacks the specified RTMP message into it's proper structure"
-  @spec unpack(%__MODULE__{}) :: {:error, :unknown_message_type} | 
-    {:ok, RtmpSession.Messages.SetChunkSize.t} |
-    {:ok, RtmpSession.Messages.Abort.t} |
-    {:ok, RtmpSession.Messages.Acknowledgement.t} |
-    {:ok, RtmpSession.Messages.UserControl.t} |
-    {:ok, RtmpSession.Messages.WindowAcknowledgementSize.t} |
-    {:ok, RtmpSession.Messages.SetPeerBandwidth.t} |
-    {:ok, RtmpSession.Messages.AudioData.t} |
-    {:ok, RtmpSession.Messages.VideoData.t} |
-    {:ok, RtmpSession.Messages.Amf0Command.t} |
-    {:ok, RtmpSession.Messages.Amf0Data.t}
+  @type deserialized_message :: RtmpSession.Messages.SetChunkSize.t |
+    RtmpSession.Messages.Abort.t |
+    RtmpSession.Messages.Acknowledgement.t |
+    RtmpSession.Messages.UserControl.t |
+    RtmpSession.Messages.WindowAcknowledgementSize.t |
+    RtmpSession.Messages.SetPeerBandwidth.t |
+    RtmpSession.Messages.AudioData.t |
+    RtmpSession.Messages.VideoData.t |
+    RtmpSession.Messages.Amf0Command.t |
+    RtmpSession.Messages.Amf0Data.t
 
+  @doc "Unpacks the specified RTMP message into it's proper structure"
+  @spec unpack(%__MODULE__{}) :: {:error, :unknown_message_type} | {:ok, deserialized_message}
   def unpack(message = %__MODULE__{}) do
     case get_message_module(message.message_type_id) do
       nil -> {:error, :unknown_message_type}
-      module -> {:ok, module.parse(message.payload)}
+      module -> {:ok, module.deserialize(message.payload)}
     end
   end
   

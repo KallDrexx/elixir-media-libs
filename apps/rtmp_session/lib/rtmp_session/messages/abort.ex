@@ -12,7 +12,7 @@ defmodule RtmpSession.Messages.Abort do
   
   defstruct stream_id: nil
   
-  def parse(data) do
+  def deserialize(data) do
     <<stream_id::32>> = data
     
     %__MODULE__{stream_id: stream_id}

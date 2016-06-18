@@ -13,7 +13,7 @@ defmodule RtmpSession.Messages.Acknowledgement do
   
   defstruct sequence_number: 0
   
-  def parse(data) do
+  def deserialize(data) do
     <<sequence_number::32>> = data
     
     %__MODULE__{sequence_number: sequence_number}

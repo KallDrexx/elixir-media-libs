@@ -13,7 +13,7 @@ defmodule RtmpSession.Messages.Amf0Command do
             command_object: nil,
             additional_values: nil
   
-  def parse(data) do
+  def deserialize(data) do
     {:ok, objects} = Amf0.deserialize(data)
     [command_name, transaction_id, command_object | rest] = objects
 
