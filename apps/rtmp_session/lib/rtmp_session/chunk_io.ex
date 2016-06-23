@@ -9,6 +9,7 @@ defmodule RtmpSession.ChunkIo do
 
   defmodule State do
     defstruct receiving_max_chunk_size: 128,
+              sending_max_chunk_size: 128,
               received_headers: %{},
               sent_headers: %{},
               parse_stage: :chunk_type,
@@ -39,6 +40,11 @@ defmodule RtmpSession.ChunkIo do
     %{state | receiving_max_chunk_size: size}
   end
 
+  @spec set_sending_max_chunk_size(%State{}, pos_integer()) :: %State{}
+  def set_sending_max_chunk_size(state = %State{}, size) do
+    %{state | sending_max_chunk_size: size}
+  end
+
   @spec deserialize(%State{}, <<>>) :: {%State{}, :incomplete} | {%State{}, %RtmpMessage{}} 
   def deserialize(state = %State{}, binary) when is_binary(binary) do
     do_deserialize(%{state | unparsed_binary: state.unparsed_binary <> binary})
@@ -46,22 +52,7 @@ defmodule RtmpSession.ChunkIo do
 
   @spec serialize(%State{}, %RtmpMessage{}, non_neg_integer(), boolean()) :: {%State{}, iodata()}
   def serialize(state = %State{}, message = %RtmpMessage{}, csid, force_uncompressed \\ false) do
-    header = %Header{
-      type: 0,
-      csid: csid,
-      timestamp: message.timestamp, # TODO: convert to rtmp timestamp
-      last_timestamp_delta: 0,
-      message_length: byte_size(message.payload),
-      message_type_id: message.message_type_id,
-      message_stream_id: message.stream_id
-    }
-
-    header = if force_uncompressed == true, do: header, else: compress_header(state, header)
-
-    {
-      %{state | sent_headers: Map.put(state.sent_headers, csid, header)},
-      serialize_to_bytes(header, message.payload)
-    }
+    do_serialize(state, message, csid, force_uncompressed)    
   end
 
   ## Deserialization functions
@@ -286,9 +277,44 @@ defmodule RtmpSession.ChunkIo do
   defp form_incomplete_result(state), do: {state, :incomplete}
   defp form_complete_result(state, message), do: {state, message}
 
-  ## Serialization Functions
+  ## Serialization Functions  
 
-  
+  defp do_serialize(state, message, csid, force_uncompressed) do
+    case split_message_to_chunk_size(state, message, [], 0) do
+      {size, [x]} ->
+        Logger.debug "size: #{size}" 
+        serialize_message(state, x, csid, force_uncompressed, size)
+      {size, [x | rest]} -> serialize_split_message(state, [x | rest], csid, true, <<>>, size) 
+    end
+  end
+
+  defp serialize_split_message(state, messages, csid, force_uncompressed, binary, total_payload_size) do
+    case messages do
+      [] -> {state, binary}
+      [x | rest] -> 
+        {new_state, new_binary} = serialize_message(state, x, csid, force_uncompressed, total_payload_size)
+        serialize_split_message(new_state, rest, csid, false, binary <> new_binary, total_payload_size)
+    end
+  end
+
+  defp serialize_message(state, message, csid, force_uncompressed, total_payload_size) do
+    header = %Header{
+      type: 0,
+      csid: csid,
+      timestamp: message.timestamp, # TODO: convert to rtmp timestamp
+      last_timestamp_delta: 0,
+      message_length: total_payload_size,
+      message_type_id: message.message_type_id,
+      message_stream_id: message.stream_id
+    }
+
+    header = if force_uncompressed == true, do: header, else: compress_header(state, header)
+
+    {
+      %{state | sent_headers: Map.put(state.sent_headers, csid, header)},
+      serialize_to_bytes(header, message.payload)
+    }
+  end
   
   defp compress_header(state, header_to_send) do
     case Map.fetch(state.sent_headers, header_to_send.csid) do
@@ -345,6 +371,24 @@ defmodule RtmpSession.ChunkIo do
 
   defp get_csid_binary(csid) when csid < 64, do: <<csid::6>>
   defp get_csid_binary(csid) when csid < 319, do: <<0::6, csid - 64::8>>
-  defp get_csid_binary(csid) when csid < 65599, do: <<1::6, csid - 64::15>>  
+  defp get_csid_binary(csid) when csid < 65599, do: <<1::6, csid - 64::15>>
+
+  defp split_message_to_chunk_size(state = %State{}, message, accumulator, total_payload_size) do
+    if byte_size(message.payload) > state.sending_max_chunk_size do
+
+      # Can't directly use struct property inside of binary pattern matching
+      chunk_size = state.sending_max_chunk_size 
+
+      <<chunk_payload::size(chunk_size)-binary, rest::binary>> = message.payload
+      chunk_message = %{message | payload: chunk_payload}
+      remaining_message = %{message | payload: rest}
+      accumulator = [chunk_message | accumulator]
+      total_payload_size = total_payload_size + byte_size(chunk_message.payload)
+
+      split_message_to_chunk_size(state, remaining_message, accumulator, total_payload_size)
+    else
+      {total_payload_size + byte_size(message.payload), Enum.reverse([message | accumulator])}
+    end
+  end
 
 end
