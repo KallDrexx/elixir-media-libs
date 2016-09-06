@@ -6,6 +6,7 @@ defmodule RtmpSession.ChunkIo do
   """
 
   alias RtmpSession.RtmpMessage, as: RtmpMessage
+  alias RtmpSession.RtmpTime, as: RtmpTime
 
   defmodule State do
     defstruct receiving_max_chunk_size: 128,
@@ -149,7 +150,7 @@ defmodule RtmpSession.ChunkIo do
     else
       previous_header = get_previous_header!(state.received_headers, csid, 1)
       updated_header = %{previous_header |
-        timestamp: previous_header.timestamp + delta,
+        timestamp: RtmpTime.apply_delta(previous_header.timestamp, delta),
         last_timestamp_delta: delta,
         message_length: length,
         message_type_id: type_id
@@ -166,7 +167,7 @@ defmodule RtmpSession.ChunkIo do
       {state, :incomplete}
     else
       updated_header = %{previous_header |
-        timestamp: previous_header.timestamp + delta,
+        timestamp: RtmpTime.apply_delta(previous_header.timestamp, delta),
         last_timestamp_delta: delta 
       }
 
@@ -186,7 +187,7 @@ defmodule RtmpSession.ChunkIo do
       {state, :incomplete}
     else
       updated_header = %{previous_header |
-        timestamp: previous_header.timestamp + previous_header.last_timestamp_delta,
+        timestamp: RtmpTime.apply_delta(previous_header.timestamp, previous_header.last_timestamp_delta),
       }
 
       new_state = %{state | received_headers: Map.put(state.received_headers, csid, updated_header)}
