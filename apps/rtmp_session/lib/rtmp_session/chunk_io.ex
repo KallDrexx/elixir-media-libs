@@ -274,10 +274,11 @@ defmodule RtmpSession.ChunkIo do
 
   defp do_serialize(state, message, csid, force_uncompressed) do
     case split_message_to_chunk_size(state, message, [], 0) do
-      {size, [x]} ->
-        Logger.debug "size: #{size}" 
+      {size, [x]} -> 
         serialize_message(state, x, csid, force_uncompressed, size)
-      {size, [x | rest]} -> serialize_split_message(state, [x | rest], csid, true, <<>>, size) 
+
+      {size, [x | rest]} -> 
+        serialize_split_message(state, [x | rest], csid, true, <<>>, size) 
     end
   end
 
