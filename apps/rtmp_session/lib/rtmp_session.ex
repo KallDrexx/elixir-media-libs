@@ -32,7 +32,7 @@ defmodule RtmpSession do
   end
 
   @spec process_bytes(%State{}, <<>>) :: %State{}
-  def process_bytes(state = %State{}, binary) when is_binary(binary) do
+  def process_bytes(_state = %State{}, binary) when is_binary(binary) do
     raise("not implemented")
   end
 

@@ -12,14 +12,13 @@ defmodule RtmpSession.ChunkIo do
               sending_max_chunk_size: 128,
               received_headers: %{},
               sent_headers: %{},
-              parse_stage: :chunk_type,
               current_header: nil,
               unparsed_binary: <<>>,
               incomplete_message: nil
   end
 
   defmodule Header do
-    defstruct type: nil, 
+    defstruct type: 0,
               csid: nil,
               timestamp: nil,
               last_timestamp_delta: nil,
@@ -45,7 +44,7 @@ defmodule RtmpSession.ChunkIo do
     %{state | sending_max_chunk_size: size}
   end
 
-  @spec deserialize(%State{}, <<>>) :: {%State{}, :incomplete} | {%State{}, %RtmpMessage{}} 
+  @spec deserialize(%State{}, <<>>) :: {%State{}, :incomplete} | {%State{}, :split_message} | {%State{}, %RtmpMessage{}} 
   def deserialize(state = %State{}, binary) when is_binary(binary) do
     do_deserialize(%{state | unparsed_binary: state.unparsed_binary <> binary})
   end
@@ -57,213 +56,192 @@ defmodule RtmpSession.ChunkIo do
 
   ## Deserialization functions
 
-  defp do_deserialize(state = %State{parse_stage: :chunk_type}), do: deserialize_chunk_type(state)
-  defp do_deserialize(state = %State{parse_stage: :csid}), do: deserialize_csid(state)
-  defp do_deserialize(state = %State{parse_stage: :message_header}), do: deserialize_message_header(state)
-  defp do_deserialize(state = %State{parse_stage: :extended_timestamp}), do: deserialize_extended_timestamp(state)
-  defp do_deserialize(state = %State{parse_stage: :data}), do: deserialize_data(state)
+  defp do_deserialize(state = %State{}) do
+    case state.unparsed_binary do
+      <<0::2, 0::6, csid::8, 16777215::3 * 8, size::3 * 8, message_type_id::8, sid::4 * 8, timestamp::4 * 8, rest::binary>> -> 
+        deserialize_header(state, 0, csid - 64, timestamp, size, message_type_id, sid, rest)
 
-  defp deserialize_chunk_type(state) do
-    if byte_size(state.unparsed_binary) == 0 do
-      form_incomplete_result(state)
+      <<0::2, 0::6, csid::8, timestamp::3 * 8, size::3 * 8, message_type_id::8, sid::4 * 8, rest::binary>> -> 
+        deserialize_header(state, 0, csid - 64, timestamp, size, message_type_id, sid, rest)
+
+      <<0::2, 1::6, csid::16, 16777215::3 * 8, size::3 * 8, message_type_id::8, sid::4 * 8, timestamp::4 * 8, rest::binary>> -> 
+        deserialize_header(state, 0, csid - 64, timestamp, size, message_type_id, sid, rest)
+
+      <<0::2, 1::6, csid::16, timestamp::3 * 8, size::3 * 8, message_type_id::8, sid::4 * 8, rest::binary>> -> 
+        deserialize_header(state, 0, csid - 64, timestamp, size, message_type_id, sid, rest)
+
+      <<0::2, csid::6, 16777215::3 * 8, size::3 * 8, message_type_id::8, sid::4 * 8, timestamp::4 * 8, rest::binary>> -> 
+        deserialize_header(state, 0, csid, timestamp, size, message_type_id, sid, rest)
+
+      <<0::2, csid::6, timestamp::3 * 8, size::3 * 8, message_type_id::8, sid::4 * 8, rest::binary>> -> 
+        deserialize_header(state, 0, csid, timestamp, size, message_type_id, sid, rest)
+
+      <<1::2, 0::6, csid::8, 16777215::3 * 8, size::3 * 8, message_type_id::8, timestamp::4 * 8, rest::binary>> -> 
+        deserialize_header(state, 1, csid - 64, timestamp, size, message_type_id, rest)
+
+      <<1::2, 0::6, csid::8, timestamp::3 * 8, size::3 * 8, message_type_id::8, rest::binary>> -> 
+        deserialize_header(state, 1, csid - 64, timestamp, size, message_type_id, rest)
+        
+      <<1::2, 1::6, csid::16, 16777215::3 * 8, size::3 * 8, message_type_id::8, timestamp::4 * 8, rest::binary>> -> 
+        deserialize_header(state, 1, csid - 64, timestamp, size, message_type_id, rest)
+        
+      <<1::2, 1::6, csid::16, timestamp::3 * 8, size::3 * 8, message_type_id::8, rest::binary>> -> 
+        deserialize_header(state, 1, csid - 64, timestamp, size, message_type_id, rest)
+        
+      <<1::2, csid::6, 16777215::3 * 8, size::3 * 8, message_type_id::8, timestamp::4 * 8, rest::binary>> ->
+        deserialize_header(state, 1, csid, timestamp, size, message_type_id, rest)
+        
+      <<1::2, csid::6, timestamp::3 * 8, size::3 * 8, message_type_id::8, rest::binary>> -> 
+        deserialize_header(state, 1, csid, timestamp, size, message_type_id, rest)
+        
+      <<2::2, 0::6, csid::8, 16777215::3 * 8, timestamp::4 * 8, rest::binary>> -> 
+        deserialize_header(state, 2, csid - 64, timestamp, rest)
+
+      <<2::2, 0::6, csid::8, timestamp::3 * 8, rest::binary>> -> 
+        deserialize_header(state, 2, csid - 64, timestamp, rest)
+        
+      <<2::2, 1::6, csid::16, 16777215::3 * 8, timestamp::4 * 8, rest::binary>> -> 
+        deserialize_header(state, 2, csid - 64, timestamp, rest)
+        
+      <<2::2, 1::6, csid::16, timestamp::3 * 8, rest::binary>> -> 
+        deserialize_header(state, 2, csid - 64, timestamp, rest)
+        
+      <<2::2, csid::6, 16777215::3 * 8, timestamp::4 * 8, rest::binary>> -> 
+        deserialize_header(state, 2, csid, timestamp, rest)
+        
+      <<2::2, csid::6, timestamp::3 * 8, rest::binary>> -> 
+        deserialize_header(state, 2, csid, timestamp, rest)        
+
+      <<3::2, 0::6, csid::8, rest::binary>> -> deserialize_header(state, 3, csid - 64, rest)
+      <<3::2, 1::6, csid::16, rest::binary>> -> deserialize_header(state, 3, csid - 64, rest)
+      <<3::2, csid::6, rest::binary>> -> deserialize_header(state, 3, csid, rest)
+
+      _ ->
+        if byte_size(state.unparsed_binary) > state.receiving_max_chunk_size * 10 do
+          raise("Too much unparsed binary with the header not matching any known formats")
+        end
+
+        {state, :incomplete}
+    end
+  end
+   
+  defp deserialize_header(state, 0, csid, timestamp, length, message_type_id, sid, remaining_binary) do
+    if byte_size(remaining_binary) < get_expected_chunk_size(state, length) do
+      {state, :incomplete}
     else
-      <<type::2, rest_of_first_byte::6, rest::binary>> = state.unparsed_binary
-      new_state = %{state |
-        current_header: %Header{type: type},
-        unparsed_binary: <<rest_of_first_byte::6, rest::binary>>,
-        parse_stage: :csid
+      header = %Header {
+        csid: csid,
+        timestamp: timestamp,
+        last_timestamp_delta: 0,
+        message_length: length,
+        message_type_id: message_type_id,
+        message_stream_id: sid
       }
 
-      deserialize_csid(new_state)
+      new_state = %{state | received_headers: Map.put(state.received_headers, csid, header)}
+      deserialize_message(new_state, timestamp, message_type_id, sid, length, remaining_binary)
     end
   end
 
-  defp deserialize_csid(state) do
-    case get_csid(state.unparsed_binary) do
-      {:error, :not_enough_binary} ->
-        form_incomplete_result(state)
-
-      {:ok, id, remaining_binary} -> 
-        new_state = %{state |
-          current_header: %{state.current_header | csid: id},
-          unparsed_binary: remaining_binary,
-          parse_stage: :message_header
-        }
-
-        deserialize_message_header(new_state)
-    end    
-  end
-
-  defp get_csid(<<0::6, id::8, rest::binary>>), do: {:ok, id + 64, rest}
-  defp get_csid(<<1::6, id::16, rest::binary>>), do: {:ok, id + 64, rest}
-  defp get_csid(<<id::6, rest::binary>>) when id != 0 and id != 1, do: {:ok, id, rest}
-  defp get_csid(_binary), do: {:error, :not_enough_binary}
-
-  defp deserialize_message_header(state = %State{current_header: %Header{type: 0}, unparsed_binary: <<_::11 * 8, _::binary>>}), do: deserialize_type_0_message_header(state)
-  defp deserialize_message_header(state = %State{current_header: %Header{type: 1}, unparsed_binary: <<_::7 * 8, _::binary>>}), do: deserialize_type_1_message_header(state)
-  defp deserialize_message_header(state = %State{current_header: %Header{type: 2}, unparsed_binary: <<_::3 * 8, _::binary>>}), do: deserialize_type_2_message_header(state)
-  defp deserialize_message_header(state = %State{current_header: %Header{type: 3}}), do: deserialize_type_3_message_header(state)
-  defp deserialize_message_header(state), do: form_incomplete_result(state)
-
-  defp deserialize_type_0_message_header(state) do
-    <<timestamp::3 * 8, length::3 * 8, type_id::1 * 8, stream_id::4 * 8, rest::binary>> = state.unparsed_binary
-    updated_header = %{state.current_header |
-      timestamp: timestamp,
-      last_timestamp_delta: 0,
-      message_length: length,
-      message_type_id: type_id,
-      message_stream_id: stream_id
-    }
-
-    new_state = %{state |
-       parse_stage: :extended_timestamp,
-       current_header: updated_header,
-       unparsed_binary: rest
-    }
-
-    deserialize_extended_timestamp(new_state)
-  end
-
-  defp deserialize_type_1_message_header(state) do
-    previous_header = get_previous_header!(state.received_headers, state.current_header.csid, state.current_header.type)
-    <<delta::3 * 8, length::3 * 8, type_id::1 * 8, rest::binary>> = state.unparsed_binary
-
-    updated_header = %{state.current_header |
-      timestamp: previous_header.timestamp + delta,
-      last_timestamp_delta: delta,
-      message_length: length,
-      message_type_id: type_id,
-      message_stream_id: previous_header.message_stream_id
-    }
-
-    new_state = %{state |
-      parse_stage: :extended_timestamp,
-      current_header: updated_header,
-      unparsed_binary: rest
-    }
-
-    deserialize_extended_timestamp(new_state)
-  end
-
-  defp deserialize_type_2_message_header(state) do
-    previous_header = get_previous_header!(state.received_headers, state.current_header.csid, state.current_header.type)
-    <<delta::3 * 8, rest::binary>> = state.unparsed_binary
-
-    updated_header = %{state.current_header |
-      timestamp: previous_header.timestamp + delta,
-      last_timestamp_delta: delta,
-      message_length: previous_header.message_length,
-      message_type_id: previous_header.message_type_id,
-      message_stream_id: previous_header.message_stream_id
-    }
-
-    new_state = %{state |
-      parse_stage: :extended_timestamp,
-      current_header: updated_header,
-      unparsed_binary: rest
-    }
-
-    deserialize_extended_timestamp(new_state)
-  end
-
-  defp deserialize_type_3_message_header(state) do
-    previous_header = get_previous_header!(state.received_headers, state.current_header.csid, state.current_header.type)
-
-    updated_header = %{state.current_header |
-      timestamp: previous_header.timestamp + previous_header.last_timestamp_delta,
-      last_timestamp_delta: previous_header.last_timestamp_delta,
-      message_length: previous_header.message_length,
-      message_type_id: previous_header.message_type_id,
-      message_stream_id: previous_header.message_stream_id
-    }
-
-    new_state = %{state |
-      parse_stage: :extended_timestamp,
-      current_header: updated_header,
-    }
-
-    deserialize_extended_timestamp(new_state)
-  end
-
-  defp deserialize_extended_timestamp(state) do
-    cond do
-      state.current_header.type == 3 ->
-        %{state | parse_stage: :data} |> deserialize_data()
-
-      state.current_header.type == 0 && state.current_header.timestamp < 16777215 ->
-        %{state | parse_stage: :data} |> deserialize_data()
-      
-      state.current_header.type != 0 && state.current_header.last_timestamp_delta < 16777215 ->
-         %{state | parse_stage: :data} |> deserialize_data()
-
-      byte_size(state.unparsed_binary) < 4 ->
-        form_incomplete_result(state)
-
-      true ->
-        <<extended_timestamp::4 * 8, rest::binary>> = state.unparsed_binary
-        updated_header = adjust_header_for_extended_timestamp(state.current_header, extended_timestamp)
-
-        new_state = %{state |
-          parse_stage: :data,
-          current_header: updated_header,
-          unparsed_binary: rest
-        }
-
-        deserialize_data(new_state)
-    end
-  end
-
-  defp adjust_header_for_extended_timestamp(header, extended_timestamp) do
-    if header.type == 0 do
-      %{header | timestamp: 16777215 + extended_timestamp}
+  defp deserialize_header(state, 1, csid, delta, length, type_id, remaining_binary) do
+    if byte_size(remaining_binary) < get_expected_chunk_size(state, length) do
+      {state, :incomplete}
     else
-      %{header | 
-        last_timestamp_delta: 16777215 + extended_timestamp,
-        timestamp: header.timestamp + extended_timestamp
+      previous_header = get_previous_header!(state.received_headers, csid, 1)
+      updated_header = %{previous_header |
+        timestamp: previous_header.timestamp + delta,
+        last_timestamp_delta: delta,
+        message_length: length,
+        message_type_id: type_id
       }
+
+      new_state = %{state | received_headers: Map.put(state.received_headers, csid, updated_header)}
+      deserialize_message(new_state, updated_header.timestamp, type_id, updated_header.message_stream_id, length, remaining_binary)
     end
   end
 
-  defp deserialize_data(state) do
-    message = if state.incomplete_message != nil do
+  defp deserialize_header(state, 2, csid, delta, remaining_binary) do
+    previous_header = get_previous_header!(state.received_headers, csid, 2)
+    if byte_size(remaining_binary) < get_expected_chunk_size(state, previous_header.message_length) do
+      {state, :incomplete}
+    else
+      updated_header = %{previous_header |
+        timestamp: previous_header.timestamp + delta,
+        last_timestamp_delta: delta 
+      }
+
+      new_state = %{state | received_headers: Map.put(state.received_headers, csid, updated_header)}
+      deserialize_message(new_state, 
+        updated_header.timestamp, 
+        updated_header.message_type_id, 
+        updated_header.message_stream_id, 
+        updated_header.message_length, 
+        remaining_binary)
+    end
+  end
+
+  defp deserialize_header(state, 3, csid, remaining_binary) do
+    previous_header = get_previous_header!(state.received_headers, csid, 3)
+    if byte_size(remaining_binary) < get_expected_chunk_size(state, previous_header.message_length) do
+      {state, :incomplete}
+    else
+      updated_header = %{previous_header |
+        timestamp: previous_header.timestamp + previous_header.last_timestamp_delta,
+      }
+
+      new_state = %{state | received_headers: Map.put(state.received_headers, csid, updated_header)}
+
+      deserialize_message(new_state, 
+        updated_header.timestamp, 
+        updated_header.message_type_id, 
+        updated_header.message_stream_id, 
+        updated_header.message_length, 
+        remaining_binary)
+    end
+  end
+
+  defp deserialize_message(state, timestamp, type_id, stream_id, message_length, remaining_binary) do
+    current_message = if state.incomplete_message != nil do
       state.incomplete_message
     else
-      %RtmpSession.RtmpMessage{
-        timestamp: state.current_header.timestamp,
-        message_type_id: state.current_header.message_type_id
+      %RtmpMessage{
+        timestamp: timestamp,
+        message_type_id: type_id,
+        stream_id: stream_id
       }
     end
 
-    payload_so_far = byte_size(message.payload)
-    full_message_length = state.current_header.message_length
-    length_remaining = full_message_length - payload_so_far
+    payload_so_far = byte_size(current_message.payload)
+    length_remaining = message_length - payload_so_far
     chunk_payload_length = Enum.min([length_remaining, state.receiving_max_chunk_size])
 
-    if byte_size(state.unparsed_binary) < chunk_payload_length do
-      form_incomplete_result(state)
+    deserialize_payload(state, chunk_payload_length, message_length, current_message, remaining_binary)
+  end
+
+  defp deserialize_payload(state, chunk_payload_length, _full_length, _incomplete_message, remaining_binary) 
+    when byte_size(remaining_binary) < chunk_payload_length do
+    
+    {state, :incomplete}
+  end
+
+  defp deserialize_payload(state, chunk_payload_length, full_length, incomplete_message, remaining_binary) do
+    <<payload::size(chunk_payload_length)-binary, rest::binary>> = remaining_binary
+
+    updated_message = %{incomplete_message | payload: incomplete_message.payload <> payload}
+    if byte_size(updated_message.payload) == full_length do
+      new_state = %{state |
+        unparsed_binary: rest,
+        incomplete_message: nil
+      }
+
+      {new_state, updated_message}
     else
-      <<data::size(chunk_payload_length)-binary, rest::binary>> = state.unparsed_binary
+      new_state = %{state |
+        unparsed_binary: rest,
+        incomplete_message: updated_message
+      }
 
-      message = %{message | payload: message.payload <> data}
-      if byte_size(message.payload) == state.current_header.message_length do
-        new_state = %{state |
-          parse_stage: :chunk_type,
-          received_headers: Map.put(state.received_headers, state.current_header.csid, state.current_header),
-          unparsed_binary: rest,
-          incomplete_message: nil
-        }
-
-        form_complete_result(new_state, message)
-      else
-        new_state = %{state |
-          parse_stage: :chunk_type,
-          received_headers: Map.put(state.received_headers, state.current_header.csid, state.current_header),
-          unparsed_binary: rest,
-          incomplete_message: message
-        }
-
-        form_incomplete_result(new_state)
-      end
+      {new_state, :split_message}
     end
   end 
 
@@ -274,8 +252,23 @@ defmodule RtmpSession.ChunkIo do
     end
   end
 
-  defp form_incomplete_result(state), do: {state, :incomplete}
-  defp form_complete_result(state, message), do: {state, message}
+  defp get_expected_chunk_size(state, message_length) do
+    if message_length < state.receiving_max_chunk_size do
+      message_length
+    else
+      bytes_received_so_far = case state.incomplete_message do
+        nil -> 0
+        %RtmpMessage{payload: payload} -> byte_size(payload)
+      end
+
+      bytes_remaining = message_length - bytes_received_so_far
+      if bytes_remaining < state.receiving_max_chunk_size do
+        bytes_remaining
+      else
+        state.receiving_max_chunk_size
+      end
+    end
+  end
 
   ## Serialization Functions  
 

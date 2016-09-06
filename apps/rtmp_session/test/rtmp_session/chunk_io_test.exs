@@ -76,7 +76,7 @@ defmodule RtmpSession.ChunkIoTest do
     end
 
     test "Can read full type 0 chunk with extended timestamp" do
-      binary = <<0::2, 50::6, 16777215::size(3)-unit(8), 100::size(3)-unit(8), 3::8, 55::size(4)-unit(8), 1::size(4)-unit(8), 152::size(100)-unit(8)>>
+      binary = <<0::2, 50::6, 16777215::size(3)-unit(8), 100::size(3)-unit(8), 3::8, 55::size(4)-unit(8), 16777216::size(4)-unit(8), 152::size(100)-unit(8)>>
       result = ChunkIo.new() |> ChunkIo.deserialize(binary)
 
       assert {_, %RtmpMessage{
@@ -87,7 +87,7 @@ defmodule RtmpSession.ChunkIoTest do
     end
 
     test "Can read full type 1 chunk with extended timestamp" do
-      binary = <<1::2, 50::6, 16777215::size(3)-unit(8), 100::size(3)-unit(8), 3::8, 1::size(4)-unit(8), 152::size(100)-unit(8)>>
+      binary = <<1::2, 50::6, 16777215::size(3)-unit(8), 100::size(3)-unit(8), 3::8, 16777216::size(4)-unit(8), 152::size(100)-unit(8)>>
 
       assert {io, %RtmpMessage{}} = ChunkIo.new() |> ChunkIo.deserialize(@previous_chunk_0_binary)
       assert {_, %RtmpMessage{
@@ -98,7 +98,7 @@ defmodule RtmpSession.ChunkIoTest do
     end
 
     test "Can read full type 2 chunk with extended timestamp" do
-      binary = <<2::2, 50::6, 16777215::size(3)-unit(8), 1::size(4)-unit(8), 152::size(100)-unit(8)>>
+      binary = <<2::2, 50::6, 16777215::size(3)-unit(8), 16777216::size(4)-unit(8), 152::size(100)-unit(8)>>
 
       assert {io, %RtmpMessage{}} = ChunkIo.new() |> ChunkIo.deserialize(@previous_chunk_0_binary)
       assert {_, %RtmpMessage{
@@ -132,7 +132,7 @@ defmodule RtmpSession.ChunkIoTest do
     test "Can read message exceeding maximum chunk size" do
       binary1 = <<0::2, 50::6, 72::size(3)-unit(8), 138::size(3)-unit(8), 3::8, 55::size(4)-unit(8), 0::size(128)-unit(8)>>
       binary2 = <<3::2, 50::6, 152::10 * 8>> 
-      assert {io, :incomplete} = ChunkIo.new() |> ChunkIo.deserialize(binary1)
+      assert {io, :split_message} = ChunkIo.new() |> ChunkIo.deserialize(binary1)
 
       assert {_, %RtmpMessage{
         timestamp: 72,
