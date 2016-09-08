@@ -9,7 +9,7 @@ defmodule RtmpSessionTest do
 
     {_session, _reader} = read_data(session, reader)
 
-    # TODO: check for expected queued events
+    # TODO: check for expected events
   end
 
   defp read_data(session, reader) do
@@ -18,7 +18,7 @@ defmodule RtmpSessionTest do
         {session, reader}
 
       {reader, binary} ->
-        session = RtmpSession.process_bytes(session, binary)
+        {session, results} = RtmpSession.process_bytes(session, binary)
         read_data(session, reader) 
     end
   end

@@ -17,8 +17,12 @@ defmodule RtmpSession.Processor do
     %State{}
   end
 
-  @spec handle(%State{}, %RtmpMessage{}) :: [{:response, %RtmpMessage{}} | {:event, RtmpEvents.t} | {:unhandleable, %RtmpMessage{}}]
+  @type handle_result :: {:response, %RtmpMessage{}} |
+    {:event, RtmpEvents.t} |
+    {:unhandleable, %RtmpMessage{}}
+
+  @spec handle(%State{}, %RtmpMessage{}) :: {%State{}, [handle_result]}
   def handle(state = %State{}, message = %RtmpMessage{}) do
-    [{:unhandleable, message}]
+    {state, [{:unhandleable, message}]}
   end
 end
