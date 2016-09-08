@@ -23,6 +23,15 @@ defmodule RtmpSession.Processor do
 
   @spec handle(%State{}, %RtmpMessage{}) :: {%State{}, [handle_result]}
   def handle(state = %State{}, message = %RtmpMessage{}) do
+    {:ok, unpacked_message} = RtmpMessage.unpack(message)
+    do_handle(state, message, unpacked_message)
+  end
+
+  defp do_handle(state, _raw_message, %RtmpSession.Messages.SetChunkSize{size: size}) do
+    {state, [{:event, %RtmpEvents.PeerChunkSizeChanged{new_chunk_size: size}}]}
+  end
+
+  defp do_handle(state, message, _) do
     {state, [{:unhandleable, message}]}
   end
 end

@@ -17,6 +17,7 @@ defmodule RtmpSession do
   alias RtmpSession.SessionResults, as: SessionResults
   alias RtmpSession.RtmpMessage, as: RtmpMessage
   alias RtmpSession.Processor, as: Processor
+  alias RtmpSession.Events, as: RtmpEvents
 
   require Logger
 
@@ -73,6 +74,13 @@ defmodule RtmpSession do
         {chunk_io, data} = ChunkIo.serialize(state.chunk_io, message, 0, false)
         state = %{state | chunk_io: chunk_io}
         results_so_far = %{results_so_far | bytes_to_send: [results_so_far.bytes_to_send | data] }
+        handle_proc_result(state, results_so_far, proc_result_tail)
+
+      {:event, %RtmpEvents.PeerChunkSizeChanged{new_chunk_size: size}} ->
+        _ = Logger.debug "New peer chunk size #{size}"
+        chunk_io = ChunkIo.set_receiving_max_chunk_size(state.chunk_io, size)
+        state = %{state | chunk_io: chunk_io}
+        results_so_far = %{results_so_far | events: [%RtmpEvents.PeerChunkSizeChanged{new_chunk_size: size} | results_so_far.events]}
         handle_proc_result(state, results_so_far, proc_result_tail)
 
       {:event, event} ->
