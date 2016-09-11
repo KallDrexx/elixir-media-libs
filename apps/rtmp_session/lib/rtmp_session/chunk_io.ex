@@ -8,6 +8,8 @@ defmodule RtmpSession.ChunkIo do
   alias RtmpSession.RtmpMessage, as: RtmpMessage
   alias RtmpSession.RtmpTime, as: RtmpTime
 
+  require Logger
+
   defmodule State do
     defstruct receiving_max_chunk_size: 128,
               sending_max_chunk_size: 128,
@@ -27,8 +29,6 @@ defmodule RtmpSession.ChunkIo do
               message_type_id: nil,
               message_stream_id: nil
   end
-
-  require Logger
 
   @spec new() :: %State{}
   def new() do
@@ -59,22 +59,22 @@ defmodule RtmpSession.ChunkIo do
 
   defp do_deserialize(state = %State{}) do
     case state.unparsed_binary do
-      <<0::2, 0::6, csid::8, 16777215::3 * 8, size::3 * 8, message_type_id::8, sid::4 * 8, timestamp::4 * 8, rest::binary>> -> 
+      <<0::2, 0::6, csid::8, 16777215::3 * 8, size::3 * 8, message_type_id::8, sid::size(4)-unit(8)-little, timestamp::4 * 8, rest::binary>> -> 
         deserialize_header(state, 0, csid - 64, timestamp, size, message_type_id, sid, rest)
 
-      <<0::2, 0::6, csid::8, timestamp::3 * 8, size::3 * 8, message_type_id::8, sid::4 * 8, rest::binary>> -> 
+      <<0::2, 0::6, csid::8, timestamp::3 * 8, size::3 * 8, message_type_id::8, sid::size(4)-unit(8)-little, rest::binary>> ->
         deserialize_header(state, 0, csid - 64, timestamp, size, message_type_id, sid, rest)
 
-      <<0::2, 1::6, csid::16, 16777215::3 * 8, size::3 * 8, message_type_id::8, sid::4 * 8, timestamp::4 * 8, rest::binary>> -> 
+      <<0::2, 1::6, csid::16, 16777215::3 * 8, size::3 * 8, message_type_id::8, sid::size(4)-unit(8)-little, timestamp::4 * 8, rest::binary>> ->
         deserialize_header(state, 0, csid - 64, timestamp, size, message_type_id, sid, rest)
 
-      <<0::2, 1::6, csid::16, timestamp::3 * 8, size::3 * 8, message_type_id::8, sid::4 * 8, rest::binary>> -> 
+      <<0::2, 1::6, csid::16, timestamp::3 * 8, size::3 * 8, message_type_id::8, sid::size(4)-unit(8)-little, rest::binary>> ->
         deserialize_header(state, 0, csid - 64, timestamp, size, message_type_id, sid, rest)
 
-      <<0::2, csid::6, 16777215::3 * 8, size::3 * 8, message_type_id::8, sid::4 * 8, timestamp::4 * 8, rest::binary>> -> 
+      <<0::2, csid::6, 16777215::3 * 8, size::3 * 8, message_type_id::8, sid::size(4)-unit(8)-little, timestamp::4 * 8, rest::binary>> ->
         deserialize_header(state, 0, csid, timestamp, size, message_type_id, sid, rest)
 
-      <<0::2, csid::6, timestamp::3 * 8, size::3 * 8, message_type_id::8, sid::4 * 8, rest::binary>> -> 
+      <<0::2, csid::6, timestamp::3 * 8, size::3 * 8, message_type_id::8, sid::size(4)-unit(8)-little, rest::binary>> ->
         deserialize_header(state, 0, csid, timestamp, size, message_type_id, sid, rest)
 
       <<1::2, 0::6, csid::8, 16777215::3 * 8, size::3 * 8, message_type_id::8, timestamp::4 * 8, rest::binary>> -> 
@@ -339,7 +339,7 @@ defmodule RtmpSession.ChunkIo do
         header.timestamp::3 * 8, # TODO: handle extended timestamp
         header.message_length::3 * 8,
         header.message_type_id::1 * 8,
-        header.message_stream_id::4 * 8
+        header.message_stream_id::size(4)-unit(8)-little
       >> <>
       payload
   end

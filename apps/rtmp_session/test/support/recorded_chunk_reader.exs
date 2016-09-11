@@ -18,6 +18,8 @@ defmodule RecordedChunkReader do
   end
 
   def read_next(state = %State{file_queue: [file | rest]}) do
+    Logger.debug "Reading file: #{file}"
+    
     binary = File.read!(state.base_directory <> "/" <> file)
     new_state = %{state | file_queue: rest}
 
