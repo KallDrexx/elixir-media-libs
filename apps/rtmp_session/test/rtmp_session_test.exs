@@ -21,5 +21,7 @@ defmodule RtmpSessionTest do
         {session, results} = RtmpSession.process_bytes(session, binary)
         read_data(session, reader) 
     end
+
+    assert(false)
   end
 end

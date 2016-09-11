@@ -86,10 +86,6 @@ defmodule RtmpSession do
       {:event, event} ->
         results_so_far = %{results_so_far | events: [event | results_so_far.events]}
         handle_proc_result(state, results_so_far, proc_result_tail)
-
-      {:unhandleable, message = %RtmpMessage{}} ->
-        _ = Logger.info "Unable to handle message type #{message.message_type_id} on stream id #{message.stream_id}"
-        handle_proc_result(state, results_so_far, proc_result_tail)
     end
   end
 end
