@@ -53,12 +53,12 @@ defmodule RtmpSession do
     case chunk_result do
       :incomplete -> {state, results_so_far}
       :split_message -> do_process_bytes(state, <<>>, results_so_far)
-      message = %RtmpMessage{} -> act_on_message(state, message, results_so_far)
+      message = %RtmpMessage{} -> act_on_message(state, message, results_so_far, byte_size(binary))
     end
   end
 
-  defp act_on_message(state, message, results_so_far) do
-    {processor, processor_results} = Processor.handle(state.processor, message)
+  defp act_on_message(state, message, results_so_far, bytes_received) do
+    {processor, processor_results} = Processor.handle(state.processor, message, bytes_received)
     state = %{state | processor: processor}
   
     handle_proc_result(state, results_so_far, processor_results)
