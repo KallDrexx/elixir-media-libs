@@ -1,11 +1,15 @@
 defmodule ListAssertions.AssertionError do
   defexception expression: nil,
+               list: nil,
                message: nil
 
-  def exception(value) do
-    msg = "No entries in the list matched the expression: #{value}"
-    %__MODULE__{expression: value, message: msg}
+  def message(exception) do
+    "No entries in the list matched the requested expression:\n\n"  
+      <> "list: #{inspect(exception.list)} \n\n"
+      <> "expression: #{exception.expression}\n"
   end
+
+  
 end
 
 defmodule ListAssertions do
@@ -13,14 +17,17 @@ defmodule ListAssertions do
     quote do
       import ListAssertions
 
-      defp __assert_list_contains([], _fun, expression_as_string) do
-        raise(ListAssertions.AssertionError, expression_as_string)  
+      defp __assert_list_contains([], _fun, expression_as_string, full_list) do
+        raise(ListAssertions.AssertionError, 
+          list: full_list,
+          expression: expression_as_string,
+          message: "No entries matched the passed in expression")
       end
 
-      defp __assert_list_contains([head | tail], test_fun, expression_as_string) do
+      defp __assert_list_contains([head | tail], test_fun, expression_as_string, full_list) do
         case test_fun.(head) do
           true -> :ok
-          false -> __assert_list_contains(tail, test_fun, expression_as_string)
+          false -> __assert_list_contains(tail, test_fun, expression_as_string, full_list)
         end
       end
     end
@@ -39,7 +46,11 @@ defmodule ListAssertions do
     end 
 
     quote do
-      __assert_list_contains(unquote(list), unquote(test_fun), unquote(string_representation))
+      __assert_list_contains(
+        unquote(list), 
+        unquote(test_fun), 
+        unquote(string_representation),
+        unquote(list))
     end
   end
 end

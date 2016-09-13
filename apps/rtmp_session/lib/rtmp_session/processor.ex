@@ -11,6 +11,8 @@ defmodule RtmpSession.Processor do
 
   require Logger
 
+  @type handle_result :: {:response, %RtmpMessage{}} | {:event, RtmpEvents.t}
+
   defmodule State do
     defstruct current_stage: :started
   end
@@ -19,8 +21,6 @@ defmodule RtmpSession.Processor do
   def new() do
     %State{}
   end
-
-  @type handle_result :: {:response, %RtmpMessage{}} | {:event, RtmpEvents.t} 
 
   @spec handle(%State{}, %RtmpMessage{}) :: {%State{}, [handle_result]}
   def handle(state = %State{}, message = %RtmpMessage{}) do
@@ -32,7 +32,7 @@ defmodule RtmpSession.Processor do
   end
 
   defp do_handle(state, _raw_message, %RtmpMessages.SetChunkSize{size: size}) do
-    {state, [{:event, %RtmpEvents.PeerChunkSizeChanged{new_chunk_size: size}}]}
+    {state, [{:event, 123}, {:event, %RtmpEvents.PeerChunkSizeChanged{new_chunk_size: size}}]}
   end
 
   defp do_handle(state, message, %{__struct__: message_type}) do
