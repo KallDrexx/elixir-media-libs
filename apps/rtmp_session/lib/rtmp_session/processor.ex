@@ -25,12 +25,12 @@ defmodule RtmpSession.Processor do
     %State{}
   end
 
-  @spec handle(%State{}, %RtmpMessage{}, non_neg_integer()) :: {%State{}, [handle_result]}
-  def handle(state = %State{}, message = %RtmpMessage{}, bytes_received) do
+  @spec notify_bytes_received(%State{}, non_neg_integer()) :: {%State{}, [handle_result]}
+  def notify_bytes_received(state = %State{}, bytes_received) do
     state = %{state | peer_bytes_received: state.peer_bytes_received + bytes_received}
-
     bytes_since_last_ack = state.peer_bytes_received - state.last_acknowledgement_sent_at
-    {state, initial_results} = cond do
+    
+    cond do
       state.peer_window_ack_size == nil ->
         {state, []}
 
@@ -42,29 +42,32 @@ defmodule RtmpSession.Processor do
         ack_message = %RtmpMessages.Acknowledgement{sequence_number: state.peer_bytes_received}
         results = [{:response, serialize_message(state, ack_message, 0)}]
         {state, results}
-    end    
+    end
+  end
 
+  @spec handle(%State{}, %RtmpMessage{}) :: {%State{}, [handle_result]}
+  def handle(state = %State{}, message = %RtmpMessage{}) do
     case RtmpMessage.unpack(message) do
-      {:ok, unpacked_message} -> do_handle(state, message, unpacked_message, initial_results)
+      {:ok, unpacked_message} -> do_handle(state, message, unpacked_message)
       {:error, :unknown_message_type} -> 
         _ = Logger.info "No known way to unpack message type #{message.message_type_id}"  
     end
   end
 
-  defp do_handle(state, _raw_message, %RtmpMessages.SetChunkSize{size: size}, results_so_far) do
-    {state, [{:event, %RtmpEvents.PeerChunkSizeChanged{new_chunk_size: size}} | results_so_far]}
+  defp do_handle(state, _raw_message, %RtmpMessages.SetChunkSize{size: size}) do
+    {state, [{:event, %RtmpEvents.PeerChunkSizeChanged{new_chunk_size: size}}]}
   end
 
-  defp do_handle(state, _raw_message, %RtmpMessages.WindowAcknowledgementSize{size: size}, results_so_far) do
+  defp do_handle(state, _raw_message, %RtmpMessages.WindowAcknowledgementSize{size: size}) do
     state = %{state | peer_window_ack_size: size}
-    {state, results_so_far}
+    {state, []}
   end
 
-  defp do_handle(state, message, %{__struct__: message_type}, results_so_far) do
+  defp do_handle(state, message, %{__struct__: message_type}) do
     simple_name = String.replace(to_string(message_type), "Elixir.RtmpSession.Messages.", "")
 
     _ = Logger.info "Unable to handle #{simple_name} message on stream id #{message.stream_id}"
-    {state, results_so_far}
+    {state, []}
   end
   
   defp serialize_message(state, message, stream_id) do

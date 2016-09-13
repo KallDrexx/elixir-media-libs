@@ -51,17 +51,34 @@ defmodule RtmpSession do
     state = %{state | chunk_io: chunk_io}
 
     case chunk_result do
-      :incomplete -> {state, results_so_far}
+      :incomplete -> return_incomplete_result(state, results_so_far, byte_size(binary))
       :split_message -> do_process_bytes(state, <<>>, results_so_far)
       message = %RtmpMessage{} -> act_on_message(state, message, results_so_far, byte_size(binary))
     end
   end
 
+  defp return_incomplete_result(state, session_results, bytes_received) do
+    {processor, proc_results} = Processor.notify_bytes_received(state.processor, bytes_received)
+    state = %{state | processor: processor}
+
+    handle_proc_result(state, session_results, proc_results)
+  end
+
+  defp repeat_process_bytes(state, session_results, bytes_received) do
+    {processor, proc_results} = Processor.notify_bytes_received(state.processor, bytes_received)
+    state = %{state | processor: processor}
+
+    {state, session_results} = handle_proc_result(state, session_results, proc_results)
+    
+    do_process_bytes(state, <<>>, session_results)
+  end
+
   defp act_on_message(state, message, results_so_far, bytes_received) do
-    {processor, processor_results} = Processor.handle(state.processor, message, bytes_received)
+    {processor, notify_results} = Processor.notify_bytes_received(state.processor, bytes_received)
+    {processor, processor_results} = Processor.handle(processor, message)
     state = %{state | processor: processor}
   
-    handle_proc_result(state, results_so_far, processor_results)
+    handle_proc_result(state, results_so_far, processor_results ++ notify_results)
   end
 
   defp handle_proc_result(state, results_so_far, []) do
