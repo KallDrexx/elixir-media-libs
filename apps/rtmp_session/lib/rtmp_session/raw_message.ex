@@ -19,7 +19,7 @@ defmodule RtmpSession.RawMessage do
             payload: <<>>
 
   @callback deserialize(binary) :: any
-  @callback serialize(struct()) :: {:ok, <<>>}
+  @callback serialize(struct()) :: {:ok, binary()}
   @callback get_default_chunk_stream_id(struct()) :: pos_integer()
 
   @doc "Unpacks the specified RTMP message into it's proper structure"
