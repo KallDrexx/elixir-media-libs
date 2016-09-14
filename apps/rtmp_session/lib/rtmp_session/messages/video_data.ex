@@ -3,7 +3,7 @@ defmodule RtmpSession.Messages.VideoData do
   Data structure containing video data
   """  
   
-  @behaviour RtmpSession.RtmpMessage
+  #@behaviour RtmpSession.RawMessage
   @type t :: %__MODULE__{}
   
   defstruct data: <<>>
@@ -13,10 +13,7 @@ defmodule RtmpSession.Messages.VideoData do
   end
   
   def serialize(%__MODULE__{data: data}) do    
-    {:ok, %RtmpSession.RtmpMessage{
-      message_type_id: 9,
-      payload: data
-    }} 
+    {:ok, data}
   end
   
   def get_default_chunk_stream_id(%__MODULE__{}),  do: 4

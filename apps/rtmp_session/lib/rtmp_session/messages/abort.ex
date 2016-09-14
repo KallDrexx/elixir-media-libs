@@ -7,7 +7,7 @@ defmodule RtmpSession.Messages.Abort do
   
   """
   
-  @behaviour RtmpSession.RtmpMessage
+  @behaviour RtmpSession.RawMessage
   @type t :: %__MODULE__{}
   
   defstruct stream_id: nil
@@ -19,10 +19,7 @@ defmodule RtmpSession.Messages.Abort do
   end
   
   def serialize(message = %__MODULE__{}) do
-    {:ok, %RtmpSession.RtmpMessage{
-      message_type_id: 2,
-      payload: <<message.stream_id::size(4)-unit(8)>>
-    }}
+    {:ok, <<message.stream_id::size(4)-unit(8)>>}
   end
   
   def get_default_chunk_stream_id(%__MODULE__{}),  do: 2

@@ -1,6 +1,6 @@
 defmodule RtmpSession.ChunkIoTest do
   use ExUnit.Case, async: true
-  alias RtmpSession.RtmpMessage, as: RtmpMessage
+  alias RtmpSession.RawMessage, as: RawMessage
   alias RtmpSession.ChunkIo, as: ChunkIo
 
   @previous_chunk_0_binary <<0::2, 50::6, 100::size(3)-unit(8), 100::size(3)-unit(8), 3::8, 55::size(4)-unit(8)-little, 152::size(100)-unit(8)>>
@@ -12,7 +12,7 @@ defmodule RtmpSession.ChunkIoTest do
       binary = <<0::2, 50::6, 72::size(3)-unit(8), 100::size(3)-unit(8), 3::8, 55::size(4)-unit(8)-little, 152::size(100)-unit(8)>>
       result = ChunkIo.new() |> ChunkIo.deserialize(binary)
 
-      assert {_, %RtmpMessage{
+      assert {_, %RawMessage{
         timestamp: 72,
         message_type_id: 3,
         stream_id: 55,
@@ -24,7 +24,7 @@ defmodule RtmpSession.ChunkIoTest do
       binary = <<0::2, 0::6, 200::8, 72::size(3)-unit(8), 100::size(3)-unit(8), 3::8, 55::size(4)-unit(8)-little, 152::size(100)-unit(8)>>
       result = ChunkIo.new() |> ChunkIo.deserialize(binary)
 
-      assert {_, %RtmpMessage{
+      assert {_, %RawMessage{
         timestamp: 72,
         message_type_id: 3,
         stream_id: 55,
@@ -36,7 +36,7 @@ defmodule RtmpSession.ChunkIoTest do
       binary = <<0::2, 1::6, 60001::16, 72::size(3)-unit(8), 100::size(3)-unit(8), 3::8, 55::size(4)-unit(8)-little, 152::size(100)-unit(8)>>
       result = ChunkIo.new() |> ChunkIo.deserialize(binary)
 
-      assert {_, %RtmpMessage{
+      assert {_, %RawMessage{
         timestamp: 72,
         message_type_id: 3,
         stream_id: 55,
@@ -47,8 +47,8 @@ defmodule RtmpSession.ChunkIoTest do
     test "Can read full type 1 chunk" do
       binary = <<1::2, 50::6, 72::size(3)-unit(8), 100::size(3)-unit(8), 3::8, 152::size(100)-unit(8)>>
       
-      assert {io, %RtmpMessage{}} = ChunkIo.new() |> ChunkIo.deserialize(@previous_chunk_0_binary)
-      assert {_, %RtmpMessage{
+      assert {io, %RawMessage{}} = ChunkIo.new() |> ChunkIo.deserialize(@previous_chunk_0_binary)
+      assert {_, %RawMessage{
         timestamp: 172,
         message_type_id: 3,
         stream_id: 55,
@@ -59,8 +59,8 @@ defmodule RtmpSession.ChunkIoTest do
     test "Can read full type 2 chunk" do
       binary = <<2::2, 50::6, 72::size(3)-unit(8), 152::size(100)-unit(8)>>
       
-      assert {io, %RtmpMessage{}} = ChunkIo.new() |> ChunkIo.deserialize(@previous_chunk_0_binary)
-      assert {_, %RtmpMessage{
+      assert {io, %RawMessage{}} = ChunkIo.new() |> ChunkIo.deserialize(@previous_chunk_0_binary)
+      assert {_, %RawMessage{
         timestamp: 172,
         message_type_id: 3,
         stream_id: 55,
@@ -71,9 +71,9 @@ defmodule RtmpSession.ChunkIoTest do
     test "Can read full type 3 chunk" do
       binary = <<3::2, 50::6, 152::size(100)-unit(8)>>
       
-      assert {io, %RtmpMessage{}} = ChunkIo.new() |> ChunkIo.deserialize(@previous_chunk_0_binary)
-      assert {io, %RtmpMessage{}} = ChunkIo.deserialize(io, @previous_chunk_1_binary)
-      assert {_, %RtmpMessage{
+      assert {io, %RawMessage{}} = ChunkIo.new() |> ChunkIo.deserialize(@previous_chunk_0_binary)
+      assert {io, %RawMessage{}} = ChunkIo.deserialize(io, @previous_chunk_1_binary)
+      assert {_, %RawMessage{
         timestamp: 244,
         message_type_id: 3,
         stream_id: 55,
@@ -85,7 +85,7 @@ defmodule RtmpSession.ChunkIoTest do
       binary = <<0::2, 50::6, 16777215::size(3)-unit(8), 100::size(3)-unit(8), 3::8, 55::size(4)-unit(8)-little, 16777216::size(4)-unit(8), 152::size(100)-unit(8)>>
       result = ChunkIo.new() |> ChunkIo.deserialize(binary)
 
-      assert {_, %RtmpMessage{
+      assert {_, %RawMessage{
         timestamp: 16777216,
         message_type_id: 3,
         stream_id: 55,
@@ -96,8 +96,8 @@ defmodule RtmpSession.ChunkIoTest do
     test "Can read full type 1 chunk with extended timestamp" do
       binary = <<1::2, 50::6, 16777215::size(3)-unit(8), 100::size(3)-unit(8), 3::8, 16777216::size(4)-unit(8), 152::size(100)-unit(8)>>
 
-      assert {io, %RtmpMessage{}} = ChunkIo.new() |> ChunkIo.deserialize(@previous_chunk_0_binary)
-      assert {_, %RtmpMessage{
+      assert {io, %RawMessage{}} = ChunkIo.new() |> ChunkIo.deserialize(@previous_chunk_0_binary)
+      assert {_, %RawMessage{
         timestamp: 16777316,
         message_type_id: 3,
         stream_id: 55,
@@ -108,8 +108,8 @@ defmodule RtmpSession.ChunkIoTest do
     test "Can read full type 2 chunk with extended timestamp" do
       binary = <<2::2, 50::6, 16777215::size(3)-unit(8), 16777216::size(4)-unit(8), 152::size(100)-unit(8)>>
 
-      assert {io, %RtmpMessage{}} = ChunkIo.new() |> ChunkIo.deserialize(@previous_chunk_0_binary)
-      assert {_, %RtmpMessage{
+      assert {io, %RawMessage{}} = ChunkIo.new() |> ChunkIo.deserialize(@previous_chunk_0_binary)
+      assert {_, %RawMessage{
         timestamp: 16777316,
         message_type_id: 3,
         stream_id: 55,
@@ -131,7 +131,7 @@ defmodule RtmpSession.ChunkIoTest do
       io = ChunkIo.new()
       assert {io, :incomplete} = ChunkIo.deserialize(io, binary1)
       assert {io, :incomplete} = ChunkIo.deserialize(io, binary2)
-      assert {_, %RtmpMessage{
+      assert {_, %RawMessage{
         timestamp: 72,
         message_type_id: 3,
         stream_id: 55,
@@ -144,7 +144,7 @@ defmodule RtmpSession.ChunkIoTest do
       binary2 = <<3::2, 50::6, 152::10 * 8>> 
       assert {io, :split_message} = ChunkIo.new() |> ChunkIo.deserialize(binary1)
 
-      assert {_, %RtmpMessage{
+      assert {_, %RawMessage{
         timestamp: 72,
         message_type_id: 3,
         stream_id: 55,
@@ -159,7 +159,7 @@ defmodule RtmpSession.ChunkIoTest do
         |> ChunkIo.set_receiving_max_chunk_size(201) 
         |> ChunkIo.deserialize(binary)
 
-      assert {_, %RtmpMessage{
+      assert {_, %RawMessage{
         timestamp: 72,
         message_type_id: 3,
         stream_id: 55,
@@ -171,7 +171,7 @@ defmodule RtmpSession.ChunkIoTest do
   describe "Serialization" do
 
     test "Serialize: Initial chunk for csid" do
-      message = %RtmpSession.RtmpMessage{
+      message = %RawMessage{
         timestamp: 72,
         message_type_id: 3,
         stream_id: 55,
@@ -187,14 +187,14 @@ defmodule RtmpSession.ChunkIoTest do
     end
     
     test "Serialize: 2nd chunk, same sid, different message length" do
-      message1 = %RtmpSession.RtmpMessage{
+      message1 = %RawMessage{
         timestamp: 72,
         message_type_id: 3,
         stream_id: 55,
         payload: <<152::size(100)-unit(8)>>
       }
 
-      message2 = %RtmpSession.RtmpMessage{
+      message2 = %RawMessage{
         timestamp: 82,
         message_type_id: 3,
         stream_id: 55,
@@ -211,14 +211,14 @@ defmodule RtmpSession.ChunkIoTest do
     end
     
     test "Serialize: 2nd chunk, same sid, message length, and type id" do
-      message1 = %RtmpSession.RtmpMessage{
+      message1 = %RawMessage{
         timestamp: 72,
         message_type_id: 3,
         stream_id: 55,
         payload: <<152::size(100)-unit(8)>>
       }
 
-      message2 = %RtmpSession.RtmpMessage{
+      message2 = %RawMessage{
         timestamp: 82,
         message_type_id: 3,
         stream_id: 55,
@@ -234,21 +234,21 @@ defmodule RtmpSession.ChunkIoTest do
     end
     
     test "Serialize: 3rd chunk, same sid, length, typeid, and timestamp delta" do
-      message1 = %RtmpSession.RtmpMessage{
+      message1 = %RawMessage{
         timestamp: 72,
         message_type_id: 3,
         stream_id: 55,
         payload: <<152::size(100)-unit(8)>>
       }
 
-      message2 = %RtmpSession.RtmpMessage{
+      message2 = %RawMessage{
         timestamp: 82,
         message_type_id: 3,
         stream_id: 55,
         payload: <<152::size(100)-unit(8)>>
       }
 
-      message3 = %RtmpSession.RtmpMessage{
+      message3 = %RawMessage{
         timestamp: 92,
         message_type_id: 3,
         stream_id: 55,
@@ -264,14 +264,14 @@ defmodule RtmpSession.ChunkIoTest do
     end
     
     test "Serialize: Can force no header compression" do
-      message1 = %RtmpSession.RtmpMessage{
+      message1 = %RawMessage{
         timestamp: 72,
         message_type_id: 3,
         stream_id: 55,
         payload: <<152::size(100)-unit(8)>>
       }
 
-      message2 = %RtmpSession.RtmpMessage{
+      message2 = %RawMessage{
         timestamp: 82,
         message_type_id: 3,
         stream_id: 55,
@@ -288,7 +288,7 @@ defmodule RtmpSession.ChunkIoTest do
     end
 
     test "Serialize: Messages larger than max chunk size are split" do
-      message = %RtmpSession.RtmpMessage{
+      message = %RawMessage{
         timestamp: 72,
         message_type_id: 3,
         stream_id: 55,

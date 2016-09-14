@@ -5,7 +5,7 @@ defmodule RtmpSession.Messages.Amf0Command do
   
   """
   
-  @behaviour RtmpSession.RtmpMessage
+  @behaviour RtmpSession.RawMessage
   @type t :: %__MODULE__{}
   
   defstruct command_name: nil,
@@ -27,12 +27,8 @@ defmodule RtmpSession.Messages.Amf0Command do
   
   def serialize(message = %__MODULE__{}) do
     objects = [message.command_name, message.transaction_id, message.command_object | message.additional_values]
-    binary = Amf0.serialize(objects)
     
-    {:ok, %RtmpSession.RtmpMessage{
-      message_type_id: 20,
-      payload: binary
-    }} 
+    {:ok, Amf0.serialize(objects)} 
   end
   
   def get_default_chunk_stream_id(%__MODULE__{}),  do: 3

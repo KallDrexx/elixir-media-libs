@@ -8,7 +8,7 @@ defmodule RtmpSession.Messages.Acknowledgement do
   
   """
   
-  @behaviour RtmpSession.RtmpMessage
+  @behaviour RtmpSession.RawMessage
   @type t :: %__MODULE__{}
   
   defstruct sequence_number: 0
@@ -20,10 +20,7 @@ defmodule RtmpSession.Messages.Acknowledgement do
   end
   
   def serialize(message = %__MODULE__{}) do
-    {:ok, %RtmpSession.RtmpMessage{
-      message_type_id: 3,
-      payload: <<message.sequence_number::32>>
-    }}
+    {:ok, <<message.sequence_number::32>>}
   end
   
   def get_default_chunk_stream_id(%__MODULE__{}),  do: 2

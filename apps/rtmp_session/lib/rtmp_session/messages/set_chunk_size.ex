@@ -5,8 +5,10 @@ defmodule RtmpSession.Messages.SetChunkSize do
   
   """
   
-  @behaviour RtmpSession.RtmpMessage
-  @type t :: %__MODULE__{}
+  @behaviour RtmpSession.RawMessage
+  @type t :: %__MODULE__{
+    size: non_neg_integer()
+  }
   
   defstruct size: 128
   
@@ -17,10 +19,7 @@ defmodule RtmpSession.Messages.SetChunkSize do
   end
   
   def serialize(message = %__MODULE__{}) do
-    {:ok, %RtmpSession.RtmpMessage{
-      message_type_id: 1,
-      payload: <<0::1, message.size::31>>
-    }}
+    {:ok, <<0::1, message.size::31>>}
   end
   
   def get_default_chunk_stream_id(%__MODULE__{}),  do: 2  

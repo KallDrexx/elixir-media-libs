@@ -5,7 +5,7 @@ defmodule RtmpSession.ChunkIo do
   serializing RTMP messages into binary RTMP chunks  
   """
 
-  alias RtmpSession.RtmpMessage, as: RtmpMessage
+  alias RtmpSession.RawMessage, as: RawMessage
   alias RtmpSession.RtmpTime, as: RtmpTime
 
   require Logger
@@ -45,13 +45,13 @@ defmodule RtmpSession.ChunkIo do
     %{state | sending_max_chunk_size: size}
   end
 
-  @spec deserialize(%State{}, <<>>) :: {%State{}, :incomplete} | {%State{}, :split_message} | {%State{}, %RtmpMessage{}} 
+  @spec deserialize(%State{}, <<>>) :: {%State{}, :incomplete} | {%State{}, :split_message} | {%State{}, %RawMessage{}} 
   def deserialize(state = %State{}, binary) when is_binary(binary) do
     do_deserialize(%{state | unparsed_binary: state.unparsed_binary <> binary})
   end
 
-  @spec serialize(%State{}, %RtmpMessage{}, non_neg_integer(), boolean()) :: {%State{}, iodata()}
-  def serialize(state = %State{}, message = %RtmpMessage{}, csid, force_uncompressed \\ false) do
+  @spec serialize(%State{}, %RawMessage{}, non_neg_integer(), boolean()) :: {%State{}, iodata()}
+  def serialize(state = %State{}, message = %RawMessage{}, csid, force_uncompressed \\ false) do
     do_serialize(state, message, csid, force_uncompressed)    
   end
 
@@ -205,7 +205,7 @@ defmodule RtmpSession.ChunkIo do
     current_message = if state.incomplete_message != nil do
       state.incomplete_message
     else
-      %RtmpMessage{
+      %RawMessage{
         timestamp: timestamp,
         message_type_id: type_id,
         stream_id: stream_id
@@ -259,7 +259,7 @@ defmodule RtmpSession.ChunkIo do
     else
       bytes_received_so_far = case state.incomplete_message do
         nil -> 0
-        %RtmpMessage{payload: payload} -> byte_size(payload)
+        %RawMessage{payload: payload} -> byte_size(payload)
       end
 
       bytes_remaining = message_length - bytes_received_so_far

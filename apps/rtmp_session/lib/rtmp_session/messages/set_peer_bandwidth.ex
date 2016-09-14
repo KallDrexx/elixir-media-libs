@@ -9,7 +9,7 @@ defmodule RtmpSession.Messages.SetPeerBandwidth do
   
   defstruct window_size: 0, limit_type: nil
   
-  @behaviour RtmpSession.RtmpMessage
+  #@behaviour RtmpSession.RawMessage
   @type t :: %__MODULE__{}
   
   def deserialize(data) do
@@ -25,10 +25,7 @@ defmodule RtmpSession.Messages.SetPeerBandwidth do
       :dynamic -> 2
     end
     
-    {:ok, %RtmpSession.RtmpMessage{
-      message_type_id: 6,
-      payload: <<message.window_size::32, type::8>>
-    }}
+    {:ok, <<message.window_size::32, type::8>>}
   end
   
   def get_default_chunk_stream_id(%__MODULE__{}),  do: 2

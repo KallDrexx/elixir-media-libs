@@ -12,7 +12,9 @@ defmodule RtmpSession.Mixfile do
      build_embedded: Mix.env == :prod,
      start_permanent: Mix.env == :prod,
      deps: deps,
-     dialyzer: [plt_add_deps: true]
+     dialyzer: [
+       plt_add_deps: true
+      ]
     ]
   end
 
@@ -39,7 +41,7 @@ defmodule RtmpSession.Mixfile do
   defp deps do
     [
       {:amf0, in_umbrella: true},
-      {:dialyxir, "~> 0.3", only: [:dev]}
+      {:dialyxir, "~> 0.3.5", only: [:dev]}
     ]
   end
 end

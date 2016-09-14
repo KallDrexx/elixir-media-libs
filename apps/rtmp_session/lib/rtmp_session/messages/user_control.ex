@@ -5,7 +5,7 @@ defmodule RtmpSession.Messages.UserControl do
   
   """
   
-  @behaviour RtmpSession.RtmpMessage
+  #@behaviour RtmpSession.RawMessage
   @type t :: %__MODULE__{}
   
   defstruct type: nil,
@@ -20,10 +20,7 @@ defmodule RtmpSession.Messages.UserControl do
   end
   
   def serialize(message = %__MODULE__{}) do
-    {:ok, %RtmpSession.RtmpMessage{
-      message_type_id: 4,
-      payload: serialize_data(message)
-    }}
+    {:ok, serialize_data(message)}
   end
   
   def get_default_chunk_stream_id(%__MODULE__{}),  do: 2

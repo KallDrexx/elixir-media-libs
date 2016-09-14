@@ -15,11 +15,22 @@ defmodule RtmpSession do
 
   alias RtmpSession.ChunkIo, as: ChunkIo
   alias RtmpSession.SessionResults, as: SessionResults
-  alias RtmpSession.RtmpMessage, as: RtmpMessage
+  alias RtmpSession.RawMessage, as: RawMessage
   alias RtmpSession.Processor, as: Processor
   alias RtmpSession.Events, as: RtmpEvents
 
   require Logger
+
+  @type deserialized_message :: RtmpSession.Messages.SetChunkSize.t |
+    RtmpSession.Messages.Abort.t |
+    RtmpSession.Messages.Acknowledgement.t |
+    RtmpSession.Messages.UserControl.t |
+    RtmpSession.Messages.WindowAcknowledgementSize.t |
+    RtmpSession.Messages.SetPeerBandwidth.t |
+    RtmpSession.Messages.AudioData.t |
+    RtmpSession.Messages.VideoData.t |
+    RtmpSession.Messages.Amf0Command.t |
+    RtmpSession.Messages.Amf0Data.t
 
   defmodule State do
     defstruct self_epoch: nil,
@@ -52,8 +63,8 @@ defmodule RtmpSession do
 
     case chunk_result do
       :incomplete -> return_incomplete_result(state, results_so_far, byte_size(binary))
-      :split_message -> do_process_bytes(state, <<>>, results_so_far)
-      message = %RtmpMessage{} -> act_on_message(state, message, results_so_far, byte_size(binary))
+      :split_message -> repeat_process_bytes(state, results_so_far, byte_size(binary))
+      raw_message = %RawMessage{} -> act_on_message(state, raw_message, results_so_far, byte_size(binary))
     end
   end
 
@@ -73,12 +84,18 @@ defmodule RtmpSession do
     do_process_bytes(state, <<>>, session_results)
   end
 
-  defp act_on_message(state, message, results_so_far, bytes_received) do
-    {processor, notify_results} = Processor.notify_bytes_received(state.processor, bytes_received)
-    {processor, processor_results} = Processor.handle(processor, message)
-    state = %{state | processor: processor}
-  
-    handle_proc_result(state, results_so_far, processor_results ++ notify_results)
+  defp act_on_message(state, raw_message, results_so_far, bytes_received) do
+    case RawMessage.unpack(raw_message) do
+      {:error, :unknown_message_type} ->
+        _ = Logger.error "Received message of type #{raw_message.message_type_id} but we have no known way to unpack it!"
+
+      {:ok, message} ->
+        {processor, notify_results} = Processor.notify_bytes_received(state.processor, bytes_received)
+        {processor, processor_results} = Processor.handle(processor, message)
+        state = %{state | processor: processor}
+      
+        handle_proc_result(state, results_so_far, processor_results ++ notify_results)
+    end
   end
 
   defp handle_proc_result(state, results_so_far, []) do
@@ -87,7 +104,7 @@ defmodule RtmpSession do
 
   defp handle_proc_result(state, results_so_far, [proc_result_head | proc_result_tail]) do
     case proc_result_head do
-      {:response, message = %RtmpMessage{}} -> 
+      {:response, message = %RawMessage{}} -> 
         {chunk_io, data} = ChunkIo.serialize(state.chunk_io, message, 0, false)
         state = %{state | chunk_io: chunk_io}
         results_so_far = %{results_so_far | bytes_to_send: [results_so_far.bytes_to_send | data] }

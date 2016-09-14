@@ -3,7 +3,7 @@ defmodule RtmpSession.Messages.Amf0Data do
   Data structure containing metadata or user data, encoded in Amf0
   """  
   
-  @behaviour RtmpSession.RtmpMessage
+  @behaviour RtmpSession.RawMessage
   @type t :: %__MODULE__{}
   
   defstruct parameters: []
@@ -14,13 +14,8 @@ defmodule RtmpSession.Messages.Amf0Data do
     %__MODULE__{parameters: objects}
   end
   
-  def serialize(%__MODULE__{parameters: params}) do
-    binary = Amf0.serialize(params)
-    
-    {:ok, %RtmpSession.RtmpMessage{
-      message_type_id: 18,
-      payload: binary
-    }} 
+  def serialize(%__MODULE__{parameters: params}) do   
+    {:ok, Amf0.serialize(params)} 
   end
   
   def get_default_chunk_stream_id(%__MODULE__{}),  do: 3

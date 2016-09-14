@@ -7,7 +7,7 @@ defmodule RtmpSession.Messages.WindowAcknowledgementSize do
   
   """
   
-  @behaviour RtmpSession.RtmpMessage
+  #@behaviour RtmpSession.RawMessage
   @type t :: %__MODULE__{}
   
   defstruct size: 0
@@ -19,10 +19,7 @@ defmodule RtmpSession.Messages.WindowAcknowledgementSize do
   end
   
   def serialize(message = %__MODULE__{}) do
-    {:ok, %RtmpSession.RtmpMessage{
-      message_type_id: 5,
-      payload: <<message.size::32>>
-    }}
+    {:ok, <<message.size::32>>}
   end
   
   def get_default_chunk_stream_id(%__MODULE__{}),  do: 2
