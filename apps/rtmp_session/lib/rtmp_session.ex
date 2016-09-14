@@ -16,6 +16,7 @@ defmodule RtmpSession do
   alias RtmpSession.ChunkIo, as: ChunkIo
   alias RtmpSession.SessionResults, as: SessionResults
   alias RtmpSession.RawMessage, as: RawMessage
+  alias RtmpSession.DetailedMessage, as: DetailedMessage
   alias RtmpSession.Processor, as: Processor
   alias RtmpSession.Events, as: RtmpEvents
 
@@ -104,7 +105,8 @@ defmodule RtmpSession do
 
   defp handle_proc_result(state, results_so_far, [proc_result_head | proc_result_tail]) do
     case proc_result_head do
-      {:response, message = %RawMessage{}} -> 
+      {:response, message = %DetailedMessage{}} ->
+        raw_message = RawMessage.pack(message) 
         {chunk_io, data} = ChunkIo.serialize(state.chunk_io, message, 0, false)
         state = %{state | chunk_io: chunk_io}
         results_so_far = %{results_so_far | bytes_to_send: [results_so_far.bytes_to_send | data] }
