@@ -19,6 +19,7 @@ defmodule RtmpSession do
   alias RtmpSession.DetailedMessage, as: DetailedMessage
   alias RtmpSession.Processor, as: Processor
   alias RtmpSession.Events, as: RtmpEvents
+  alias RtmpSession.SessionConfig, as: SessionConfig
 
   require Logger
 
@@ -46,7 +47,7 @@ defmodule RtmpSession do
       peer_initial_time: peer_initial_time,
       self_epoch: :erlang.system_time(:milli_seconds),
       chunk_io: ChunkIo.new(),
-      processor: Processor.new()
+      processor: Processor.new(%SessionConfig{})
     }
   end
 

@@ -26,8 +26,8 @@ defmodule ListAssertions do
 
       defp __assert_list_contains([head | tail], test_fun, expression_as_string, full_list) do
         case test_fun.(head) do
-          true -> :ok
-          false -> __assert_list_contains(tail, test_fun, expression_as_string, full_list)
+          {:ok, item} -> item
+          nil -> __assert_list_contains(tail, test_fun, expression_as_string, full_list)
         end
       end
     end
@@ -39,8 +39,8 @@ defmodule ListAssertions do
     test_fun = quote do
       fn(item) -> 
         case item do
-          unquote(match_expression) -> true
-          _ -> false
+          unquote(match_expression) -> {:ok, item}
+          _ -> nil
         end
       end
     end 

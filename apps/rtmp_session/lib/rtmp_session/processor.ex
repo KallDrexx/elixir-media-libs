@@ -8,6 +8,7 @@ defmodule RtmpSession.Processor do
   alias RtmpSession.DetailedMessage, as: DetailedMessage
   alias RtmpSession.Messages, as: MessageTypes
   alias RtmpSession.Events, as: RtmpEvents
+  alias RtmpSession.SessionConfig, as: SessionConfig
 
   require Logger
 
@@ -17,12 +18,15 @@ defmodule RtmpSession.Processor do
     defstruct current_stage: :started,
       peer_window_ack_size: nil,
       peer_bytes_received: 0,
-      last_acknowledgement_sent_at: 0 
+      last_acknowledgement_sent_at: 0,
+      configuration: nil 
   end
 
-  @spec new() :: %State{}
-  def new() do
-    %State{}
+  @spec new(%SessionConfig{}) :: %State{}
+  def new(config = %SessionConfig{}) do
+    %State{
+      configuration: config
+    }
   end
 
   @spec notify_bytes_received(%State{}, non_neg_integer()) :: {%State{}, [handle_result]}
