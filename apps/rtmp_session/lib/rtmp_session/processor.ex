@@ -22,7 +22,13 @@ defmodule RtmpSession.Processor do
       configuration: nil,
       active_requests: %{},
       last_request_id: 0,
-      connected_app_name: nil
+      last_created_stream_id: 0,
+      connected_app_name: nil,
+      active_streams: %{}
+  end
+
+  defmodule StreamState do
+    defstruct stream_key: nil
   end
 
   @spec new(%SessionConfig{}) :: %State{}
@@ -88,7 +94,7 @@ defmodule RtmpSession.Processor do
   defp do_handle(state, message = %DetailedMessage{content: %{__struct__: message_type}}) do
     simple_name = String.replace(to_string(message_type), "Elixir.RtmpSession.Messages.", "")
 
-    _ = Logger.info "Unable to handle #{simple_name} message on stream id #{message.stream_id}"
+    _ = log(state, :info, "Unable to handle #{simple_name} message on stream id #{message.stream_id}")
     {state, []}
   end
   
@@ -100,7 +106,7 @@ defmodule RtmpSession.Processor do
   end
 
   defp handle_command(state = %State{current_stage: :started}, _stream_id, "connect", _transaction_id, command_obj, _args) do
-    _ = Logger.debug "Connect command received"
+    _ = log(state, :debug, "Connect command received")
 
     app_name = command_obj["app"]
     request_id = state.last_request_id + 1
@@ -143,8 +149,36 @@ defmodule RtmpSession.Processor do
     {state, responses ++ events}
   end
 
+  defp handle_command(state = %State{current_stage: :connected}, 
+                      _stream_id, 
+                      "createStream", 
+                      transaction_id, 
+                      _command_obj, 
+                      _args) do
+    _ = log(state, :debug, "createStream command received")
+
+    new_stream_id = state.last_created_stream_id + 1
+    state = %{state |
+      last_created_stream_id: new_stream_id,
+      active_streams: Map.put(state.active_streams, new_stream_id, %StreamState{})
+    }
+
+    response = {:response, %DetailedMessage{
+      timestamp: 0, # TODO: Set real timestamp
+      stream_id: 0,
+      content: %MessageTypes.Amf0Command{
+        command_name: "_result",
+        transaction_id: transaction_id,
+        command_object: nil,
+        additional_values: [new_stream_id]
+      }
+    }}
+
+    {state, [response]}
+  end
+
   defp handle_command(state, stream_id, command_name, _transaction_id, _command_obj, _args) do
-    _ = Logger.info "Unable to handle command '#{command_name}' from stream id #{stream_id} in stage #{state.current_stage}"
+    _ = log(state, :info, "Unable to handle command '#{command_name}' from stream id #{stream_id} in stage '#{state.current_stage}'")
     {state, []}
   end
 
@@ -174,5 +208,14 @@ defmodule RtmpSession.Processor do
     }}
 
     {state, [response]}
+  end
+
+  defp log(state, level, message) do
+    # TODO: Add session id in here
+    case level do
+      :debug -> Logger.debug message
+      :info -> Logger.info message
+      #:error -> Logger.error message
+    end
   end
 end

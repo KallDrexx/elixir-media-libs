@@ -7,6 +7,11 @@ defmodule RtmpSession.ProcessorTest do
   alias RtmpSession.Events, as: Events
   alias RtmpSession.SessionConfig, as: SessionConfig
 
+  defmodule TestContext do
+    defstruct processor: nil,
+      application_name: nil
+  end
+
   test "Can handle peer chunk size message" do
     alias RtmpSession.Messages.SetChunkSize, as: SetChunkSize
 
@@ -58,6 +63,7 @@ defmodule RtmpSession.ProcessorTest do
       }
     }
 
+    # Connect command received
     {processor, connect_results} = RtmpProcessor.handle(processor, command)
 
     assert_list_contains(connect_results, {:response, %DetailedMessage{
@@ -85,7 +91,8 @@ defmodule RtmpSession.ProcessorTest do
       app_name: "some_app"
     }})
 
-    {_processor, accept_results} = RtmpProcessor.accept_request(processor, event.request_id)
+    # Accept connection request
+    {_, accept_results} = RtmpProcessor.accept_request(processor, event.request_id)
 
     assert_list_contains(accept_results, {:response, %DetailedMessage{
       stream_id: 0,
@@ -104,6 +111,63 @@ defmodule RtmpSession.ProcessorTest do
         }]
       }
     }})
-
   end
+
+  test "Can create stream on connected session" do
+    alias RtmpSession.Messages.Amf0Command, as: Amf0Command
+
+    %TestContext{processor: processor} = get_connected_processor()
+    
+    command = %DetailedMessage{
+      timestamp: 0,
+      stream_id: 0,
+      content: %Amf0Command{
+        command_name: "createStream",
+        transaction_id: 4,
+        command_object: nil,
+        additional_values: []
+      }
+    }
+
+    {_, create_stream_results} = RtmpProcessor.handle(processor, command)
+    {:response, response} = assert_list_contains(create_stream_results, 
+      {:response, %DetailedMessage{
+        stream_id: 0,
+        content: %Amf0Command{
+          command_name: "_result",
+          transaction_id: 4,
+          command_object: nil
+        }
+      }}      
+    )
+
+    [stream_id] = response.content.additional_values
+    assert is_number(stream_id)
+  end  
+
+  defp get_connected_processor do
+    alias RtmpSession.Messages.Amf0Command, as: Amf0Command
+
+    command = %DetailedMessage{
+      timestamp: 0,
+      stream_id: 0,
+      content: %Amf0Command{
+        command_name: "connect",
+        transaction_id: 1,
+        command_object: %{"app" => "some_app"}
+      }
+    }
+
+    processor = RtmpProcessor.new(%SessionConfig{})
+    {processor, connect_results} = RtmpProcessor.handle(processor, command)
+    {:event, event} = assert_list_contains(connect_results, {:event, %Events.ConnectionRequested{app_name: "some_app"}})
+
+    {processor, _} = RtmpProcessor.accept_request(processor, event.request_id)
+
+    %TestContext{
+      processor: processor,
+      application_name: event.app_name
+    }
+  end
+  
 end
