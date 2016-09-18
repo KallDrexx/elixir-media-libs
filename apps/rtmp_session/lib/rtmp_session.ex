@@ -51,12 +51,20 @@ defmodule RtmpSession do
     }
   end
 
-  @spec process_bytes(%State{}, <<>>) :: {%State{}, %RtmpSession.SessionResults{}}
+  @spec process_bytes(%State{}, <<>>) :: {%State{}, %SessionResults{}}
   def process_bytes(state = %State{}, binary) when is_binary(binary) do
     {state, results} = do_process_bytes(state, binary, %SessionResults{})
     results = %{results | events: Enum.reverse(results.events)}
 
     {state, results}
+  end
+
+  @spec accept_request(%State{}, non_neg_integer()) :: {%State{}, %SessionResults{}}
+  def accept_request(state = %State{}, request_id) do
+    {processor, results} = Processor.accept_request(state.processor, request_id)
+
+    state = %{state | processor: processor}
+    handle_proc_result(state, %SessionResults{}, results)
   end
 
   defp do_process_bytes(state, binary, results_so_far) do

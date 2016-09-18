@@ -187,7 +187,7 @@ defmodule RtmpSession.Processor do
   defp handle_command(state = %State{current_stage: :connected}, 
                       stream_id, 
                       "publish", 
-                      0, 
+                      _transaction_id, 
                       nil, 
                       [stream_key, "live"]) do
     _ = log(state, :debug, "Received publish command on stream '#{stream_id}'")
@@ -213,8 +213,9 @@ defmodule RtmpSession.Processor do
     end
   end
 
-  defp handle_command(state, stream_id, command_name, _transaction_id, _command_obj, _args) do
-    _ = log(state, :info, "Unable to handle command '#{command_name}' from stream id '#{stream_id}' in stage '#{state.current_stage}'")
+  defp handle_command(state, stream_id, command_name, transaction_id, _command_obj, _args) do
+    _ = log(state, :info, "Unable to handle command '#{command_name}' while in stage '#{state.current_stage}' " <>
+      "(stream id '#{stream_id}', transaction_id: #{transaction_id})")
     {state, []}
   end
   
@@ -241,11 +242,15 @@ defmodule RtmpSession.Processor do
   end
 
   defp handle_data(state, stream, data) do
-    _ = log(state, :info, "No known way to handle incoming data on stream id '#{stream.id}' " <>
+    _ = log(state, :info, "No known way to handle incoming data on stream id '#{stream.stream_id}' " <>
       "in state #{stream.current_state}.  Data: #{inspect data}")
+
+    {state, []}
   end
 
   defp accept_connect_request(state, application_name) do
+    _ = log(state, :debug, "Accepted connection request for application '#{application_name}'")
+
     state = %{state |
       current_stage: :connected,
       connected_app_name: application_name 
