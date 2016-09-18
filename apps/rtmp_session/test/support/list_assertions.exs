@@ -33,7 +33,7 @@ defmodule ListAssertions do
     end
   end
 
-  defmacro assert_list_contains(list, match_expression) do
+  defmacro assert_contains(list, match_expression) do
     string_representation = Macro.to_string(match_expression)
 
     test_fun = quote do

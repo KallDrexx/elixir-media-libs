@@ -27,8 +27,9 @@ defmodule RtmpSession.Processor do
       active_streams: %{}
   end
 
-  defmodule StreamState do
-    defstruct stream_key: nil
+  defmodule ActiveStream do
+    defstruct current_state: :created,
+              stream_key: nil
   end
 
   @spec new(%SessionConfig{}) :: %State{}
@@ -70,6 +71,7 @@ defmodule RtmpSession.Processor do
 
     case request do
       {:connect, app_name} -> accept_connect_request(state, app_name)
+      {:publish, {sid, stream_key}} -> accept_publish_request(state, sid, stream_key)
     end
   end
 
@@ -109,12 +111,8 @@ defmodule RtmpSession.Processor do
     _ = log(state, :debug, "Connect command received")
 
     app_name = command_obj["app"]
-    request_id = state.last_request_id + 1
     request = {:connect, app_name}
-    state = %{state | 
-      last_request_id: request_id,
-      active_requests: Map.put(state.active_requests, request_id, request)
-    }
+    {state, request_id} = create_request(state, request)
 
     responses = [
       {:response, %DetailedMessage{
@@ -160,7 +158,7 @@ defmodule RtmpSession.Processor do
     new_stream_id = state.last_created_stream_id + 1
     state = %{state |
       last_created_stream_id: new_stream_id,
-      active_streams: Map.put(state.active_streams, new_stream_id, %StreamState{})
+      active_streams: Map.put(state.active_streams, new_stream_id, %ActiveStream{})
     }
 
     response = {:response, %DetailedMessage{
@@ -174,11 +172,42 @@ defmodule RtmpSession.Processor do
       }
     }}
 
+    _ = log(state, :debug, "Created stream id #{new_stream_id}")
+
     {state, [response]}
   end
 
+  defp handle_command(state = %State{current_stage: :connected}, 
+                      stream_id, 
+                      "publish", 
+                      0, 
+                      nil, 
+                      [stream_key, "live"]) do
+    _ = log(state, :debug, "Received publish command on stream '#{stream_id}'")
+
+    case Map.fetch!(state.active_streams, stream_id) do
+      %ActiveStream{current_state: :created} ->
+        request = {:publish, {stream_id, stream_key}}
+        {state, request_id} = create_request(state, request)
+
+        event = {:event, %Events.PublishStreamRequested{
+          request_id: request_id,
+          app_name: state.connected_app_name,
+          stream_key: stream_key
+        }}
+
+        {state, [event]}
+
+      %ActiveStream{current_state: stream_state} ->
+        _ = log(state, :info, "Bad attempt made to publish on stream id #{stream_id} " <>
+          "that's in state '#{stream_state}'")
+
+        {state, []}
+    end
+  end
+
   defp handle_command(state, stream_id, command_name, _transaction_id, _command_obj, _args) do
-    _ = log(state, :info, "Unable to handle command '#{command_name}' from stream id #{stream_id} in stage '#{state.current_stage}'")
+    _ = log(state, :info, "Unable to handle command '#{command_name}' from stream id '#{stream_id}' in stage '#{state.current_stage}'")
     {state, []}
   end
 
@@ -210,12 +239,57 @@ defmodule RtmpSession.Processor do
     {state, [response]}
   end
 
-  defp log(state, level, message) do
+  defp accept_publish_request(state, stream_id, stream_key) do
+    active_stream = Map.fetch!(state.active_streams, stream_id)
+    if active_stream.current_state != :created do
+      message = "Attempted to accept publish request on stream id #{stream_id} that's in state '#{active_stream.current_state}'"
+      _ = log(state, :error, message)
+      raise(message)
+    end
+
+    active_stream = %{active_stream |
+      current_state: :publishing,
+      stream_key: stream_key
+    }
+
+    state = %{state |
+      active_streams: Map.put(state.active_streams, stream_id, active_stream)
+    }
+
+    response = {:response, %DetailedMessage{
+      timestamp: 0, # TODO: Set real timestamp
+      stream_id: stream_id,
+      content: %MessageTypes.Amf0Command{
+        command_name: "onStatus",
+        transaction_id: 0,
+        command_object: nil,
+        additional_values: [%{
+          "level" => "status",
+          "code" => "NetStream.Publish.Start",
+          "description" => "#{stream_key} is now published."
+        }]
+      }
+    }}
+
+    {state, [response]}
+  end
+
+  defp create_request(state, request) do
+    request_id = state.last_request_id + 1
+    state = %{state | 
+      last_request_id: request_id,
+      active_requests: Map.put(state.active_requests, request_id, request)
+    }
+
+    {state, request_id}
+  end
+
+  defp log(_state, level, message) do
     # TODO: Add session id in here
     case level do
       :debug -> Logger.debug message
       :info -> Logger.info message
-      #:error -> Logger.error message
+      :error -> Logger.error message
     end
   end
 end
