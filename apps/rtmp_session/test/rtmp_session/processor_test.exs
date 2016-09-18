@@ -229,9 +229,6 @@ defmodule RtmpSession.ProcessorTest do
       ]}
     }
 
-    Logger.debug "app: #{application_name}"
-    Logger.debug "stream_key: #{stream_key}"
-
     {_, results} = RtmpProcessor.handle(processor, message)
     assert_contains(results, {:event, %Events.StreamMetaDataChanged{
       app_name: ^application_name,
@@ -250,7 +247,56 @@ defmodule RtmpSession.ProcessorTest do
         encoder: "Test Encoder"
       }
     }})
+  end
 
+  test "Can receive audio data on published stream" do
+    alias RtmpSession.Messages.AudioData, as: AudioData
+
+    %TestContext{
+      processor: processor,
+      application_name: application_name,
+      active_stream_id: stream_id,
+      stream_key: stream_key
+    } = get_publishing_processor()
+
+    message = %DetailedMessage{
+      timestamp: 0,
+      stream_id: stream_id,
+      content: %AudioData{data: <<1,2,3>>}
+    }
+
+    {_, results} = RtmpProcessor.handle(processor, message)
+    assert_contains(results, {:event, %Events.AudioVideoDataReceived{
+      app_name: ^application_name,
+      stream_key: ^stream_key,
+      data_type: :audio,
+      data: <<1,2,3>>
+    }})
+  end
+
+  test "Can receive video data on published stream" do
+    alias RtmpSession.Messages.VideoData, as: VideoData
+
+    %TestContext{
+      processor: processor,
+      application_name: application_name,
+      active_stream_id: stream_id,
+      stream_key: stream_key
+    } = get_publishing_processor()
+
+    message = %DetailedMessage{
+      timestamp: 0,
+      stream_id: stream_id,
+      content: %VideoData{data: <<1,2,3>>}
+    }
+
+    {_, results} = RtmpProcessor.handle(processor, message)
+    assert_contains(results, {:event, %Events.AudioVideoDataReceived{
+      app_name: ^application_name,
+      stream_key: ^stream_key,
+      data_type: :video,
+      data: <<1,2,3>>
+    }})
   end
 
   defp get_connected_processor do

@@ -100,6 +100,40 @@ defmodule RtmpSession.Processor do
     handle_data(state, active_stream, message.content.parameters)
   end
 
+  defp do_handle(state, message = %DetailedMessage{content: %MessageTypes.AudioData{}}) do
+    active_stream = Map.fetch!(state.active_streams, message.stream_id)
+    if active_stream.current_state != :publishing do
+      error_message = "Client attempted to send audio data on stream in state #{active_stream.current_state}"
+      raise_error(state, error_message)
+    end
+
+    event = {:event, %Events.AudioVideoDataReceived{
+      app_name: state.connected_app_name,
+      stream_key: active_stream.stream_key,
+      data_type: :audio,
+      data: message.content.data
+    }}
+
+    {state, [event]}
+  end
+
+  defp do_handle(state, message = %DetailedMessage{content: %MessageTypes.VideoData{}}) do
+    active_stream = Map.fetch!(state.active_streams, message.stream_id)
+    if active_stream.current_state != :publishing do
+      error_message = "Client attempted to send video data on stream in state #{active_stream.current_state}"
+      raise_error(state, error_message)
+    end
+
+    event = {:event, %Events.AudioVideoDataReceived{
+      app_name: state.connected_app_name,
+      stream_key: active_stream.stream_key,
+      data_type: :video,
+      data: message.content.data
+    }}
+
+    {state, [event]}
+  end
+
   defp do_handle(state, message = %DetailedMessage{content: %{__struct__: message_type}}) do
     simple_name = String.replace(to_string(message_type), "Elixir.RtmpSession.Messages.", "")
 
@@ -282,8 +316,7 @@ defmodule RtmpSession.Processor do
     active_stream = Map.fetch!(state.active_streams, stream_id)
     if active_stream.current_state != :created do
       message = "Attempted to accept publish request on stream id #{stream_id} that's in state '#{active_stream.current_state}'"
-      _ = log(state, :error, message)
-      raise(message)
+      raise_error(state, message)
     end
 
     active_stream = %{active_stream |
@@ -328,7 +361,11 @@ defmodule RtmpSession.Processor do
     case level do
       :debug -> Logger.debug message
       :info -> Logger.info message
-      :error -> Logger.error message
     end
+  end
+
+  defp raise_error(_state, message) do
+    # TODO: Add session id to message
+    raise(message)
   end
 end
