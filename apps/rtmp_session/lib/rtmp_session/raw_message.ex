@@ -39,11 +39,13 @@ defmodule RtmpSession.RawMessage do
   @doc "Packs a detailed RTMP message into a serializable raw message"
   @spec pack(DetailedMessage.t) :: __MODULE__.t
   def pack(message = %DetailedMessage{}) do
+    {:ok, payload} = message.content.__struct__.serialize(message.content)
+
     %__MODULE__{
       timestamp: message.timestamp,
       stream_id: message.stream_id,
       message_type_id: get_message_type(message.content.__struct__),
-      payload: message.content.__struct__.serialize(message.content)
+      payload: payload
     }
   end
   

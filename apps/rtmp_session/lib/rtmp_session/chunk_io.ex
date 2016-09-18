@@ -334,34 +334,43 @@ defmodule RtmpSession.ChunkIo do
   defp serialize_to_bytes(header = %Header{type: 3}, payload), do: serialize_type_3_header(header, payload)
 
   defp serialize_type_0_header(header, payload) do
-    <<header.type::2, get_csid_binary(header.csid)::bitstring>> <>
-      <<
-        header.timestamp::3 * 8, # TODO: handle extended timestamp
-        header.message_length::3 * 8,
-        header.message_type_id::1 * 8,
-        header.message_stream_id::size(4)-unit(8)-little
-      >> <>
-      payload
+    if header.timestamp == nil do
+      raise("attempting to serialize nil timestamp in header")
+    end
+
+    <<
+      header.type::2,
+      get_csid_binary(header.csid)::bitstring,
+      header.timestamp::3 * 8, # TODO: handle extended timestamp
+      header.message_length::3 * 8,
+      header.message_type_id::1 * 8,
+      header.message_stream_id::size(4)-unit(8)-little,
+      payload::binary,
+    >> 
   end
   
-  defp serialize_type_1_header(header, payload) do
-    <<header.type::2, get_csid_binary(header.csid)::bitstring>> <>
-      <<
-        header.last_timestamp_delta::3 * 8, # TODO: handle extended timestamp delta
-        header.message_length::3 * 8,
-        header.message_type_id::1 * 8
-      >> <>
-      payload
+  defp serialize_type_1_header(header, payload) do   
+    <<
+      header.type::2, 
+      get_csid_binary(header.csid)::bitstring,
+      header.last_timestamp_delta::3 * 8, # TODO: handle extended timestamp delta
+      header.message_length::3 * 8,
+      header.message_type_id::1 * 8,
+      payload::binary
+    >>
   end 
 
   defp serialize_type_2_header(header, payload) do
-    <<header.type::2, get_csid_binary(header.csid)::bitstring>><>
-      <<header.last_timestamp_delta::3 * 8>> <> # TODO: handle extended timestamp delta
-      payload
+    <<
+      header.type::2,
+      get_csid_binary(header.csid)::bitstring,
+      header.last_timestamp_delta::3 * 8, # TODO: handle extended timestamp delta
+      payload::binary
+    >>
   end 
 
   defp serialize_type_3_header(header, payload) do
-    <<header.type::2, get_csid_binary(header.csid)::bitstring>> <> payload
+    <<header.type::2, get_csid_binary(header.csid)::bitstring, payload::binary>>
   end
 
   defp get_csid_binary(csid) when csid < 64, do: <<csid::6>>

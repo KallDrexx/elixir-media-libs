@@ -53,13 +53,7 @@ defmodule RtmpSession.ProcessorTest do
       content: %Amf0Command{
         command_name: "connect",
         transaction_id: 1,
-        command_object: %{
-          "app": "some_app",
-          "type": "nonprivate",
-          "flashVer": "fver",
-          "swfUrl": "rtmp://127.0.0.1/live",
-          "tcUrl": "rtmp://127.0.0.2/live"
-        },
+        command_object: %{"app" => "some_app"},
         additional_values: []
       }
     }
@@ -91,22 +85,22 @@ defmodule RtmpSession.ProcessorTest do
       app_name: "some_app"
     }})
 
-    {processor, accept_results} = RtmpProcessor.accept_request(event.request_id)
+    {_processor, accept_results} = RtmpProcessor.accept_request(processor, event.request_id)
 
-    assert_list_contains(connect_results, {:response, %DetailedMessage{
+    assert_list_contains(accept_results, {:response, %DetailedMessage{
       stream_id: 0,
       content: %Amf0Command{
         command_name: "_result",
         transaction_id: 1,
         command_object: %{
-          "fmsVer": "version",
-          "capabilities": 31
+          "fmsVer" => "version",
+          "capabilities" => 31
         },
         additional_values: [%{
-          "level": "status",
-          "code": "NetConnection.Connect.Success",
-          "description": "Connection succeeded",
-          "objectEncoding": 0
+          "level" => "status",
+          "code" => "NetConnection.Connect.Success",
+          "description" => "Connection succeeded",
+          "objectEncoding" => 0
         }]
       }
     }})
