@@ -9,6 +9,7 @@ defmodule RtmpSession.Processor do
   alias RtmpSession.Messages, as: MessageTypes
   alias RtmpSession.Events, as: Events
   alias RtmpSession.SessionConfig, as: SessionConfig
+  alias RtmpSession.StreamMetadata, as: StreamMetadata
 
   require Logger
 
@@ -28,7 +29,8 @@ defmodule RtmpSession.Processor do
   end
 
   defmodule ActiveStream do
-    defstruct current_state: :created,
+    defstruct stream_id: nil,
+              current_state: :created,
               stream_key: nil
   end
 
@@ -91,6 +93,11 @@ defmodule RtmpSession.Processor do
                    message.content.transaction_id, 
                    message.content.command_object,
                    message.content.additional_values)
+  end
+
+  defp do_handle(state, message = %DetailedMessage{content: %MessageTypes.Amf0Data{}}) do
+    active_stream = Map.fetch!(state.active_streams, message.stream_id)
+    handle_data(state, active_stream, message.content.parameters)
   end
 
   defp do_handle(state, message = %DetailedMessage{content: %{__struct__: message_type}}) do
@@ -158,7 +165,7 @@ defmodule RtmpSession.Processor do
     new_stream_id = state.last_created_stream_id + 1
     state = %{state |
       last_created_stream_id: new_stream_id,
-      active_streams: Map.put(state.active_streams, new_stream_id, %ActiveStream{})
+      active_streams: Map.put(state.active_streams, new_stream_id, %ActiveStream{stream_id: new_stream_id})
     }
 
     response = {:response, %DetailedMessage{
@@ -209,6 +216,33 @@ defmodule RtmpSession.Processor do
   defp handle_command(state, stream_id, command_name, _transaction_id, _command_obj, _args) do
     _ = log(state, :info, "Unable to handle command '#{command_name}' from stream id '#{stream_id}' in stage '#{state.current_stage}'")
     {state, []}
+  end
+  
+  defp handle_data(state, stream = %ActiveStream{current_state: :publishing}, ["@setDataFrame", "onMetaData", metadata = %{}]) do
+    event = {:event, %Events.StreamMetaDataChanged{
+      app_name: state.connected_app_name,
+      stream_key: stream.stream_key,
+      meta_data: %StreamMetadata{
+        video_width: metadata["width"],
+        video_height: metadata["height"],
+        video_codec: metadata["videocodecid"],
+        video_frame_rate: metadata["framerate"],
+        video_bitrate_kbps: metadata["videodatarate"],
+        audio_codec: metadata["audiocodecid"],
+        audio_bitrate_kbps: metadata["audiodatarate"],
+        audio_sample_rate: metadata["audiosamplerate"],
+        audio_channels: metadata["audiochannels"],
+        audio_is_stereo: metadata["stereo"],
+        encoder: metadata["encoder"]
+      }
+    }}
+
+    {state, [event]}
+  end
+
+  defp handle_data(state, stream, data) do
+    _ = log(state, :info, "No known way to handle incoming data on stream id '#{stream.id}' " <>
+      "in state #{stream.current_state}.  Data: #{inspect data}")
   end
 
   defp accept_connect_request(state, application_name) do

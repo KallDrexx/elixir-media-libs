@@ -12,7 +12,8 @@ defmodule RtmpSession.ProcessorTest do
   defmodule TestContext do
     defstruct processor: nil,
       application_name: nil,
-      active_stream_id: nil
+      active_stream_id: nil,
+      stream_key: nil
   end
 
   test "Can handle peer chunk size message" do
@@ -194,6 +195,64 @@ defmodule RtmpSession.ProcessorTest do
     )
   end
 
+  test "Can receive and raise event for metadata from OBS" do
+    alias RtmpSession.Messages.Amf0Data, as: Amf0Data
+    alias RtmpSession.StreamMetadata, as: StreamMetadata
+
+    %TestContext{
+      processor: processor,
+      application_name: application_name,
+      active_stream_id: stream_id,
+      stream_key: stream_key
+    } = get_publishing_processor()
+
+    message = %DetailedMessage{
+      timestamp: 0,
+      stream_id: stream_id,
+      content: %Amf0Data{parameters: [
+        "@setDataFrame",
+        "onMetaData",
+        %{
+          "width" => 1920,
+          "height" => 1080,
+          "videocodecid" => "avc1",
+          "videodatarate" => 1200,
+          "framerate" => 30,
+          "audiocodecid" => "mp4a",
+          "audiodatarate" => 96,
+          "audiosamplerate" => 48000,
+          "audiosamplesize" => 16,
+          "audiochannels" => 2,
+          "stereo" => true,
+          "encoder" => "Test Encoder"
+        }
+      ]}
+    }
+
+    Logger.debug "app: #{application_name}"
+    Logger.debug "stream_key: #{stream_key}"
+
+    {_, results} = RtmpProcessor.handle(processor, message)
+    assert_contains(results, {:event, %Events.StreamMetaDataChanged{
+      app_name: ^application_name,
+      stream_key: ^stream_key,
+      meta_data: %StreamMetadata{
+        video_width: 1920,
+        video_height: 1080,
+        video_codec: "avc1",
+        video_frame_rate: 30,
+        video_bitrate_kbps: 1200,
+        audio_codec: "mp4a",
+        audio_bitrate_kbps: 96,
+        audio_sample_rate: 48000,
+        audio_channels: 2,
+        audio_is_stereo: true,
+        encoder: "Test Encoder"
+      }
+    }})
+
+  end
+
   defp get_connected_processor do
     alias RtmpSession.Messages.Amf0Command, as: Amf0Command
 
@@ -222,21 +281,10 @@ defmodule RtmpSession.ProcessorTest do
   defp get_connected_processor_with_active_stream do
     alias RtmpSession.Messages.Amf0Command, as: Amf0Command
 
-    command = %DetailedMessage{
-      timestamp: 0,
-      stream_id: 0,
-      content: %Amf0Command{
-        command_name: "connect",
-        transaction_id: 1,
-        command_object: %{"app" => "some_app"}
-      }
-    }
-
-    processor = RtmpProcessor.new(%SessionConfig{})
-    {processor, connect_results} = RtmpProcessor.handle(processor, command)
-    {:event, event} = assert_contains(connect_results, {:event, %Events.ConnectionRequested{}})
-
-    {processor, _} = RtmpProcessor.accept_request(processor, event.request_id)
+    %TestContext{
+      processor: processor,
+      application_name: application_name
+    } = get_connected_processor()
 
     command = %DetailedMessage{
       timestamp: 0,
@@ -258,8 +306,46 @@ defmodule RtmpSession.ProcessorTest do
 
     %TestContext{
       processor: processor,
-      application_name: event.app_name,
+      application_name: application_name,
       active_stream_id: stream_id
+    }
+  end
+
+  defp get_publishing_processor do
+    alias RtmpSession.Messages.Amf0Command, as: Amf0Command
+
+    %TestContext{
+      processor: processor,
+      application_name: application_name,
+      active_stream_id: stream_id
+    } = get_connected_processor_with_active_stream()
+
+    command = %DetailedMessage{
+      timestamp: 0,
+      stream_id: stream_id,
+      content: %Amf0Command{
+        command_name: "publish",
+        transaction_id: 0,
+        command_object: nil,
+        additional_values: ["stream_key", "live"]
+      }
+    }
+
+    {processor, pub_results} = RtmpProcessor.handle(processor, command)
+    {:event, event} = assert_contains(pub_results, 
+      {:event, %Events.PublishStreamRequested{
+        app_name: ^application_name,
+        stream_key: "stream_key"
+      }}
+    )
+
+    {processor, _} = RtmpProcessor.accept_request(processor, event.request_id)
+
+    %TestContext{
+      processor: processor,
+      application_name: application_name,
+      active_stream_id: stream_id,
+      stream_key: "stream_key"
     }
   end
   
