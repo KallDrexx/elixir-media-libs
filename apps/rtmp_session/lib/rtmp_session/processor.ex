@@ -154,25 +154,25 @@ defmodule RtmpSession.Processor do
         :response, 
         form_response_message(state,
           %MessageTypes.SetPeerBandwidth{window_size: state.configuration.peer_bandwidth, limit_type: :hard},
-          0)  
+          0, true)  
       },
       {
         :response,
         form_response_message(state,
           %MessageTypes.WindowAcknowledgementSize{size: state.configuration.window_ack_size},
-          0)
+          0, true)
       },
       {
         :response,
         form_response_message(state,
           %MessageTypes.SetChunkSize{size: state.configuration.chunk_size},
-          0)
+          0, true)
       },
       {
         :response,
         form_response_message(state,
           %MessageTypes.UserControl{type: :stream_begin, stream_id: 0},
-          0)
+          0, true)
       }
     ]
 
@@ -347,11 +347,12 @@ defmodule RtmpSession.Processor do
     {state, request_id}
   end
 
-  defp form_response_message(state, message_content, stream_id) do
+  defp form_response_message(state, message_content, stream_id, force_uncompressed \\ false) do
     %DetailedMessage{
       timestamp: get_current_rtmp_epoch(state),
       stream_id: stream_id,
-      content: message_content
+      content: message_content,
+      force_uncompressed: force_uncompressed
     }
   end
 

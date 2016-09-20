@@ -10,12 +10,14 @@ defmodule RtmpSession.RawMessage do
     timestamp: non_neg_integer(),
     message_type_id: non_neg_integer(),
     stream_id: non_neg_integer(),
+    force_uncompressed: false,
     payload: <<>>
   }
 
   defstruct timestamp: nil,
             message_type_id: nil,
             stream_id: nil,
+            force_uncompressed: true,
             payload: <<>>
 
   @callback deserialize(binary) :: any

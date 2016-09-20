@@ -6,10 +6,12 @@ defmodule RtmpSession.DetailedMessage do
   @type t :: %__MODULE__{
     timestamp: non_neg_integer(),
     stream_id: non_neg_integer(),
-    content: RtmpSession.deserialized_message
+    content: RtmpSession.deserialized_message,
+    force_uncompressed: boolean()
   }
 
   defstruct timestamp: nil,
             stream_id: nil,
-            content: nil
+            content: nil,
+            force_uncompressed: false
 end

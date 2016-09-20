@@ -78,25 +78,29 @@ defmodule RtmpSession.ProcessorTest do
     assert_contains(connect_results, {:response, %DetailedMessage{
       stream_id: 0,
       timestamp: timestamp,
-      content: %SetPeerBandwidth{window_size: 6000, limit_type: :hard}
+      content: %SetPeerBandwidth{window_size: 6000, limit_type: :hard},
+      force_uncompressed: true
     }} when timestamp > 0)
 
     assert_contains(connect_results, {:response, %DetailedMessage{
       stream_id: 0,
       timestamp: timestamp,
-      content: %WindowAcknowledgementSize{size: 7000}
+      content: %WindowAcknowledgementSize{size: 7000},
+      force_uncompressed: true
     }} when timestamp > 0)
 
     assert_contains(connect_results, {:response, %DetailedMessage{
       stream_id: 0,
       timestamp: timestamp,
-      content: %SetChunkSize{size: 5000}
+      content: %SetChunkSize{size: 5000},
+      force_uncompressed: true
     }} when timestamp > 0)
 
     assert_contains(connect_results, {:response, %DetailedMessage{
       stream_id: 0,
       timestamp: timestamp,
-      content: %UserControl{type: :stream_begin, stream_id: 0}
+      content: %UserControl{type: :stream_begin, stream_id: 0},
+      force_uncompressed: true
     }} when timestamp > 0)
 
     {:event, event} = assert_contains(connect_results, {:event, %Events.ConnectionRequested{
