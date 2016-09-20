@@ -17,7 +17,7 @@ defmodule RtmpSession.RawMessage do
   defstruct timestamp: nil,
             message_type_id: nil,
             stream_id: nil,
-            force_uncompressed: true,
+            force_uncompressed: false,
             payload: <<>>
 
   @callback deserialize(binary) :: any

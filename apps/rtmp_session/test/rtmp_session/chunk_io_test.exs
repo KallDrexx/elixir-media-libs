@@ -263,30 +263,6 @@ defmodule RtmpSession.ChunkIoTest do
       assert expected_binary == binary
     end
     
-    test "Serialize: Can force no header compression" do
-      message1 = %RawMessage{
-        timestamp: 72,
-        message_type_id: 3,
-        stream_id: 55,
-        payload: <<152::size(100)-unit(8)>>
-      }
-
-      message2 = %RawMessage{
-        timestamp: 82,
-        message_type_id: 3,
-        stream_id: 55,
-        payload: <<152::size(100)-unit(8)>>
-      }
-      
-      {serializer, _} = ChunkIo.new() |> ChunkIo.serialize(message1, 50)
-      {_, binary} = ChunkIo.serialize(serializer, message2, 50, true)
-      
-      expected_binary = <<0::2, 50::6, 82::size(3)-unit(8), 100::size(3)-unit(8), 
-                          3::8, 55::size(4)-unit(8)-little, 152::size(100)-unit(8)>>
-                              
-      assert expected_binary == binary
-    end
-
     test "Serialize: Messages larger than max chunk size are split" do
       message = %RawMessage{
         timestamp: 72,
@@ -304,6 +280,31 @@ defmodule RtmpSession.ChunkIoTest do
                           3::8, 55::size(4)-unit(8)-little, 0::size(100)-unit(8),
                           3::2, 50::6, 152::size(1)-unit(8)>>
 
+      assert expected_binary == binary
+    end
+
+    test "Serialize: Can force no compression for messages marked as such" do
+      message1 = %RawMessage{
+        timestamp: 72,
+        message_type_id: 3,
+        stream_id: 55,
+        payload: <<152::size(100)-unit(8)>>
+      }
+
+      message2 = %RawMessage{
+        timestamp: 82,
+        message_type_id: 3,
+        stream_id: 55,
+        force_uncompressed: true,
+        payload: <<152::size(100)-unit(8)>>
+      }
+      
+      {serializer, _} = ChunkIo.new() |> ChunkIo.serialize(message1, 50)
+      {_, binary} = ChunkIo.serialize(serializer, message2, 50)
+      
+      expected_binary = <<0::2, 50::6, 82::size(3)-unit(8), 100::size(3)-unit(8), 
+                          3::8, 55::size(4)-unit(8)-little, 152::size(100)-unit(8)>>
+                              
       assert expected_binary == binary
     end
   
