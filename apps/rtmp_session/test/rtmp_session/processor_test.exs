@@ -31,14 +31,18 @@ defmodule RtmpSession.ProcessorTest do
     alias RtmpSession.Messages.Acknowledgement, as: Acknowledgement
 
     processor = RtmpProcessor.new(%SessionConfig{})
+    :timer.sleep(100)
+
     message = %DetailedMessage{content: %WindowAcknowledgementSize{size: 500}}
     {processor, results1} = RtmpProcessor.handle(processor, message)
     {_, results2} = RtmpProcessor.notify_bytes_received(processor, 800)
 
     assert([] = results1)
-    assert_contains(results2, {:response, %DetailedMessage{
+    {:response, ack} = assert_contains(results2, {:response, %DetailedMessage{
       content: %Acknowledgement{sequence_number: 800}
     }})
+
+    assert_non_zero_timestamp(ack)
   end
 
   test "Can accept connection request and provide valid responses" do
@@ -55,7 +59,6 @@ defmodule RtmpSession.ProcessorTest do
       window_ack_size: 7000
     }
 
-    processor = RtmpProcessor.new(config)
     command = %DetailedMessage{
       timestamp: 0,
       stream_id: 0,
@@ -67,28 +70,39 @@ defmodule RtmpSession.ProcessorTest do
       }
     }
 
+    processor = RtmpProcessor.new(config)
+    :timer.sleep(100)
+
     # Connect command received
     {processor, connect_results} = RtmpProcessor.handle(processor, command)
 
-    assert_contains(connect_results, {:response, %DetailedMessage{
+    {:response, peer_bandwidth} = assert_contains(connect_results, {:response, %DetailedMessage{
       stream_id: 0,
       content: %SetPeerBandwidth{window_size: 6000, limit_type: :hard}
     }})
 
-    assert_contains(connect_results, {:response, %DetailedMessage{
+    assert_non_zero_timestamp(peer_bandwidth)
+
+    {:response, ack_size} = assert_contains(connect_results, {:response, %DetailedMessage{
       stream_id: 0,
       content: %WindowAcknowledgementSize{size: 7000}
     }})
 
-    assert_contains(connect_results, {:response, %DetailedMessage{
+    assert_non_zero_timestamp(ack_size)
+
+    {:response, chunk_size} = assert_contains(connect_results, {:response, %DetailedMessage{
       stream_id: 0,
       content: %SetChunkSize{size: 5000}
     }})
 
-    assert_contains(connect_results, {:response, %DetailedMessage{
+    assert_non_zero_timestamp(chunk_size)
+
+    {:response, user_control} = assert_contains(connect_results, {:response, %DetailedMessage{
       stream_id: 0,
       content: %UserControl{type: :stream_begin, stream_id: 0}
     }})
+
+    assert_non_zero_timestamp(user_control)
 
     {:event, event} = assert_contains(connect_results, {:event, %Events.ConnectionRequested{
       request_id: _,
@@ -98,7 +112,7 @@ defmodule RtmpSession.ProcessorTest do
     # Accept connection request
     {_, accept_results} = RtmpProcessor.accept_request(processor, event.request_id)
 
-    assert_contains(accept_results, {:response, %DetailedMessage{
+    {:response, amf_command} = assert_contains(accept_results, {:response, %DetailedMessage{
       stream_id: 0,
       content: %Amf0Command{
         command_name: "_result",
@@ -115,6 +129,8 @@ defmodule RtmpSession.ProcessorTest do
         }]
       }
     }})
+
+    assert_non_zero_timestamp(amf_command)
   end
 
   test "Can create stream on connected session" do
@@ -146,7 +162,9 @@ defmodule RtmpSession.ProcessorTest do
     )
 
     [stream_id] = response.content.additional_values
+    
     assert is_number(stream_id)
+    assert_non_zero_timestamp(response)
   end 
 
   test "Can accept live publishing to requested stream key" do
@@ -178,7 +196,8 @@ defmodule RtmpSession.ProcessorTest do
     )
 
     {_, accept_results} = RtmpProcessor.accept_request(processor, event.request_id)
-    assert_contains(accept_results,
+
+    {:response, response} = assert_contains(accept_results,
       {:response, %DetailedMessage{
         stream_id: ^active_stream_id,
         content: %Amf0Command{
@@ -193,6 +212,8 @@ defmodule RtmpSession.ProcessorTest do
         }
       }} 
     )
+
+    assert_non_zero_timestamp(response)
   end
 
   test "Can receive and raise event for metadata from OBS" do
@@ -230,6 +251,7 @@ defmodule RtmpSession.ProcessorTest do
     }
 
     {_, results} = RtmpProcessor.handle(processor, message)
+
     assert_contains(results, {:event, %Events.StreamMetaDataChanged{
       app_name: ^application_name,
       stream_key: ^stream_key,
@@ -266,6 +288,7 @@ defmodule RtmpSession.ProcessorTest do
     }
 
     {_, results} = RtmpProcessor.handle(processor, message)
+
     assert_contains(results, {:event, %Events.AudioVideoDataReceived{
       app_name: ^application_name,
       stream_key: ^stream_key,
@@ -291,12 +314,18 @@ defmodule RtmpSession.ProcessorTest do
     }
 
     {_, results} = RtmpProcessor.handle(processor, message)
+
     assert_contains(results, {:event, %Events.AudioVideoDataReceived{
       app_name: ^application_name,
       stream_key: ^stream_key,
       data_type: :video,
       data: <<1,2,3>>
     }})
+  end
+
+  defp assert_non_zero_timestamp(%DetailedMessage{timestamp: timestamp}) do
+    assert is_number(timestamp)
+    assert timestamp > 0
   end
 
   defp get_connected_processor do
@@ -313,6 +342,11 @@ defmodule RtmpSession.ProcessorTest do
     }
 
     processor = RtmpProcessor.new(%SessionConfig{})
+    
+    # Make sure some time has passed since creating the processor
+    #   to allow for non-zero timestamp checking
+    :timer.sleep(200) 
+
     {processor, connect_results} = RtmpProcessor.handle(processor, command)
     {:event, event} = assert_contains(connect_results, {:event, %Events.ConnectionRequested{app_name: "some_app"}})
 

@@ -17,6 +17,7 @@ defmodule RtmpSession.Processor do
 
   defmodule State do
     defstruct current_stage: :started,
+      start_time: :os.system_time(:milli_seconds),
       peer_window_ack_size: nil,
       peer_bytes_received: 0,
       last_acknowledgement_sent_at: 0,
@@ -140,13 +141,6 @@ defmodule RtmpSession.Processor do
     _ = log(state, :info, "Unable to handle #{simple_name} message on stream id #{message.stream_id}")
     {state, []}
   end
-  
-  defp form_response_message(_state, message_content, stream_id) do
-    %DetailedMessage{
-      stream_id: stream_id,
-      content: message_content
-    }
-  end
 
   defp handle_command(state = %State{current_stage: :started}, _stream_id, "connect", _transaction_id, command_obj, _args) do
     _ = log(state, :debug, "Connect command received")
@@ -156,26 +150,30 @@ defmodule RtmpSession.Processor do
     {state, request_id} = create_request(state, request)
 
     responses = [
-      {:response, %DetailedMessage{
-        stream_id: 0,
-        timestamp: 0, 
-        content: %MessageTypes.SetPeerBandwidth{window_size: state.configuration.peer_bandwidth, limit_type: :hard}
-      }},
-      {:response, %DetailedMessage{
-        timestamp: 0,
-        stream_id: 0,
-        content: %MessageTypes.WindowAcknowledgementSize{size: state.configuration.window_ack_size}
-      }},
-      {:response, %DetailedMessage{
-        timestamp: 0,
-        stream_id: 0,
-        content: %MessageTypes.SetChunkSize{size: state.configuration.chunk_size}
-      }},
-      {:response, %DetailedMessage{
-        timestamp: 0,
-        stream_id: 0,
-        content: %MessageTypes.UserControl{type: :stream_begin, stream_id: 0}
-      }}
+      {
+        :response, 
+        form_response_message(state,
+          %MessageTypes.SetPeerBandwidth{window_size: state.configuration.peer_bandwidth, limit_type: :hard},
+          0)  
+      },
+      {
+        :response,
+        form_response_message(state,
+          %MessageTypes.WindowAcknowledgementSize{size: state.configuration.window_ack_size},
+          0)
+      },
+      {
+        :response,
+        form_response_message(state,
+          %MessageTypes.SetChunkSize{size: state.configuration.chunk_size},
+          0)
+      },
+      {
+        :response,
+        form_response_message(state,
+          %MessageTypes.UserControl{type: :stream_begin, stream_id: 0},
+          0)
+      }
     ]
 
     events = [
@@ -202,16 +200,14 @@ defmodule RtmpSession.Processor do
       active_streams: Map.put(state.active_streams, new_stream_id, %ActiveStream{stream_id: new_stream_id})
     }
 
-    response = {:response, %DetailedMessage{
-      timestamp: 0, # TODO: Set real timestamp
-      stream_id: 0,
-      content: %MessageTypes.Amf0Command{
-        command_name: "_result",
-        transaction_id: transaction_id,
-        command_object: nil,
-        additional_values: [new_stream_id]
-      }
-    }}
+    response = {:response, form_response_message(state,
+        %MessageTypes.Amf0Command{
+          command_name: "_result",
+          transaction_id: transaction_id,
+          command_object: nil,
+          additional_values: [new_stream_id]
+        }, 0)
+    }
 
     _ = log(state, :debug, "Created stream id #{new_stream_id}")
 
@@ -290,10 +286,8 @@ defmodule RtmpSession.Processor do
       connected_app_name: application_name 
     }
 
-    response = {:response, %DetailedMessage{
-      timestamp: 0,
-      stream_id: 0,
-      content: %MessageTypes.Amf0Command{
+    response = {:response, form_response_message(state,
+      %MessageTypes.Amf0Command{
         command_name: "_result",
         transaction_id: 1,
         command_object: %{
@@ -306,8 +300,8 @@ defmodule RtmpSession.Processor do
           "description" => "Connection succeeded",
           "objectEncoding" => 0
         }]
-      }
-    }}
+      }, 0)
+    }
 
     {state, [response]}
   end
@@ -328,10 +322,7 @@ defmodule RtmpSession.Processor do
       active_streams: Map.put(state.active_streams, stream_id, active_stream)
     }
 
-    response = {:response, %DetailedMessage{
-      timestamp: 0, # TODO: Set real timestamp
-      stream_id: stream_id,
-      content: %MessageTypes.Amf0Command{
+    response = {:response, form_response_message(state, %MessageTypes.Amf0Command{
         command_name: "onStatus",
         transaction_id: 0,
         command_object: nil,
@@ -340,8 +331,8 @@ defmodule RtmpSession.Processor do
           "code" => "NetStream.Publish.Start",
           "description" => "#{stream_key} is now published."
         }]
-      }
-    }}
+      }, stream_id)
+    }
 
     {state, [response]}
   end
@@ -356,6 +347,14 @@ defmodule RtmpSession.Processor do
     {state, request_id}
   end
 
+  defp form_response_message(state, message_content, stream_id) do
+    %DetailedMessage{
+      timestamp: get_current_rtmp_epoch(state),
+      stream_id: stream_id,
+      content: message_content
+    }
+  end
+
   defp log(_state, level, message) do
     # TODO: Add session id in here
     case level do
@@ -367,5 +366,10 @@ defmodule RtmpSession.Processor do
   defp raise_error(_state, message) do
     # TODO: Add session id to message
     raise(message)
+  end
+
+  defp get_current_rtmp_epoch(state) do
+    time_since_start = :os.system_time(:milli_seconds) - state.start_time
+    RtmpSession.RtmpTime.to_rtmp_timestamp(time_since_start)
   end
 end

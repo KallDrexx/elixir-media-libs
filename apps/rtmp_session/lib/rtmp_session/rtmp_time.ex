@@ -13,7 +13,7 @@ defmodule RtmpSession.RtmpTime do
   
   @doc """
   Converts a timestamp into a valid RTMP timestamp
-  (i.e. rolls it over if it's too high)
+  (i.e. rolls it over if it's too high or too low)
   
   ## Examples
   
