@@ -162,4 +162,186 @@ defmodule RtmpSession.RawMessageTest do
     rtmp_message = %RawMessage{message_type_id: 8, payload: binary}
     assert {:ok, ^expected} = RawMessage.unpack(rtmp_message)
   end
+
+  ## Detailed -> Raw tests (packing)
+
+  test "Can convert SetChunkSize message to RawMessage" do
+    message = %RtmpDetailedMessage{content: %RtmpSession.Messages.SetChunkSize{size: 4000}}
+    rtmp_message = RawMessage.pack(message)
+    
+    assert %RawMessage{message_type_id: 1, payload: <<4000::32>>} = rtmp_message
+  end
+  
+  test "Can convert Abort message to RawMessage" do
+    message = %RtmpDetailedMessage{content: %RtmpSession.Messages.Abort{stream_id: 500}}
+    rtmp_message = RawMessage.pack(message)
+    
+    assert %RawMessage{message_type_id: 2, payload: <<500::32>>} = rtmp_message
+  end
+  
+  test "Can convert Acknowledgement message to RawMessage" do
+    message = %RtmpDetailedMessage{content: %RtmpSession.Messages.Acknowledgement{sequence_number: 25}}
+    rtmp_message = RawMessage.pack(message)
+    
+    assert %RawMessage{message_type_id: 3, payload: <<25::32>>} = rtmp_message
+  end
+  
+  test "Can convert Window Acknowlegement Size message to RawMessage" do
+    message = %RtmpDetailedMessage{content: %RtmpSession.Messages.WindowAcknowledgementSize{size: 26}}
+    rtmp_message = RawMessage.pack(message)
+    
+    assert %RawMessage{message_type_id: 5, payload: <<26::32>>} = rtmp_message
+  end
+  
+  test "Can convert Set Peer Bandwidth message to RawMessage" do
+    message = %RtmpDetailedMessage{content: %RtmpSession.Messages.SetPeerBandwidth{window_size: 20, limit_type: :soft}}
+    rtmp_message = RawMessage.pack(message)
+    
+    assert %RawMessage{message_type_id: 6, payload: <<20::32, 1::8>>} = rtmp_message
+  end
+  
+  test "Can convert User Control Stream Begin to RawMessage" do
+    message = %RtmpDetailedMessage{content: %RtmpSession.Messages.UserControl{
+      type: :stream_begin,
+      stream_id: 521,
+      buffer_length: nil,
+      timestamp: nil
+    }}
+    
+    expected = %RawMessage{message_type_id: 4, payload: <<0::16, 521::32>>}
+    assert ^expected = RawMessage.pack(message)
+  end
+  
+  test "Can convert User Control Stream EOF to RawMessage" do
+    message = %RtmpDetailedMessage{content: %RtmpSession.Messages.UserControl{
+      type: :stream_eof,
+      stream_id: 555,
+      buffer_length: nil,
+      timestamp: nil
+    }}    
+    
+    expected = %RawMessage{message_type_id: 4, payload: <<1::16, 555::32>>}
+    assert ^expected = RawMessage.pack(message)
+  end
+  
+  test "Can convert User Control Stream Dry to RawMessage" do
+    message = %RtmpDetailedMessage{content: %RtmpSession.Messages.UserControl{
+      type: :stream_dry,
+      stream_id: 666,
+      buffer_length: nil,
+      timestamp: nil
+    }}
+    
+    expected = %RawMessage{message_type_id: 4, payload: <<2::16, 666::32>>}
+    assert ^expected = RawMessage.pack(message)
+  end
+  
+  test "Can convert User Control Set Buffer Length to RawMessage" do
+    message = %RtmpDetailedMessage{content: %RtmpSession.Messages.UserControl{
+      type: :set_buffer_length,
+      stream_id: 500,
+      buffer_length: 300,
+      timestamp: nil
+    }}
+    
+    expected = %RawMessage{message_type_id: 4, payload: <<3::16, 500::32, 300::32>>}
+    assert ^expected = RawMessage.pack(message)
+  end
+  
+  test "Can convert User Control Stream Is Recorded to RawMessage" do
+    message = %RtmpDetailedMessage{content: %RtmpSession.Messages.UserControl{
+      type: :stream_is_recorded,
+      stream_id: 333,
+      buffer_length: nil,
+      timestamp: nil
+    }}
+    
+    expected = %RawMessage{message_type_id: 4, payload: <<4::16, 333::32>>}
+    assert ^expected = RawMessage.pack(message)
+  end
+  
+  test "Can convert User Control Ping Request to RawMessage" do
+    message = %RtmpDetailedMessage{content: %RtmpSession.Messages.UserControl{
+      type: :ping_request,
+      stream_id: nil,
+      buffer_length: nil,
+      timestamp: 999
+    }}
+    
+    expected = %RawMessage{message_type_id: 4, payload: <<6::16, 999::32>>}
+    assert ^expected = RawMessage.pack(message)
+  end
+  
+  test "Can convert User Control Ping Response to RawMessage" do
+    message = %RtmpDetailedMessage{content: %RtmpSession.Messages.UserControl{
+      type: :ping_response,
+      stream_id: nil,
+      buffer_length: nil,
+      timestamp: 900
+    }}
+    
+    expected = %RawMessage{message_type_id: 4, payload: <<7::16, 900::32>>}
+    assert ^expected = RawMessage.pack(message)
+  end
+ 
+  test "Can convert amf 0 encoded command message to RawMessage" do
+    message = %RtmpDetailedMessage{content: %RtmpSession.Messages.Amf0Command{
+      command_name: "something",
+      transaction_id: 1221.0,
+      command_object: nil,
+      additional_values: ["test"]
+    }}
+    
+    amf_objects = ["something", 1221.0, nil, "test"]    
+    binary = Amf0.serialize(amf_objects)
+    
+    expected = %RawMessage{message_type_id: 20, payload: binary}
+    assert ^expected = RawMessage.pack(message)
+  end
+  
+  test "Can convert amf0 encoded data message to RawMessage" do
+    amf_objects = ["something", 1221.0, nil, "test"]
+
+    message = %RtmpDetailedMessage{content: %RtmpSession.Messages.Amf0Data{parameters: amf_objects}}
+    binary = Amf0.serialize(amf_objects)
+
+    expected = %RawMessage{message_type_id: 18, payload: binary}
+    assert ^expected = RawMessage.pack(message)
+  end
+  
+  test "Can convert Video data message to RawMessage" do
+    binary = <<1,2,3,4,5,6>>
+    message = %RtmpDetailedMessage{content: %RtmpSession.Messages.VideoData{data: binary}}
+
+    expected = %RawMessage{message_type_id: 9, payload: binary}
+    assert ^expected = RawMessage.pack(message)
+  end
+  
+  test "Can convert Audio data message to RawMessage" do
+    binary = <<1,2,3,4,5,6>>
+    message = %RtmpDetailedMessage{content: %RtmpSession.Messages.AudioData{data: binary}}
+
+    expected = %RawMessage{message_type_id: 8, payload: binary}
+    assert ^expected = RawMessage.pack(message)
+  end
+
+  test "Packing message transfers force uncompression flag when true" do
+    message = %RtmpDetailedMessage{
+      content: %RtmpSession.Messages.SetChunkSize{size: 4000},
+      force_uncompressed: true
+    }
+
+    rtmp_message = RawMessage.pack(message)    
+    assert %RawMessage{force_uncompressed: true} = rtmp_message
+  end
+
+  test "Packing message transfers force uncompression flag when false" do
+    message = %RtmpDetailedMessage{
+      content: %RtmpSession.Messages.SetChunkSize{size: 4000},
+      force_uncompressed: false
+    }
+
+    rtmp_message = RawMessage.pack(message)    
+    assert %RawMessage{force_uncompressed: false} = rtmp_message
+  end
 end

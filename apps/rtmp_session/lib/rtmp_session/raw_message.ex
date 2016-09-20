@@ -47,7 +47,8 @@ defmodule RtmpSession.RawMessage do
       timestamp: message.timestamp,
       stream_id: message.stream_id,
       message_type_id: get_message_type(message.content.__struct__),
-      payload: payload
+      payload: payload,
+      force_uncompressed: message.force_uncompressed
     }
   end
   
