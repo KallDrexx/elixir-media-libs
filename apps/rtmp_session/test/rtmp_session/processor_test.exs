@@ -38,11 +38,10 @@ defmodule RtmpSession.ProcessorTest do
     {_, results2} = RtmpProcessor.notify_bytes_received(processor, 800)
 
     assert([] = results1)
-    {:response, ack} = assert_contains(results2, {:response, %DetailedMessage{
+    assert_contains(results2, {:response, %DetailedMessage{
+      timestamp: timestamp,
       content: %Acknowledgement{sequence_number: 800}
-    }})
-
-    assert_non_zero_timestamp(ack)
+    }} when timestamp > 0)
   end
 
   test "Can accept connection request and provide valid responses" do
@@ -76,33 +75,29 @@ defmodule RtmpSession.ProcessorTest do
     # Connect command received
     {processor, connect_results} = RtmpProcessor.handle(processor, command)
 
-    {:response, peer_bandwidth} = assert_contains(connect_results, {:response, %DetailedMessage{
+    assert_contains(connect_results, {:response, %DetailedMessage{
       stream_id: 0,
+      timestamp: timestamp,
       content: %SetPeerBandwidth{window_size: 6000, limit_type: :hard}
-    }})
+    }} when timestamp > 0)
 
-    assert_non_zero_timestamp(peer_bandwidth)
-
-    {:response, ack_size} = assert_contains(connect_results, {:response, %DetailedMessage{
+    assert_contains(connect_results, {:response, %DetailedMessage{
       stream_id: 0,
+      timestamp: timestamp,
       content: %WindowAcknowledgementSize{size: 7000}
-    }})
+    }} when timestamp > 0)
 
-    assert_non_zero_timestamp(ack_size)
-
-    {:response, chunk_size} = assert_contains(connect_results, {:response, %DetailedMessage{
+    assert_contains(connect_results, {:response, %DetailedMessage{
       stream_id: 0,
+      timestamp: timestamp,
       content: %SetChunkSize{size: 5000}
-    }})
+    }} when timestamp > 0)
 
-    assert_non_zero_timestamp(chunk_size)
-
-    {:response, user_control} = assert_contains(connect_results, {:response, %DetailedMessage{
+    assert_contains(connect_results, {:response, %DetailedMessage{
       stream_id: 0,
+      timestamp: timestamp,
       content: %UserControl{type: :stream_begin, stream_id: 0}
-    }})
-
-    assert_non_zero_timestamp(user_control)
+    }} when timestamp > 0)
 
     {:event, event} = assert_contains(connect_results, {:event, %Events.ConnectionRequested{
       request_id: _,
@@ -112,25 +107,26 @@ defmodule RtmpSession.ProcessorTest do
     # Accept connection request
     {_, accept_results} = RtmpProcessor.accept_request(processor, event.request_id)
 
-    {:response, amf_command} = assert_contains(accept_results, {:response, %DetailedMessage{
-      stream_id: 0,
-      content: %Amf0Command{
-        command_name: "_result",
-        transaction_id: 1,
-        command_object: %{
-          "fmsVer" => "version",
-          "capabilities" => 31
-        },
-        additional_values: [%{
-          "level" => "status",
-          "code" => "NetConnection.Connect.Success",
-          "description" => "Connection succeeded",
-          "objectEncoding" => 0
-        }]
-      }
-    }})
-
-    assert_non_zero_timestamp(amf_command)
+    assert_contains(accept_results, {:response, 
+      %DetailedMessage{
+        stream_id: 0,
+        timestamp: timestamp,
+        content: %Amf0Command{
+          command_name: "_result",
+          transaction_id: 1,
+          command_object: %{
+            "fmsVer" => "version",
+            "capabilities" => 31
+          },
+          additional_values: [%{
+            "level" => "status",
+            "code" => "NetConnection.Connect.Success",
+            "description" => "Connection succeeded",
+            "objectEncoding" => 0
+          }]
+        }
+      }} when timestamp > 0
+    )
   end
 
   test "Can create stream on connected session" do
@@ -153,18 +149,18 @@ defmodule RtmpSession.ProcessorTest do
     {:response, response} = assert_contains(create_stream_results, 
       {:response, %DetailedMessage{
         stream_id: 0,
+        timestamp: timestamp,
         content: %Amf0Command{
           command_name: "_result",
           transaction_id: 4,
           command_object: nil
         }
-      }}      
+      }} when timestamp > 0
     )
 
     [stream_id] = response.content.additional_values
     
     assert is_number(stream_id)
-    assert_non_zero_timestamp(response)
   end 
 
   test "Can accept live publishing to requested stream key" do
@@ -197,9 +193,10 @@ defmodule RtmpSession.ProcessorTest do
 
     {_, accept_results} = RtmpProcessor.accept_request(processor, event.request_id)
 
-    {:response, response} = assert_contains(accept_results,
+    assert_contains(accept_results,
       {:response, %DetailedMessage{
         stream_id: ^active_stream_id,
+        timestamp: timestamp,
         content: %Amf0Command{
           command_name: "onStatus",
           transaction_id: 0,
@@ -210,10 +207,8 @@ defmodule RtmpSession.ProcessorTest do
             "description" => _
           }]
         }
-      }} 
+      }} when timestamp > 0 
     )
-
-    assert_non_zero_timestamp(response)
   end
 
   test "Can receive and raise event for metadata from OBS" do
@@ -321,11 +316,6 @@ defmodule RtmpSession.ProcessorTest do
       data_type: :video,
       data: <<1,2,3>>
     }})
-  end
-
-  defp assert_non_zero_timestamp(%DetailedMessage{timestamp: timestamp}) do
-    assert is_number(timestamp)
-    assert timestamp > 0
   end
 
   defp get_connected_processor do
