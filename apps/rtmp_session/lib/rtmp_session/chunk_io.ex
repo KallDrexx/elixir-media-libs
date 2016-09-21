@@ -52,7 +52,6 @@ defmodule RtmpSession.ChunkIo do
 
   @spec serialize(%State{}, %RawMessage{}, non_neg_integer()) :: {%State{}, iodata()}
   def serialize(state = %State{}, message = %RawMessage{}, csid) do
-    Logger.debug "Force uncompression: #{message.force_uncompressed}"
     do_serialize(state, message, csid, message.force_uncompressed)    
   end
 

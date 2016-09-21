@@ -28,6 +28,7 @@ defmodule RtmpHandshake do
   @doc "Reads the passed in binary to proceed with the handshaking process"
   @spec process_bytes(%State{}, <<>>) :: {%State{}, RtmpHandshake.ParseResult.t}
   def process_bytes(state = %State{}, binary) when is_binary(binary) do
+
     binary = state.unparsed_binary <> binary
    
     %{state | unparsed_binary: <<>>} 
@@ -71,7 +72,7 @@ defmodule RtmpHandshake do
         %{state | current_state: :waiting_for_p1}
         |> do_process(rest)
 
-      _ -> {state, %RtmpHandshake.ParseResult{current_state: :failed_handshake}}
+      _ -> {state, %RtmpHandshake.ParseResult{current_state: :failure}}
     end
   end
 
@@ -95,17 +96,22 @@ defmodule RtmpHandshake do
       {%{state | unparsed_binary: binary},  %RtmpHandshake.ParseResult{current_state: :waiting_for_data}}
     else
       expected_random = state.random_data
+      random_size = byte_size(expected_random)
 
       case binary do
-        <<0::4 * 8, _::4 * 8>> <> ^expected_random ->
-          <<_::1536 * 8, rest::binary>> = binary
+        <<0::4 * 8, _::4 * 8, ^expected_random::size(random_size)-binary, rest::binary>> ->
 
           {
             %{state | current_state: :complete, unparsed_binary: rest}, 
             %RtmpHandshake.ParseResult{current_state: :success}
           }
 
-        _ -> {state, %RtmpHandshake.ParseResult{current_state: :failure}}
+        _ ->
+          <<_::4*8, _::4*8, received_random::binary>> = binary
+          Logger.debug "Handshake failed.  Expected random values (#{inspect(expected_random)}) \n" <>
+            "received (#{inspect(received_random)})"
+
+          {state, %RtmpHandshake.ParseResult{current_state: :failure}}
       end
     end
   end

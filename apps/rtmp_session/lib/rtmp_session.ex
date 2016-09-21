@@ -41,7 +41,7 @@ defmodule RtmpSession do
               processor: nil
   end
 
-  @spec new(pos_integer()) :: %State{}
+  @spec new(non_neg_integer()) :: %State{}
   def new(peer_initial_time) do
     %State{
       peer_initial_time: peer_initial_time,
@@ -104,7 +104,8 @@ defmodule RtmpSession do
         {processor, processor_results} = Processor.handle(processor, message)
         state = %{state | processor: processor}
       
-        handle_proc_result(state, results_so_far, processor_results ++ notify_results)
+        {state, results_so_far} = handle_proc_result(state, results_so_far, processor_results ++ notify_results)
+        do_process_bytes(state, <<>>, results_so_far)
     end
   end
 
@@ -116,13 +117,14 @@ defmodule RtmpSession do
     case proc_result_head do
       {:response, message = %DetailedMessage{}} ->
         raw_message = RawMessage.pack(message) 
-        {chunk_io, data} = ChunkIo.serialize(state.chunk_io, raw_message, 0)
+        csid = get_csid_for_message_type(raw_message)
+
+        {chunk_io, data} = ChunkIo.serialize(state.chunk_io, raw_message, csid)
         state = %{state | chunk_io: chunk_io}
         results_so_far = %{results_so_far | bytes_to_send: [results_so_far.bytes_to_send | data] }
         handle_proc_result(state, results_so_far, proc_result_tail)
 
       {:event, %RtmpEvents.PeerChunkSizeChanged{new_chunk_size: size}} ->
-        _ = Logger.debug "New peer chunk size #{size}"
         chunk_io = ChunkIo.set_receiving_max_chunk_size(state.chunk_io, size)
         state = %{state | chunk_io: chunk_io}
         results_so_far = %{results_so_far | events: [%RtmpEvents.PeerChunkSizeChanged{new_chunk_size: size} | results_so_far.events]}
@@ -133,4 +135,20 @@ defmodule RtmpSession do
         handle_proc_result(state, results_so_far, proc_result_tail)
     end
   end
+
+  # Csid seems to mostly be for better utilizing compression by spreading
+  # different message types among different chunk stream ids.  These numbers
+  # are just based on observations of current client-server activity
+  defp get_csid_for_message_type(%RawMessage{message_type_id: 1}), do: 2
+  defp get_csid_for_message_type(%RawMessage{message_type_id: 2}), do: 2
+  defp get_csid_for_message_type(%RawMessage{message_type_id: 3}), do: 2
+  defp get_csid_for_message_type(%RawMessage{message_type_id: 4}), do: 2
+  defp get_csid_for_message_type(%RawMessage{message_type_id: 5}), do: 2
+  defp get_csid_for_message_type(%RawMessage{message_type_id: 6}), do: 2
+  defp get_csid_for_message_type(%RawMessage{message_type_id: 18}), do: 3
+  defp get_csid_for_message_type(%RawMessage{message_type_id: 19}), do: 3
+  defp get_csid_for_message_type(%RawMessage{message_type_id: 9}), do: 4
+  defp get_csid_for_message_type(%RawMessage{message_type_id: 8}), do: 5
+  defp get_csid_for_message_type(%RawMessage{message_type_id: _}), do: 6
+
 end

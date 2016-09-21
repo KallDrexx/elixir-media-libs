@@ -41,6 +41,7 @@ defmodule RtmpServer.Mixfile do
     [
       {:rtmp_handshake, in_umbrella: true},
       {:rtmp_common, in_umbrella: true},
+      {:rtmp_session, in_umbrella: true},
       {:ranch, "~> 1.2.1", manager: :rebar},
       {:uuid, "~> 1.1"}
     ]

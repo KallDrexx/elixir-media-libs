@@ -149,23 +149,18 @@ defmodule RtmpSession.Processor do
     request = {:connect, app_name}
     {state, request_id} = create_request(state, request)
 
+    # FYI, sending a SetChunkSize here before connection is accepted will break OBS
     responses = [
       {
         :response, 
         form_response_message(state,
-          %MessageTypes.SetPeerBandwidth{window_size: state.configuration.peer_bandwidth, limit_type: :hard},
+          %MessageTypes.SetPeerBandwidth{window_size: state.configuration.peer_bandwidth, limit_type: :dynamic},
           0, true)  
       },
       {
         :response,
         form_response_message(state,
           %MessageTypes.WindowAcknowledgementSize{size: state.configuration.window_ack_size},
-          0, true)
-      },
-      {
-        :response,
-        form_response_message(state,
-          %MessageTypes.SetChunkSize{size: state.configuration.chunk_size},
           0, true)
       },
       {
