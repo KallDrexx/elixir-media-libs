@@ -359,6 +359,7 @@ defmodule RtmpSession.Processor do
     end
   end
 
+  @spec raise_error(%State{}, String.t) :: no_return()
   defp raise_error(_state, message) do
     # TODO: Add session id to message
     raise(message)

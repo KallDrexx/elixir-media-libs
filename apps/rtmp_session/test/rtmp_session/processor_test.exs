@@ -48,7 +48,6 @@ defmodule RtmpSession.ProcessorTest do
     alias RtmpSession.Messages.WindowAcknowledgementSize, as: WindowAcknowledgementSize
     alias RtmpSession.Messages.Amf0Command, as: Amf0Command
     alias RtmpSession.Messages.SetPeerBandwidth, as: SetPeerBandwidth
-    alias RtmpSession.Messages.SetChunkSize, as: SetChunkSize
     alias RtmpSession.Messages.UserControl, as: UserControl
 
     config = %SessionConfig{
@@ -78,7 +77,7 @@ defmodule RtmpSession.ProcessorTest do
     assert_contains(connect_results, {:response, %DetailedMessage{
       stream_id: 0,
       timestamp: timestamp,
-      content: %SetPeerBandwidth{window_size: 6000, limit_type: :hard},
+      content: %SetPeerBandwidth{window_size: 6000, limit_type: :dynamic},
       force_uncompressed: true
     }} when timestamp > 0)
 
@@ -86,13 +85,6 @@ defmodule RtmpSession.ProcessorTest do
       stream_id: 0,
       timestamp: timestamp,
       content: %WindowAcknowledgementSize{size: 7000},
-      force_uncompressed: true
-    }} when timestamp > 0)
-
-    assert_contains(connect_results, {:response, %DetailedMessage{
-      stream_id: 0,
-      timestamp: timestamp,
-      content: %SetChunkSize{size: 5000},
       force_uncompressed: true
     }} when timestamp > 0)
 

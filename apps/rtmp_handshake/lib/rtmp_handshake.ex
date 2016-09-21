@@ -108,9 +108,6 @@ defmodule RtmpHandshake do
 
         _ ->
           <<_::4*8, _::4*8, received_random::binary>> = binary
-          Logger.debug "Handshake failed.  Expected random values (#{inspect(expected_random)}) \n" <>
-            "received (#{inspect(received_random)})"
-
           {state, %RtmpHandshake.ParseResult{current_state: :failure}}
       end
     end
