@@ -300,7 +300,11 @@ defmodule RtmpSession.Processor do
       }, 0)
     }
 
-    {state, [response]}
+    chunk_size_response = {:response, 
+      form_response_message(state, %MessageTypes.SetChunkSize{size: state.configuration.chunk_size}, 0)
+    }
+
+    {state, [response, chunk_size_response]}
   end
 
   defp accept_publish_request(state, stream_id, stream_key) do
