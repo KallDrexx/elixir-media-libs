@@ -7,7 +7,7 @@ defmodule RtmpSessionTest do
 
   test "Can parse Obs-1 recorded session" do
     reader = RecordedChunkReader.new("test/captured_sessions/obs-1/")
-    session = RtmpSession.new(0)
+    session = RtmpSession.new(0, "session")
 
     {_session, _reader} = read_data(session, reader)
 

@@ -19,7 +19,7 @@ defmodule RtmpSession.ProcessorTest do
   test "Can handle peer chunk size message" do
     alias RtmpSession.Messages.SetChunkSize, as: SetChunkSize
 
-    processor = RtmpProcessor.new(%SessionConfig{})
+    processor = RtmpProcessor.new(%SessionConfig{}, "abc")
     message = %DetailedMessage{content: %SetChunkSize{size: 4096}}
     {_, results} = RtmpProcessor.handle(processor, message)
 
@@ -30,7 +30,7 @@ defmodule RtmpSession.ProcessorTest do
     alias RtmpSession.Messages.WindowAcknowledgementSize, as: WindowAcknowledgementSize
     alias RtmpSession.Messages.Acknowledgement, as: Acknowledgement
 
-    processor = RtmpProcessor.new(%SessionConfig{})
+    processor = RtmpProcessor.new(%SessionConfig{}, "abc")
     :timer.sleep(100)
 
     message = %DetailedMessage{content: %WindowAcknowledgementSize{size: 500}}
@@ -68,7 +68,7 @@ defmodule RtmpSession.ProcessorTest do
       }
     }
 
-    processor = RtmpProcessor.new(config)
+    processor = RtmpProcessor.new(config, "abc")
     :timer.sleep(100)
 
     # Connect command received
@@ -327,7 +327,7 @@ defmodule RtmpSession.ProcessorTest do
       }
     }
 
-    processor = RtmpProcessor.new(%SessionConfig{})
+    processor = RtmpProcessor.new(%SessionConfig{}, "abc")
     
     # Make sure some time has passed since creating the processor
     #   to allow for non-zero timestamp checking

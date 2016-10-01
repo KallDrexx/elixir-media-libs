@@ -26,7 +26,8 @@ defmodule RtmpSession.Processor do
       last_request_id: 0,
       last_created_stream_id: 0,
       connected_app_name: nil,
-      active_streams: %{}
+      active_streams: %{},
+      session_id: nil
   end
 
   defmodule ActiveStream do
@@ -35,10 +36,11 @@ defmodule RtmpSession.Processor do
               stream_key: nil
   end
 
-  @spec new(%SessionConfig{}) :: %State{}
-  def new(config = %SessionConfig{}) do
+  @spec new(%SessionConfig{}, String.t) :: %State{}
+  def new(config = %SessionConfig{}, session_id) do
     %State{
-      configuration: config
+      configuration: config,
+      session_id: session_id
     }
   end
 
@@ -351,11 +353,10 @@ defmodule RtmpSession.Processor do
     }
   end
 
-  defp log(_state, level, message) do
-    # TODO: Add session id in here
+  defp log(state, level, message) do
     case level do
-      :debug -> Logger.debug message
-      :info -> Logger.info message
+      :debug -> Logger.debug "#{state.session_id}: #{message}"
+      :info -> Logger.info "#{state.session_id}: #{message}"
     end
   end
 

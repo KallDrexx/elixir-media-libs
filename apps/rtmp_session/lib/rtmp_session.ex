@@ -38,16 +38,18 @@ defmodule RtmpSession do
     defstruct self_epoch: nil,
               peer_initial_time: nil,
               chunk_io: nil,
-              processor: nil
+              processor: nil,
+              session_id: nil
   end
 
-  @spec new(non_neg_integer()) :: %State{}
-  def new(peer_initial_time) do
+  @spec new(non_neg_integer(), String.t) :: %State{}
+  def new(peer_initial_time, session_id) do
     %State{
       peer_initial_time: peer_initial_time,
       self_epoch: :erlang.system_time(:milli_seconds),
       chunk_io: ChunkIo.new(),
-      processor: Processor.new(%SessionConfig{})
+      processor: Processor.new(%SessionConfig{}, session_id),
+      session_id: session_id
     }
   end
 
@@ -97,7 +99,7 @@ defmodule RtmpSession do
   defp act_on_message(state, raw_message, results_so_far, bytes_received) do
     case RawMessage.unpack(raw_message) do
       {:error, :unknown_message_type} ->
-        _ = Logger.error "Received message of type #{raw_message.message_type_id} but we have no known way to unpack it!"
+        _ = Logger.error "#{state.session_id}: Received message of type #{raw_message.message_type_id} but we have no known way to unpack it!"
 
       {:ok, message} ->
         {processor, notify_results} = Processor.notify_bytes_received(state.processor, bytes_received)

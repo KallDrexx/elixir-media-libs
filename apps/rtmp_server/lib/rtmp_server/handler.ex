@@ -45,7 +45,7 @@ defmodule RtmpServer.Handler do
     new_state = %{state |
       handshake_instance: handshake_instance,
       session_id: session_id,
-      rtmp_session_instance: RtmpSession.new(0)
+      rtmp_session_instance: RtmpSession.new(0, session_id)
     }
 
     set_socket_options(new_state)
@@ -145,7 +145,7 @@ defmodule RtmpServer.Handler do
   end
 
   defp handle_session_events(session, state, [event | tail]) do
-    _ = Logger.warn "No code to handle event of type #{inspect event}"
+    _ = Logger.warn "#{state.session_id}: No code to handle event of type #{inspect event}"
     handle_session_events(session, state, tail)
   end
 end
