@@ -28,7 +28,7 @@ defmodule RtmpSession.Events do
   defmodule ConnectionRequested do
     @type t :: %__MODULE__{
       request_id: integer(),
-      app_name: String.t
+      app_name: RtmpSession.app_name
     }
 
     defstruct request_id: nil,
@@ -38,8 +38,8 @@ defmodule RtmpSession.Events do
   defmodule ReleaseStreamRequested do
     @type t :: %__MODULE__{
       request_id: integer(),
-      app_name: String.t,
-      stream_key: String.t
+      app_name: RtmpSession.app_name,
+      stream_key: RtmpSession.stream_key
     }
 
     defstruct request_id: nil,
@@ -50,8 +50,8 @@ defmodule RtmpSession.Events do
   defmodule PublishStreamRequested do
     @type t :: %__MODULE__{
       request_id: integer(),
-      app_name: String.t,
-      stream_key: String.t
+      app_name: RtmpSession.app_name,
+      stream_key: RtmpSession.stream_keyapp_name
     }
 
     defstruct request_id: nil,
@@ -61,8 +61,8 @@ defmodule RtmpSession.Events do
 
   defmodule StreamMetaDataChanged do
     @type t :: %__MODULE__{
-      app_name: String.t,
-      stream_key: String.t,
+      app_name: RtmpSession.app_name,
+      stream_key: RtmpSession.stream_key,
       meta_data: RtmpSession.StreamMetadata.t
     }
 
@@ -73,8 +73,8 @@ defmodule RtmpSession.Events do
 
   defmodule AudioVideoDataReceived do
     @type t :: %__MODULE__{
-      app_name: String.t,
-      stream_key: String.t,
+      app_name: RtmpSession.app_name,
+      stream_key: RtmpSession.stream_key,
       data_type: :audio | :video,
       data: <<>>
     }

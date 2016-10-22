@@ -339,7 +339,7 @@ defmodule RtmpSession.ProcessorTest do
     {processor, connect_results} = RtmpProcessor.handle(processor, command)
     {:event, event} = assert_contains(connect_results, {:event, %Events.ConnectionRequested{app_name: "some_app"}})
 
-    {processor, accept_results} = RtmpProcessor.accept_request(processor, event.request_id)
+    {_, accept_results} = RtmpProcessor.accept_request(processor, event.request_id)
     assert_contains(accept_results, {:response, 
       %DetailedMessage{
         stream_id: 0,

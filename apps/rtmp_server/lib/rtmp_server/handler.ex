@@ -2,8 +2,6 @@ defmodule RtmpServer.Handler do
   @moduledoc "Handles the rtmp socket connection"
   require Logger
   use GenServer
-
-  alias RtmpSession.Events, as: SessionEvents
   
   defmodule State do
     defstruct socket: nil,
@@ -13,7 +11,8 @@ defmodule RtmpServer.Handler do
               bytes_sent: 0,
               handshake_completed: false,
               handshake_instance: nil,
-              rtmp_session_instance: nil             
+              rtmp_session_instance: nil,
+              director_instance: nil             
   end  
   
   @doc "Starts the handler for an accepted socket"
@@ -25,7 +24,7 @@ defmodule RtmpServer.Handler do
     :ok = :proc_lib.init_ack({:ok, self()})
     :ok = :ranch.accept_ack(ref)
 
-    send(self(), :perform_handshake)    
+    send(self(), :perform_handshake)
     :gen_server.enter_loop(__MODULE__, [], %State{socket: socket, transport: transport})   
   end
   
@@ -45,7 +44,10 @@ defmodule RtmpServer.Handler do
     new_state = %{state |
       handshake_instance: handshake_instance,
       session_id: session_id,
-      rtmp_session_instance: RtmpSession.new(0, session_id)
+      rtmp_session_instance: RtmpSession.new(0, session_id),
+
+      #TODO: Pass in director module via opts
+      director_instance: RtmpServer.Director.new(RtmpServer.AcceptAllDirector, session_id, state.socket)
     }
 
     set_socket_options(new_state)
@@ -104,48 +106,13 @@ defmodule RtmpServer.Handler do
     {session, results} = RtmpSession.process_bytes(state.rtmp_session_instance, binary)
 
     state.transport.send(state.socket, results.bytes_to_send)
-    session = handle_session_events(session, state, results.events)
-    
+
+    {director, session} = RtmpServer.Director.handle(state.director_instance, session, state.transport, results.events)    
     set_socket_options(state)
 
-    %{state | rtmp_session_instance: session}
-  end
-
-  # TODO: Replace always accepting event handlers with externally provided one
-  # to realistically react to events
-
-  defp handle_session_events(session, _state, []) do
-    session
-  end
-
-  defp handle_session_events(session, state, [%SessionEvents.PeerChunkSizeChanged{} | tail]) do
-    handle_session_events(session, state, tail)
-  end
-
-  defp handle_session_events(session, state, [%SessionEvents.ConnectionRequested{request_id: request_id} | tail]) do
-    {session, results} = RtmpSession.accept_request(session, request_id)
-
-    state.transport.send(state.socket, results.bytes_to_send)
-    session = handle_session_events(session, state, results.events)
-
-    handle_session_events(session, state, tail)
-  end
-
-  defp handle_session_events(session, state, [%SessionEvents.PeerChunkSizeChanged{} | tail]) do
-    handle_session_events(session, state, tail)
-  end
-
-  defp handle_session_events(session, state, [%SessionEvents.PublishStreamRequested{request_id: request_id} | tail]) do
-    {session, results} = RtmpSession.accept_request(session, request_id)
-
-    state.transport.send(state.socket, results.bytes_to_send)
-    session = handle_session_events(session, state, results.events)
-
-    handle_session_events(session, state, tail)
-  end
-
-  defp handle_session_events(session, state, [event | tail]) do
-    _ = Logger.warn "#{state.session_id}: No code to handle event of type #{inspect event}"
-    handle_session_events(session, state, tail)
+    %{state | 
+      rtmp_session_instance: session,
+      director_instance: director
+    }
   end
 end

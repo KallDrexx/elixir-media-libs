@@ -23,6 +23,10 @@ defmodule RtmpSession do
 
   require Logger
 
+  @type t :: %RtmpSession.State{}
+  @type app_name :: String.t
+  @type stream_key :: String.t
+
   @type deserialized_message :: RtmpSession.Messages.SetChunkSize.t |
     RtmpSession.Messages.Abort.t |
     RtmpSession.Messages.Acknowledgement.t |

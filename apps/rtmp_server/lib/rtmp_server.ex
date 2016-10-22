@@ -1,5 +1,7 @@
 defmodule RtmpServer do
   use Application
+
+  @type session_id :: String.t
   
   def start(_type, _args) do
     import Supervisor.Spec, warn: false
