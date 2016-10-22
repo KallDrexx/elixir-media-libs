@@ -349,6 +349,35 @@ defmodule RtmpSession.ProcessorTest do
     )
   end
 
+  test "Publish finished event raised when deleteStream invoked on publishing stream id" do
+    alias RtmpSession.Messages.Amf0Command, as: Amf0Command
+
+    %TestContext{
+      processor: processor,
+      application_name: application_name,
+      active_stream_id: stream_id,
+      stream_key: stream_key
+    } = get_publishing_processor()
+
+    command = %DetailedMessage{
+      timestamp: 0,
+      stream_id: 0,
+      content: %Amf0Command{
+        command_name: "deleteStream",
+        transaction_id: 8,
+        command_object: nil,
+        additional_values: [stream_id]
+      }
+    }
+
+    {_, results} = RtmpProcessor.handle(processor, command)
+
+    assert_contains(results, {:event, %Events.PublishingFinished{
+      app_name: ^application_name,
+      stream_key: ^stream_key
+    }})
+  end
+
   defp get_connected_processor do
     alias RtmpSession.Messages.Amf0Command, as: Amf0Command
 

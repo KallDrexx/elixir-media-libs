@@ -240,6 +240,31 @@ defmodule RtmpSession.Processor do
     end
   end
 
+  defp handle_command(state = %State{current_stage: :connected}, 
+                      _stream_id, 
+                      "deleteStream", 
+                      _transaction_id, 
+                      nil, 
+                      [stream_id_to_delete]) do
+    _ = log(state, :debug, "Received deleteStream command")
+
+    case Map.fetch(state.active_streams, stream_id_to_delete) do
+      {:ok, stream = %ActiveStream{}} ->
+        state = %{state | active_streams: Map.delete(state.active_streams, stream_id_to_delete)}
+
+        event = {:event, %Events.PublishingFinished{
+          app_name: state.connected_app_name,
+          stream_key: stream.stream_key
+        }}
+
+        {state, [event]}
+
+      :error ->
+        # Since this is not an active stream, ignore the request
+        {state, []}
+    end
+  end
+
   defp handle_command(state, stream_id, command_name, transaction_id, _command_obj, _args) do
     _ = log(state, :info, "Unable to handle command '#{command_name}' while in stage '#{state.current_stage}' " <>
       "(stream id '#{stream_id}', transaction_id: #{transaction_id})")

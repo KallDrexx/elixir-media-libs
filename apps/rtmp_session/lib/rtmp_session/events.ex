@@ -7,7 +7,8 @@ defmodule RtmpSession.Events do
     RtmpSession.Events.PublishStreamRequested.t |
     RtmpSession.Events.StreamMetaDataChanged.t |
     RtmpSession.Events.AudioVideoDataReceived.t |
-    RtmpSession.Events.UnhandleableAmf0Command.t
+    RtmpSession.Events.UnhandleableAmf0Command.t |
+    RtmpSession.Events.PublishingFinished.t
 
   defmodule PeerChunkSizeChanged do
     @type t :: %__MODULE__{
@@ -51,11 +52,21 @@ defmodule RtmpSession.Events do
     @type t :: %__MODULE__{
       request_id: integer(),
       app_name: RtmpSession.app_name,
-      stream_key: RtmpSession.stream_keyapp_name
+      stream_key: RtmpSession.stream_key
     }
 
     defstruct request_id: nil,
               app_name: nil,
+              stream_key: nil
+  end
+
+  defmodule PublishingFinished do
+    @type t :: %__MODULE__{
+      app_name: RtmpSession.app_name,
+      stream_key: RtmpSession.stream_key
+    }
+
+    defstruct app_name: nil,
               stream_key: nil
   end
 
