@@ -1,13 +1,16 @@
 defmodule RtmpServer do
   use Application
+  require Logger
 
   @type session_id :: String.t
   
-  def start(_type, _args) do
+  def start(_type, args) do
     import Supervisor.Spec, warn: false
-       
+
+    rtmp_options = Keyword.take(args, [:port, :fms_version, :chunk_size])
+
     children = [
-      worker(RtmpServer.Worker, [])
+      worker(RtmpServer.Worker, [rtmp_options])
     ]
     
     opts = [strategy: :one_for_one, name: RtmpServer.Supervisor]

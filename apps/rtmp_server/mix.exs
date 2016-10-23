@@ -19,7 +19,11 @@ defmodule RtmpServer.Mixfile do
   # Type "mix help compile.app" for more information
   def application do
     [
-      mod: {RtmpServer, []},
+      mod: {RtmpServer, [
+        port: 1935,
+        fms_version: "FMS/3,0,0,1233",
+        chunk_size: 4096
+      ]},
       applications: [:logger, :ranch]
     ]
   end

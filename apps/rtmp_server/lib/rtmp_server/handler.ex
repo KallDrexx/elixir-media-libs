@@ -20,15 +20,15 @@ defmodule RtmpServer.Handler do
     :proc_lib.start_link(__MODULE__, :init, [ref, socket, transport, opts])
   end
   
-  def init(ref, socket, transport, _opts) do   
+  def init(ref, socket, transport, opts) do   
     :ok = :proc_lib.init_ack({:ok, self()})
     :ok = :ranch.accept_ack(ref)
 
-    send(self(), :perform_handshake)
+    send(self(), {:perform_handshake, opts})
     :gen_server.enter_loop(__MODULE__, [], %State{socket: socket, transport: transport})   
   end
   
-  def handle_info(:perform_handshake, state) do
+  def handle_info({:perform_handshake, initial_options}, state) do
     session_id = UUID.uuid4()
     
     {:ok, {ip, _port}} = :inet.peername(state.socket)
@@ -41,10 +41,12 @@ defmodule RtmpServer.Handler do
 
     :ok = state.transport.send(state.socket, bytes_to_send)
 
+    session_config = create_session_config(initial_options)
+
     new_state = %{state |
       handshake_instance: handshake_instance,
       session_id: session_id,
-      rtmp_session_instance: RtmpSession.new(0, session_id),
+      rtmp_session_instance: RtmpSession.new(0, session_id, session_config),
 
       #TODO: Pass in director module via opts
       director_instance: RtmpServer.Director.new(RtmpServer.AcceptAllDirector, session_id, state.socket)
@@ -114,5 +116,20 @@ defmodule RtmpServer.Handler do
       rtmp_session_instance: session,
       director_instance: director
     }
+  end
+
+  defp create_session_config(options) do
+    config = %RtmpSession.SessionConfig{}
+    config = case Keyword.fetch(options, :fms_version) do
+      {:ok, value} -> %{config| fms_version: value}
+      :error -> config
+    end
+
+    config = case Keyword.fetch(options, :chunk_size) do
+      {:ok, value} -> %{config| chunk_size: value}
+      :error -> config
+    end
+
+    config
   end
 end

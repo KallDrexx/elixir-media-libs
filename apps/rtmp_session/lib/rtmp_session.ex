@@ -46,13 +46,13 @@ defmodule RtmpSession do
               session_id: nil
   end
 
-  @spec new(non_neg_integer(), String.t) :: %State{}
-  def new(peer_initial_time, session_id) do
+  @spec new(non_neg_integer(), String.t, %SessionConfig{}) :: %State{}
+  def new(peer_initial_time, session_id, config \\ %SessionConfig{}) do
     %State{
       peer_initial_time: peer_initial_time,
       self_epoch: :erlang.system_time(:milli_seconds),
       chunk_io: ChunkIo.new(),
-      processor: Processor.new(%SessionConfig{}, session_id),
+      processor: Processor.new(config, session_id),
       session_id: session_id
     }
   end
