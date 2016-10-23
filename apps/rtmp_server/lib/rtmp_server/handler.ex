@@ -48,8 +48,6 @@ defmodule RtmpServer.Handler do
       handshake_instance: handshake_instance,
       session_id: session_id,
       rtmp_session_instance: RtmpSession.new(0, session_id, session_config),
-
-      #TODO: Pass in director module via opts
       director_instance: RtmpServer.Director.new(director_module, session_id, state.socket)
     }
 
