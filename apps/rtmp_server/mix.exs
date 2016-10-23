@@ -22,7 +22,8 @@ defmodule RtmpServer.Mixfile do
       mod: {RtmpServer, [
         port: 1935,
         fms_version: "FMS/3,0,0,1233",
-        chunk_size: 4096
+        chunk_size: 4096,
+        director_module: RtmpServer.AcceptAllDirector
       ]},
       applications: [:logger, :ranch]
     ]

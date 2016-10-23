@@ -42,6 +42,7 @@ defmodule RtmpServer.Handler do
     :ok = state.transport.send(state.socket, bytes_to_send)
 
     session_config = create_session_config(initial_options)
+    director_module = Keyword.fetch!(initial_options, :director_module)
 
     new_state = %{state |
       handshake_instance: handshake_instance,
@@ -49,7 +50,7 @@ defmodule RtmpServer.Handler do
       rtmp_session_instance: RtmpSession.new(0, session_id, session_config),
 
       #TODO: Pass in director module via opts
-      director_instance: RtmpServer.Director.new(RtmpServer.AcceptAllDirector, session_id, state.socket)
+      director_instance: RtmpServer.Director.new(director_module, session_id, state.socket)
     }
 
     set_socket_options(new_state)

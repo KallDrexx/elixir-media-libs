@@ -7,10 +7,8 @@ defmodule RtmpServer do
   def start(_type, args) do
     import Supervisor.Spec, warn: false
 
-    rtmp_options = Keyword.take(args, [:port, :fms_version, :chunk_size])
-
     children = [
-      worker(RtmpServer.Worker, [rtmp_options])
+      worker(RtmpServer.Worker, [args])
     ]
     
     opts = [strategy: :one_for_one, name: RtmpServer.Supervisor]

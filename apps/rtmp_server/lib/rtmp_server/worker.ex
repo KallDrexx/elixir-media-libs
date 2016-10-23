@@ -3,7 +3,7 @@ defmodule RtmpServer.Worker do
 
   def start_link(args) do
     opts = Keyword.take(args, [:port])
-    handler_options = Keyword.take(args, [:fms_version, :chunk_size])
+    handler_options = Keyword.take(args, [:fms_version, :chunk_size, :director_module])
 
     Logger.info "Starting RTMP listener on port #{Keyword.get(opts, :port)}"
 
