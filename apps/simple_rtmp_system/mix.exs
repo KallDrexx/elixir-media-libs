@@ -1,14 +1,14 @@
-defmodule RtmpServer.Mixfile do
+defmodule SimpleRtmpSystem.Mixfile do
   use Mix.Project
 
   def project do
-    [app: :rtmp_server,
-     version: "0.0.1",
+    [app: :simple_rtmp_system,
+     version: "0.1.0",
      build_path: "../../_build",
      config_path: "../../config/config.exs",
      deps_path: "../../deps",
      lockfile: "../../mix.lock",
-     elixir: "~> 1.2",
+     elixir: "~> 1.3",
      build_embedded: Mix.env == :prod,
      start_permanent: Mix.env == :prod,
      deps: deps]
@@ -19,14 +19,12 @@ defmodule RtmpServer.Mixfile do
   # Type "mix help compile.app" for more information
   def application do
     [
-      mod: {RtmpServer, []},
+      mod: {SimpleRtmpSystem, []},
       env: [
-        port: 1938,
-        fms_version: "FMS/3,0,0,1233",
-        chunk_size: 4096,
-        director_module: RtmpServer.AcceptAllDirector
+        rtmp_port: 1935,
+        rtmp_director_module: RtmpServer.AcceptAllDirector # TODO: change to RSR specific one
       ],
-      applications: [:logger, :ranch]
+      applications: [:logger]
     ]
   end
 
@@ -45,10 +43,8 @@ defmodule RtmpServer.Mixfile do
   # Type "mix help deps" for more examples and options
   defp deps do
     [
-      {:rtmp_handshake, in_umbrella: true},
-      {:rtmp_session, in_umbrella: true},
-      {:ranch, "~> 1.2.1", manager: :rebar},
-      {:uuid, "~> 1.1"}
+      {:rtmp_server, in_umbrella: true},
+      {:dialyxir, "~> 0.3.5", only: [:dev]}
     ]
   end
 end
