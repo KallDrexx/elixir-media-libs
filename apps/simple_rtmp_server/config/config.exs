@@ -10,11 +10,11 @@ use Mix.Config
 
 # You can configure for your application as:
 #
-#     config :simple_rtmp_system, key: :value
+#     config :simple_rtmp_server, key: :value
 #
 # And access this configuration in your application as:
 #
-#     Application.get_env(:simple_rtmp_system, :key)
+#     Application.get_env(:simple_rtmp_server, :key)
 #
 # Or configure a 3rd-party app:
 #

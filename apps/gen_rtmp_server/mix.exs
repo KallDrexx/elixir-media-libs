@@ -1,8 +1,8 @@
-defmodule SimpleRtmpSystem.Mixfile do
+defmodule GenRtmpServer.Mixfile do
   use Mix.Project
 
   def project do
-    [app: :simple_rtmp_system,
+    [app: :gen_rtmp_server,
      version: "0.1.0",
      build_path: "../../_build",
      config_path: "../../config/config.exs",
@@ -18,14 +18,7 @@ defmodule SimpleRtmpSystem.Mixfile do
   #
   # Type "mix help compile.app" for more information
   def application do
-    [
-      mod: {SimpleRtmpSystem, []},
-      env: [
-        rtmp_port: 1935,
-        rtmp_director_module: RtmpServer.AcceptAllDirector # TODO: change to RSR specific one
-      ],
-      applications: [:logger]
-    ]
+    [applications: [:logger, :ranch]]
   end
 
   # Dependencies can be Hex packages:
@@ -43,8 +36,10 @@ defmodule SimpleRtmpSystem.Mixfile do
   # Type "mix help deps" for more examples and options
   defp deps do
     [
-      {:rtmp_server, in_umbrella: true},
-      {:dialyxir, "~> 0.3.5", only: [:dev]}
+      {:rtmp_handshake, in_umbrella: true},
+      {:rtmp_session, in_umbrella: true},
+      {:ranch, "~> 1.2.1", manager: :rebar},
+      {:uuid, "~> 1.1"}
     ]
   end
 end

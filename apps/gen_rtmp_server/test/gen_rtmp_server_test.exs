@@ -1,6 +1,6 @@
-defmodule SimpleRtmpSystemTest do
+defmodule GenRtmpServerTest do
   use ExUnit.Case
-  doctest SimpleRtmpSystem
+  doctest GenRtmpServer
 
   test "the truth" do
     assert 1 + 1 == 2
