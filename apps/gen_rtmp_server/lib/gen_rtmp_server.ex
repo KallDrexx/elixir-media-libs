@@ -8,12 +8,20 @@ defmodule GenRtmpServer do
   should be sent.
   """
 
+  alias RtmpSession.Events, as: RtmpEvents
   require Logger
                  
   @type session_id :: String.t
   @type client_ip :: String.t
+  @type adopter_state :: any
+  @type command :: :ignore | :disconnect
+  @type request_result :: :accepted | {:rejected, command, String.t}
   
-  @callback session_started(session_id, client_ip) :: :ok
+  @callback init(session_id, client_ip) :: {:ok, adopter_state}
+  @callback connection_requested(RtmpEvents.ConnectionRequested.t, adopter_state) :: {request_result, adopter_state}
+  @callback publish_requested(RtmpEvents.PublishStreamRequested.t, adopter_state) :: {request_result, adopter_state}
+  @callback metadata_received(RtmpEvents.StreamMetaDataChanged.t, adopter_state) :: {:ok, adopter_state}
+  @callback audio_video_data_received(RtmpEvents.AudioVideoDataReceived.t, adopter_state) :: {:ok, adopter_state}
   
   @spec start_link(module(), %GenRtmpServer.RtmpOptions{}) :: Supervisor.on_start
   def start_link(module, options = %GenRtmpServer.RtmpOptions{}) do

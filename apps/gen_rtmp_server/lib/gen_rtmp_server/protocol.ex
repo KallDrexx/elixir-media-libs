@@ -5,6 +5,7 @@ defmodule GenRtmpServer.Protocol do
 
   @behaviour :ranch_protocol
 
+  alias RtmpSession.Events, as: RtmpEvents
   use GenServer
   require Logger
 
@@ -17,7 +18,8 @@ defmodule GenRtmpServer.Protocol do
               handshake_completed: false,
               handshake_instance: nil,
               rtmp_session_instance: nil,
-              gen_rtmp_server_adopter: nil
+              gen_rtmp_server_adopter: nil,
+              adopter_state: nil
   end
 
   @doc "Starts the protocol for the accepted socket"
@@ -80,8 +82,9 @@ defmodule GenRtmpServer.Protocol do
           handshake_completed: true  
         }
 
-        :ok = state.gen_rtmp_server_adopter.session_started(state.session_id, get_ip_address(state.socket))
+        {:ok, adopter_state} = state.gen_rtmp_server_adopter.init(state.session_id, get_ip_address(state.socket))
 
+        state = %{state | adopter_state: adopter_state}        
         state = process_binary(state, remaining_binary)
 
         set_socket_options(state)
@@ -114,7 +117,7 @@ defmodule GenRtmpServer.Protocol do
     {session, results} = RtmpSession.process_bytes(state.rtmp_session_instance, binary)
     state.transport.send(state.socket, results.bytes_to_send)
 
-    #{director, session} = RtmpServer.Director.handle(state.director_instance, session, state.transport, results.events)    
+    {state, session} = handle_event(results.events, state, session)    
     set_socket_options(state)
 
     %{state | 
@@ -139,7 +142,84 @@ defmodule GenRtmpServer.Protocol do
 
   defp get_ip_address(socket) do
     {:ok, {ip, _port}} = :inet.peername(socket)
-    client_ip_string = ip |> Tuple.to_list() |> Enum.join(".")
+    ip |> Tuple.to_list() |> Enum.join(".")
+  end
+
+  defp handle_event([], state, session) do
+    {state, session}
+  end
+
+  defp handle_event([event = %RtmpEvents.ConnectionRequested{} | tail], state, session) do
+    case state.gen_rtmp_server_adopter.connection_requested(event, state.adopter_state) do
+      {:accepted, adopter_state} -> 
+        _ = Logger.info("#{state.session_id}: Connection request accepted (app: '#{event.app_name}')")
+
+        state = %{state | adopter_state: adopter_state}
+        {session, results} = RtmpSession.accept_request(session, event.request_id)
+        state.transport.send(state.socket, results.bytes_to_send)
+
+        {state, session} = handle_event(results.events, state, session)
+        handle_event(tail, state, session)
+
+      {{:rejected, command, reason}, adopter_state} ->
+        _ = Logger.info("#{state.session_id}: Connection request rejected (app: '#{event.app_name}') - #{reason}")
+
+        case command do
+          :disconnect -> state.transport.close(state.socket)
+          _ -> :ok
+        end
+
+        state = %{state | adopter_state: adopter_state}
+        handle_event(tail, state, session)
+    end
+  end
+
+  defp handle_event([event = %RtmpEvents.PublishStreamRequested{} | tail], state, session) do
+    case state.gen_rtmp_server_adopter.publish_requested(event, state.adopter_state) do
+      {:accepted, adopter_state} ->
+        _ = Logger.info("#{state.session_id}: Publish stream request accepted (app: '#{event.app_name}', key: '#{event.stream_key}')")
+
+        state = %{state | adopter_state: adopter_state}
+        {session, results} = RtmpSession.accept_request(session, event.request_id)
+        state.transport.send(state.socket, results.bytes_to_send)
+
+        {state, session} = handle_event(results.events, state, session)
+        handle_event(tail, state, session)
+
+      {{:rejected, command, reason}, adopter_state} ->
+        _ = Logger.info("#{state.session_id}: Publish stream request rejected (app: '#{event.app_name}', key: '#{event.stream_key}') - #{reason}")
+
+        case command do
+          :disconnect -> state.transport.close(state.socket)
+          _ -> :ok
+        end
+
+        state = %{state | adopter_state: adopter_state}
+        handle_event(tail, state, session)
+    end
+  end
+
+  defp handle_event([%RtmpEvents.PeerChunkSizeChanged{} | tail], state, session) do
+    handle_event(tail, state, session)
+  end
+
+  defp handle_event([event = %RtmpEvents.AudioVideoDataReceived{} | tail], state, session) do
+    {:ok, adopter_state} = state.gen_rtmp_server_adopter.audio_video_data_received(event, state.adopter_state)
+    state = %{state | adopter_state: adopter_state}
+
+    handle_event(tail, state, session)
+  end
+
+  defp handle_event([event = %RtmpEvents.StreamMetaDataChanged{} | tail], state, session) do
+    {:ok, adopter_state} = state.gen_rtmp_server_adopter.metadata_received(event, state.adopter_state)
+    state = %{state | adopter_state: adopter_state}
+
+    handle_event(tail, state, session)
+  end
+
+  defp handle_event([event | tail], state, session) do
+    _ = Logger.warn("#{state.session_id}: No code to handle RTMP session event of type #{inspect(event)}")
+    handle_event(tail, state, session)
   end
 
 end
