@@ -144,10 +144,16 @@ defmodule RtmpSession.Processor do
     {state, []}
   end
 
-  defp handle_command(state = %State{current_stage: :started}, _stream_id, "connect", _transaction_id, command_obj, _args) do
+  defp handle_command(state = %State{current_stage: :started}, 
+                      _stream_id, 
+                      "connect", 
+                      _transaction_id, 
+                      command_obj, 
+                      _args) do
+
     _ = log(state, :debug, "Connect command received")
 
-    app_name = command_obj["app"]
+    app_name = String.replace_trailing(command_obj["app"], "/", "")
     request = {:connect, app_name}
     {state, request_id} = create_request(state, request)
 

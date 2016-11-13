@@ -378,6 +378,38 @@ defmodule RtmpSession.ProcessorTest do
     }})
   end
 
+  test "Connect request strips trailing slash" do
+    alias RtmpSession.Messages.Amf0Command, as: Amf0Command
+
+    config = %SessionConfig{
+      fms_version: "version",
+      chunk_size: 5000,
+      peer_bandwidth: 6000,
+      window_ack_size: 7000
+    }
+
+    command = %DetailedMessage{
+      timestamp: 0,
+      stream_id: 0,
+      content: %Amf0Command{
+        command_name: "connect",
+        transaction_id: 1,
+        command_object: %{"app" => "some_app/"},
+        additional_values: []
+      }
+    }
+
+    processor = RtmpProcessor.new(config, "abc")
+    :timer.sleep(100)
+
+    {_, connect_results} = RtmpProcessor.handle(processor, command)
+
+    {:event, _} = assert_contains(connect_results, {:event, %Events.ConnectionRequested{
+      request_id: _,
+      app_name: "some_app"
+    }})
+  end
+
   defp get_connected_processor do
     alias RtmpSession.Messages.Amf0Command, as: Amf0Command
 
