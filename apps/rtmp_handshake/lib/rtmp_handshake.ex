@@ -80,7 +80,7 @@ defmodule RtmpHandshake do
     if byte_size(binary) < 1536 do
       {%{state | unparsed_binary: binary},  %RtmpHandshake.ParseResult{current_state: :waiting_for_data}}
     else
-      <<time::4 * 8, 0::4 * 8, random::binary-size(1528), rest::binary>> = binary
+      <<time::4 * 8, _::4 * 8, random::binary-size(1528), rest::binary>> = binary
       binary_response = <<time::4 * 8, 0::4 * 8>> <> random # send packet 2
 
       {new_state, parse_result} = 
