@@ -33,7 +33,8 @@ defmodule RtmpSession.Processor do
   defmodule ActiveStream do
     defstruct stream_id: nil,
               current_state: :created,
-              stream_key: nil
+              stream_key: nil,
+              buffer_size_in_ms: nil
   end
 
   @spec new(%SessionConfig{}, String.t) :: %State{}
@@ -135,6 +136,26 @@ defmodule RtmpSession.Processor do
     }}
 
     {state, [event]}
+  end
+
+  defp do_handle(state, %DetailedMessage{content: %MessageTypes.UserControl{type: :set_buffer_length, stream_id: 0}}) do
+    # Since we aren't sending video on stream 0, I assume we just ignore this.
+    _ = log(state, :debug, "Received set buffer length user control message on stream 0.  Ignoring...")
+    {state, []}
+  end
+
+  defp do_handle(state, message = %DetailedMessage{content: %MessageTypes.UserControl{type: :set_buffer_length}}) do
+    active_stream = Map.fetch!(state.active_streams, message.content.stream_id)
+    active_stream = %{active_stream | buffer_size_in_ms: message.content.buffer_length}
+    state = %{state | active_streams: Map.put(state.active_streams, message.content.stream_id, active_stream)}
+
+    _ = log(state, :debug, "Stream #{message.content.stream_id} buffer set to #{message.content.buffer_length} milliseconds")
+    {state, []}
+  end
+
+  defp do_handle(state, %DetailedMessage{content: %MessageTypes.UserControl{type: type}}) do
+    _ = log(state, :warn, "Received a user control message of type '#{type}' but no known way to handle it")
+    {state, []}  
   end
 
   defp do_handle(state, message = %DetailedMessage{content: %{__struct__: message_type}}) do
