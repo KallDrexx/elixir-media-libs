@@ -8,7 +8,8 @@ defmodule RtmpSession.Events do
     RtmpSession.Events.StreamMetaDataChanged.t |
     RtmpSession.Events.AudioVideoDataReceived.t |
     RtmpSession.Events.UnhandleableAmf0Command.t |
-    RtmpSession.Events.PublishingFinished.t
+    RtmpSession.Events.PublishingFinished.t |
+    RtmpSession.Events.PlayRequested.t
 
   defmodule PeerChunkSizeChanged do
     @type t :: %__MODULE__{
@@ -102,6 +103,28 @@ defmodule RtmpSession.Events do
     }
 
     defstruct command: nil
+  end
+
+  defmodule PlayRequested do
+    @type video_type :: :live | :recorded | :any
+
+    @type t :: %__MODULE__{
+      request_id: integer,
+      app_name: RtmpSession.app_name,
+      stream_key: RtmpSession.stream_key,
+      video_type: video_type,
+      start_at: non_neg_integer,
+      duration: integer,
+      reset: boolean
+    }
+
+    defstruct request_id: nil,
+              app_name: nil,
+              stream_key: nil,
+              video_type: nil,
+              start_at: nil,
+              duration: nil,
+              reset: nil
   end
 
 end

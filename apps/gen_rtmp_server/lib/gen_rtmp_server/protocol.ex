@@ -217,6 +217,13 @@ defmodule GenRtmpServer.Protocol do
     handle_event(tail, state, session)
   end
 
+  defp handle_event([event = %RtmpEvents.PlayRequested{} | tail], state, session) do
+    {:accepted, adopter_state} = state.gen_rtmp_server_adopter.play_requested(event, state.adopter_state)
+    state = %{state | adopter_state: adopter_state}
+
+    handle_event(tail, state, session)
+  end
+
   defp handle_event([event | tail], state, session) do
     _ = Logger.warn("#{state.session_id}: No code to handle RTMP session event of type #{inspect(event)}")
     handle_event(tail, state, session)

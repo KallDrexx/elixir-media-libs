@@ -189,6 +189,8 @@ defmodule RtmpSession.ProcessorTest do
 
     {_, accept_results} = RtmpProcessor.accept_request(processor, event.request_id)
 
+
+
     assert_contains(accept_results,
       {:response, %DetailedMessage{
         stream_id: ^active_stream_id,
@@ -408,6 +410,151 @@ defmodule RtmpSession.ProcessorTest do
       request_id: _,
       app_name: "some_app"
     }})
+  end
+
+  test "Can accept play command with all optional parameters to requested stream key" do
+         alias RtmpSession.Messages.Amf0Command, as: Amf0Command
+         alias RtmpSession.Messages.UserControl, as: UserControl
+
+         %TestContext{
+           processor: processor,
+           active_stream_id: active_stream_id,
+           application_name: app_name
+         } = get_connected_processor_with_active_stream()
+
+         command = %DetailedMessage{
+           timestamp: 0,
+           stream_id: active_stream_id,
+           content: %Amf0Command{
+             command_name: "play",
+             transaction_id: 0,
+             command_object: nil,
+             additional_values: ["stream_key", -2, -1, false]
+           }
+         }
+
+         {processor, play_results} = RtmpProcessor.handle(processor, command)
+         {:event, event} = assert_contains(play_results,
+           {:event, %Events.PlayRequested{
+             app_name: ^app_name,
+             stream_key: "stream_key",
+             video_type: :any,
+             start_at: 0,
+             duration: -1,
+             reset: false
+           }}
+         )
+
+         {_, accept_results} = RtmpProcessor.accept_request(processor, event.request_id)
+
+         assert_contains(accept_results,
+           {:response, %DetailedMessage{
+             stream_id: ^active_stream_id,
+             timestamp: timestamp,
+             content: %UserControl{
+               type: :stream_begin,
+               stream_id: ^active_stream_id
+             }
+           }} when timestamp > 0
+         )
+
+         assert_contains(accept_results,
+           {:response, %DetailedMessage{
+             stream_id: ^active_stream_id,
+             timestamp: timestamp,
+             content: %Amf0Command{
+               command_name: "onStatus",
+               transaction_id: 0,
+               command_object: nil,
+               additional_values: [%{
+                 "level" => "status",
+                 "code" => "NetStream.Play.Start",
+                 "description" => _
+               }]
+             }
+           }} when timestamp > 0
+         )
+       end
+
+  test "Can accept play command with no optional parameters to requested stream key" do
+    alias RtmpSession.Messages.Amf0Command, as: Amf0Command
+    alias RtmpSession.Messages.UserControl, as: UserControl
+
+    %TestContext{
+      processor: processor,
+      active_stream_id: active_stream_id,
+      application_name: app_name
+    } = get_connected_processor_with_active_stream()
+
+    command = %DetailedMessage{
+      timestamp: 0,
+      stream_id: active_stream_id,
+      content: %Amf0Command{
+        command_name: "play",
+        transaction_id: 0,
+        command_object: nil,
+        additional_values: ["stream_key"]
+      }
+    }
+
+    {processor, play_results} = RtmpProcessor.handle(processor, command)
+    {:event, event} = assert_contains(play_results,
+      {:event, %Events.PlayRequested{
+        app_name: ^app_name,
+        stream_key: "stream_key",
+        video_type: :any,
+        start_at: 0,
+        duration: -1,
+        reset: true
+      }}
+    )
+
+    {_, accept_results} = RtmpProcessor.accept_request(processor, event.request_id)
+
+    assert_contains(accept_results,
+      {:response, %DetailedMessage{
+        stream_id: ^active_stream_id,
+        timestamp: timestamp,
+        content: %UserControl{
+          type: :stream_begin,
+          stream_id: ^active_stream_id
+        }
+      }} when timestamp > 0
+    )
+
+    assert_contains(accept_results,
+      {:response, %DetailedMessage{
+        stream_id: ^active_stream_id,
+        timestamp: timestamp,
+        content: %Amf0Command{
+          command_name: "onStatus",
+          transaction_id: 0,
+          command_object: nil,
+          additional_values: [%{
+            "level" => "status",
+            "code" => "NetStream.Play.Reset",
+            "description" => _
+          }]
+        }
+      }} when timestamp > 0
+    )
+
+    assert_contains(accept_results,
+      {:response, %DetailedMessage{
+        stream_id: ^active_stream_id,
+        timestamp: timestamp,
+        content: %Amf0Command{
+          command_name: "onStatus",
+          transaction_id: 0,
+          command_object: nil,
+          additional_values: [%{
+            "level" => "status",
+            "code" => "NetStream.Play.Start",
+            "description" => _
+          }]
+        }
+      }} when timestamp > 0
+    )
   end
 
   defp get_connected_processor do

@@ -18,10 +18,20 @@ defmodule GenRtmpServer do
   @type request_result :: :accepted | {:rejected, command, String.t}
   
   @callback init(session_id, client_ip) :: {:ok, adopter_state}
-  @callback connection_requested(RtmpEvents.ConnectionRequested.t, adopter_state) :: {request_result, adopter_state}
-  @callback publish_requested(RtmpEvents.PublishStreamRequested.t, adopter_state) :: {request_result, adopter_state}
-  @callback metadata_received(RtmpEvents.StreamMetaDataChanged.t, adopter_state) :: {:ok, adopter_state}
-  @callback audio_video_data_received(RtmpEvents.AudioVideoDataReceived.t, adopter_state) :: {:ok, adopter_state}
+  @callback connection_requested(RtmpEvents.ConnectionRequested.t, adopter_state)
+    :: {request_result, adopter_state}
+
+  @callback publish_requested(RtmpEvents.PublishStreamRequested.t, adopter_state)
+    :: {request_result, adopter_state}
+
+  @callback play_requested(RtmpEvents.PlayRequested.t, adopter_state)
+    :: {request_result, adopter_state}
+
+  @callback metadata_received(RtmpEvents.StreamMetaDataChanged.t, adopter_state)
+    :: {:ok, adopter_state}
+
+  @callback audio_video_data_received(RtmpEvents.AudioVideoDataReceived.t, adopter_state)
+    :: {:ok, adopter_state}
   
   @spec start_link(module(), %GenRtmpServer.RtmpOptions{}) :: Supervisor.on_start
   def start_link(module, options = %GenRtmpServer.RtmpOptions{}) do

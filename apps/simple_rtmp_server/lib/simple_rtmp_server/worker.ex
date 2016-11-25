@@ -33,6 +33,10 @@ defmodule SimpleRtmpServer.Worker do
     {:accepted, state}
   end
 
+  def play_requested(%RtmpEvents.PlayRequested{}, state = %State{}) do
+    {:accepted, state}
+  end
+
   def metadata_received(%RtmpEvents.StreamMetaDataChanged{}, state = %State{}) do
     {:ok, state}
   end

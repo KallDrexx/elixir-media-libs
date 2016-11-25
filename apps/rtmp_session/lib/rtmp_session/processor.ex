@@ -37,6 +37,12 @@ defmodule RtmpSession.Processor do
               buffer_size_in_ms: nil
   end
 
+  defmodule PlayArguments do
+    defstruct start_at: -2, # default to live or recorded
+              duration: -1, # full duration
+              is_reset: true
+  end
+
   @spec new(%SessionConfig{}, String.t) :: %State{}
   def new(config = %SessionConfig{}, session_id) do
     %State{
@@ -78,6 +84,7 @@ defmodule RtmpSession.Processor do
     case request do
       {:connect, app_name} -> accept_connect_request(state, app_name)
       {:publish, {sid, stream_key}} -> accept_publish_request(state, sid, stream_key)
+      {:play, {sid, stream_key, is_reset}} -> accept_play_request(state, sid, stream_key, is_reset)
     end
   end
 
@@ -292,6 +299,48 @@ defmodule RtmpSession.Processor do
     end
   end
 
+  defp handle_command(state = %State{current_stage: :connected},
+                      stream_id,
+                      "play",
+                      _transaction_id,
+                      nil,
+                      [stream_key | other_args]) do
+
+    _ = log(state, :debug, "Received play command")
+
+    play_arguments = parse_play_other_args(other_args)
+
+    case Map.fetch!(state.active_streams, stream_id) do
+      %ActiveStream{current_state: :created} ->
+        request = {:play, {stream_id, stream_key, play_arguments.is_reset}}
+        {state, request_id} = create_request(state, request)
+
+        {video_type, start_at} = case play_arguments.start_at do
+          -2 -> {:any, 0}
+          -1 -> {:live, 0}
+          x when x >= 0 -> {:recorded, 0}
+        end
+
+        event = {:event, %Events.PlayRequested{
+          request_id: request_id,
+          app_name: state.connected_app_name,
+          stream_key: stream_key,
+          video_type: video_type,
+          start_at: start_at,
+          duration: play_arguments.duration,
+          reset: play_arguments.is_reset
+        }}
+
+        {state, [event]}
+
+      %ActiveStream{current_state: stream_state} ->
+        _ = log(state, :info, "Bad attempt made to play on stream id #{stream_id} " <>
+          "that's in state '#{stream_state}'")
+
+        {state, []}
+    end
+  end
+
   defp handle_command(state, stream_id, command_name, transaction_id, _command_obj, _args) do
     _ = log(state, :info, "Unable to handle command '#{command_name}' while in stage '#{state.current_stage}' " <>
       "(stream id '#{stream_id}', transaction_id: #{transaction_id})")
@@ -390,6 +439,64 @@ defmodule RtmpSession.Processor do
     {state, [response]}
   end
 
+  defp accept_play_request(state, stream_id, stream_key, is_reset) do
+    active_stream = Map.fetch!(state.active_streams, stream_id)
+    if active_stream.current_state != :created do
+      message = "Attempted to accept play request on stream id #{stream_id} that's in state '#{active_stream.current_state}'"
+      raise_error(state, message)
+    end
+
+    active_stream = %{active_stream |
+      current_state: :playing,
+      stream_key: stream_key
+    }
+
+    state = %{state |
+      active_streams: Map.put(state.active_streams, stream_id, active_stream)
+    }
+
+    stream_begin_response =
+      {:response, form_response_message(state, %MessageTypes.UserControl{
+        type: :stream_begin,
+        stream_id: stream_id
+      }, stream_id)}
+
+    start_response =
+      {:response, form_response_message(state, %MessageTypes.Amf0Command{
+        command_name: "onStatus",
+        transaction_id: 0,
+        command_object: nil,
+        additional_values: [%{
+          "level" => "status",
+          "code" => "NetStream.Play.Start",
+          "description" => "Starting stream #{stream_key}"
+        }]
+      }, stream_id)}
+
+    reset_response =
+      {:response, form_response_message(state, %MessageTypes.Amf0Command{
+        command_name: "onStatus",
+        transaction_id: 0,
+        command_object: nil,
+        additional_values: [%{
+          "level" => "status",
+          "code" => "NetStream.Play.Reset",
+          "description" => "Reset for stream #{stream_key}"
+        }]
+      }, stream_id)}
+
+    responses = [stream_begin_response]
+    responses = case is_reset do
+      true -> [reset_response | responses]
+      false -> responses
+    end
+
+    responses = [start_response | responses]
+      |> Enum.reverse
+
+    {state, responses}
+  end
+
   defp create_request(state, request) do
     request_id = state.last_request_id + 1
     state = %{state | 
@@ -426,4 +533,28 @@ defmodule RtmpSession.Processor do
     time_since_start = :os.system_time(:milli_seconds) - state.start_time
     RtmpSession.RtmpTime.to_rtmp_timestamp(time_since_start)
   end
+
+  defp parse_play_other_args(args) do
+    parse_play_other_args(:start_at, args, %PlayArguments{})
+  end
+
+  defp parse_play_other_args(_, [], results = %PlayArguments{}) do
+    results
+  end
+
+  defp parse_play_other_args(:start_at, [value | rest], results = %PlayArguments{}) do
+    results = %{results | start_at: value}
+    parse_play_other_args(:duration, rest, results)
+  end
+
+  defp parse_play_other_args(:duration, [value | rest], results = %PlayArguments{}) do
+    results = %{results | duration: value}
+    parse_play_other_args(:reset, rest, results)
+  end
+
+  defp parse_play_other_args(:reset, [value | _], results = %PlayArguments{}) do
+    results = %{results | is_reset: value}
+    results
+  end
+
 end
