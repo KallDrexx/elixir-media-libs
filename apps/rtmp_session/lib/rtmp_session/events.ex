@@ -9,7 +9,7 @@ defmodule RtmpSession.Events do
     RtmpSession.Events.AudioVideoDataReceived.t |
     RtmpSession.Events.UnhandleableAmf0Command.t |
     RtmpSession.Events.PublishingFinished.t |
-    RtmpSession.Events.PlayRequested.t
+    RtmpSession.Events.PlayStreamRequested.t
 
   defmodule PeerChunkSizeChanged do
     @type t :: %__MODULE__{
@@ -105,7 +105,7 @@ defmodule RtmpSession.Events do
     defstruct command: nil
   end
 
-  defmodule PlayRequested do
+  defmodule PlayStreamRequested do
     @type video_type :: :live | :recorded | :any
 
     @type t :: %__MODULE__{

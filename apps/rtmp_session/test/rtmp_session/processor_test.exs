@@ -435,7 +435,7 @@ defmodule RtmpSession.ProcessorTest do
 
          {processor, play_results} = RtmpProcessor.handle(processor, command)
          {:event, event} = assert_contains(play_results,
-           {:event, %Events.PlayRequested{
+           {:event, %Events.PlayStreamRequested{
              app_name: ^app_name,
              stream_key: "stream_key",
              video_type: :any,
@@ -499,7 +499,7 @@ defmodule RtmpSession.ProcessorTest do
 
     {processor, play_results} = RtmpProcessor.handle(processor, command)
     {:event, event} = assert_contains(play_results,
-      {:event, %Events.PlayRequested{
+      {:event, %Events.PlayStreamRequested{
         app_name: ^app_name,
         stream_key: "stream_key",
         video_type: :any,

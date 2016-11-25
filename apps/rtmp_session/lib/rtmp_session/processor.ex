@@ -321,7 +321,7 @@ defmodule RtmpSession.Processor do
           x when x >= 0 -> {:recorded, 0}
         end
 
-        event = {:event, %Events.PlayRequested{
+        event = {:event, %Events.PlayStreamRequested{
           request_id: request_id,
           app_name: state.connected_app_name,
           stream_key: stream_key,

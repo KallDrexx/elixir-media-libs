@@ -33,7 +33,7 @@ defmodule SimpleRtmpServer.Worker do
     {:accepted, state}
   end
 
-  def play_requested(%RtmpEvents.PlayRequested{}, state = %State{}) do
+  def play_requested(%RtmpEvents.PlayStreamRequested{}, state = %State{}) do
     {:accepted, state}
   end
 

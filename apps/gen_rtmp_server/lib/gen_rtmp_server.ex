@@ -24,7 +24,7 @@ defmodule GenRtmpServer do
   @callback publish_requested(RtmpEvents.PublishStreamRequested.t, adopter_state)
     :: {request_result, adopter_state}
 
-  @callback play_requested(RtmpEvents.PlayRequested.t, adopter_state)
+  @callback play_requested(RtmpEvents.PlayStreamRequested.t, adopter_state)
     :: {request_result, adopter_state}
 
   @callback metadata_received(RtmpEvents.StreamMetaDataChanged.t, adopter_state)
