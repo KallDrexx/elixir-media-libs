@@ -557,6 +557,155 @@ defmodule RtmpSession.ProcessorTest do
     )
   end
 
+  test "Closing publishing stream raises publishing finished event" do
+    alias RtmpSession.Messages.Amf0Command, as: Amf0Command
+
+    %TestContext{
+      processor: processor,
+      application_name: application_name,
+      active_stream_id: stream_id,
+      stream_key: stream_key
+    } = get_publishing_processor()
+
+    command = %DetailedMessage{
+      timestamp: 0,
+      stream_id: stream_id,
+      content: %Amf0Command{
+        command_name: "closeStream",
+        transaction_id: 8,
+        command_object: nil,
+        additional_values: [stream_id]
+      }
+    }
+
+    {_, results} = RtmpProcessor.handle(processor, command)
+
+    assert_contains(results, {:event, %Events.PublishingFinished{
+      app_name: ^application_name,
+      stream_key: ^stream_key
+    }})
+  end
+
+  test "Can request publishing on closed stream" do
+    alias RtmpSession.Messages.Amf0Command, as: Amf0Command
+
+    %TestContext{
+      processor: processor,
+      application_name: application_name,
+      active_stream_id: stream_id,
+      stream_key: stream_key
+    } = get_publishing_processor()
+
+    command = %DetailedMessage{
+      timestamp: 0,
+      stream_id: stream_id,
+      content: %Amf0Command{
+        command_name: "closeStream",
+        transaction_id: 8,
+        command_object: nil,
+        additional_values: [stream_id]
+      }
+    }
+
+    {processor, _} = RtmpProcessor.handle(processor, command)
+
+    command = %DetailedMessage{
+      timestamp: 0,
+      stream_id: stream_id,
+      content: %Amf0Command{
+        command_name: "publish",
+        transaction_id: 0,
+        command_object: nil,
+        additional_values: [stream_key, "live"]
+      }
+    }
+
+    {_, pub_results} = RtmpProcessor.handle(processor, command)
+    {:event, _} = assert_contains(pub_results,
+      {:event, %Events.PublishStreamRequested{
+        app_name: ^application_name,
+        stream_key: ^stream_key
+      }}
+    )
+  end
+
+  test "Closing playing stream reaises play finished event" do
+    alias RtmpSession.Messages.Amf0Command, as: Amf0Command
+
+    %TestContext{
+      processor: processor,
+      application_name: application_name,
+      active_stream_id: stream_id,
+      stream_key: stream_key
+    } = get_playing_processor()
+
+    command = %DetailedMessage{
+      timestamp: 0,
+      stream_id: stream_id,
+      content: %Amf0Command{
+        command_name: "closeStream",
+        transaction_id: 8,
+        command_object: nil,
+        additional_values: [stream_id]
+      }
+    }
+
+    {_, results} = RtmpProcessor.handle(processor, command)
+
+    assert_contains(results, {:event, %Events.PlayStreamFinished{
+      app_name: ^application_name,
+      stream_key: ^stream_key
+    }})
+  end
+
+  test "Can request play on closed stream" do
+    alias RtmpSession.Messages.Amf0Command, as: Amf0Command
+
+    %TestContext{
+      processor: processor,
+      application_name: application_name,
+      active_stream_id: stream_id,
+      stream_key: stream_key
+    } = get_publishing_processor()
+
+    command = %DetailedMessage{
+      timestamp: 0,
+      stream_id: stream_id,
+      content: %Amf0Command{
+        command_name: "closeStream",
+        transaction_id: 8,
+        command_object: nil,
+        additional_values: [stream_id]
+      }
+    }
+
+    {processor, _} = RtmpProcessor.handle(processor, command)
+
+    command = %DetailedMessage{
+      timestamp: 0,
+      stream_id: stream_id,
+      content: %Amf0Command{
+        command_name: "play",
+        transaction_id: 0,
+        command_object: nil,
+        additional_values: [stream_key]
+      }
+    }
+
+    {_, results} = RtmpProcessor.handle(processor, command)
+    {:event, _} = assert_contains(results,
+      {:event, %Events.PlayStreamRequested{
+        app_name: ^application_name,
+        stream_key: ^stream_key,
+        video_type: :any,
+        start_at: 0,
+        duration: -1,
+        reset: true
+      }}
+    )
+
+  end
+
   defp get_connected_processor do
     alias RtmpSession.Messages.Amf0Command, as: Amf0Command
 
@@ -654,6 +803,38 @@ defmodule RtmpSession.ProcessorTest do
       processor: processor,
       application_name: application_name,
       active_stream_id: stream_id,
+      stream_key: "stream_key"
+    }
+  end
+
+  defp get_playing_processor do
+    alias RtmpSession.Messages.Amf0Command, as: Amf0Command
+
+    %TestContext{
+      processor: processor,
+      active_stream_id: active_stream_id,
+      application_name: app_name
+    } = get_connected_processor_with_active_stream()
+
+    command = %DetailedMessage{
+      timestamp: 0,
+      stream_id: active_stream_id,
+      content: %Amf0Command{
+        command_name: "play",
+        transaction_id: 0,
+        command_object: nil,
+        additional_values: ["stream_key"]
+      }
+    }
+
+    {processor, play_results} = RtmpProcessor.handle(processor, command)
+    {:event, event} = assert_contains(play_results, {:event, %Events.PlayStreamRequested{}})
+    {processor, _} = RtmpProcessor.accept_request(processor, event.request_id)
+
+    %TestContext{
+      processor: processor,
+      application_name: app_name,
+      active_stream_id: active_stream_id,
       stream_key: "stream_key"
     }
   end

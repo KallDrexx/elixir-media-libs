@@ -341,6 +341,43 @@ defmodule RtmpSession.Processor do
     end
   end
 
+  defp handle_command(state = %State{current_stage: :connected},
+                      stream_id,
+                      "closeStream",
+                      _transaction_id,
+                      nil,
+                      _) do
+    _ = log(state, :debug, "Received closeStream command on stream #{stream_id}")
+
+    case Map.fetch(state.active_streams, stream_id) do
+      {:ok, stream = %ActiveStream{}} ->
+        current_state = stream.current_state
+        stream = %{stream | current_state: :created}
+        state = %{state | active_streams: Map.put(state.active_streams, stream_id, stream)}
+
+        case current_state do
+          :playing ->
+            {state, [{:event, %Events.PlayStreamFinished{
+              app_name: state.connected_app_name,
+              stream_key: stream.stream_key
+            }}]}
+
+          :publishing ->
+            {state, [{:event, %Events.PublishingFinished{
+              app_name: state.connected_app_name,
+              stream_key: stream.stream_key
+            }}]}
+
+          :created -> {state, []}
+        end
+
+      :error ->
+        # Since this is not an active stream, ignore the request
+        {state, []}
+    end
+
+  end
+
   defp handle_command(state, stream_id, command_name, transaction_id, _command_obj, _args) do
     _ = log(state, :info, "Unable to handle command '#{command_name}' while in stage '#{state.current_stage}' " <>
       "(stream id '#{stream_id}', transaction_id: #{transaction_id})")

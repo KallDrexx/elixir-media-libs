@@ -9,7 +9,8 @@ defmodule RtmpSession.Events do
     RtmpSession.Events.AudioVideoDataReceived.t |
     RtmpSession.Events.UnhandleableAmf0Command.t |
     RtmpSession.Events.PublishingFinished.t |
-    RtmpSession.Events.PlayStreamRequested.t
+    RtmpSession.Events.PlayStreamRequested.t |
+    RtmpSession.Events.PlayStreamFinished.t
 
   defmodule PeerChunkSizeChanged do
     @type t :: %__MODULE__{
@@ -125,6 +126,16 @@ defmodule RtmpSession.Events do
               start_at: nil,
               duration: nil,
               reset: nil
+  end
+
+  defmodule PlayStreamFinished do
+    @type t :: %__MODULE__{
+      app_name: RtmpSession.app_name,
+      stream_key: RtmpSession.stream_key
+    }
+
+    defstruct app_name: nil,
+              stream_key: nil
   end
 
 end
