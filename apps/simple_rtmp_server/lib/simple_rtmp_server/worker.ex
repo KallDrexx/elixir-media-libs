@@ -33,6 +33,10 @@ defmodule SimpleRtmpServer.Worker do
     {:accepted, state}
   end
 
+  def publish_finished(%RtmpEvents.PublishingFinished{}, state = %State{}) do
+    {:ok, state}
+  end
+
   def play_requested(%RtmpEvents.PlayStreamRequested{}, state = %State{}) do
     {:accepted, state}
   end

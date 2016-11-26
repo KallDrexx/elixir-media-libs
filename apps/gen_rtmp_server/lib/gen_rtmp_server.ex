@@ -24,6 +24,9 @@ defmodule GenRtmpServer do
   @callback publish_requested(RtmpEvents.PublishStreamRequested.t, adopter_state)
     :: {request_result, adopter_state}
 
+  @callback publish_finished(RtmpEvents.PublishingFinished.t, adopter_state)
+    :: {:ok, adopter_state}
+
   @callback play_requested(RtmpEvents.PlayStreamRequested.t, adopter_state)
     :: {request_result, adopter_state}
 
