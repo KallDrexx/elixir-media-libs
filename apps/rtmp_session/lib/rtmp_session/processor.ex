@@ -556,6 +556,7 @@ defmodule RtmpSession.Processor do
   defp log(state, level, message) do
     case level do
       :debug -> Logger.debug "#{state.session_id}: #{message}"
+      :warn -> Logger.warn "#{state.session_id}: #{message}"
       :info -> Logger.info "#{state.session_id}: #{message}"
     end
   end
