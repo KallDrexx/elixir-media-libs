@@ -179,23 +179,12 @@ defmodule GenRtmpServer.Protocol do
       {:accepted, adopter_state} ->
         _ = Logger.info("#{state.session_id}: Publish stream request accepted (app: '#{event.app_name}', key: '#{event.stream_key}')")
 
-        state = %{state | adopter_state: adopter_state}
-        {session, results} = RtmpSession.accept_request(session, event.request_id)
-        state.transport.send(state.socket, results.bytes_to_send)
-
-        {state, session} = handle_event(results.events, state, session)
-        handle_event(tail, state, session)
+        handle_accepted_request(state, session, adopter_state, event.request_id, tail)
 
       {{:rejected, command, reason}, adopter_state} ->
         _ = Logger.info("#{state.session_id}: Publish stream request rejected (app: '#{event.app_name}', key: '#{event.stream_key}') - #{reason}")
 
-        case command do
-          :disconnect -> state.transport.close(state.socket)
-          _ -> :ok
-        end
-
-        state = %{state | adopter_state: adopter_state}
-        handle_event(tail, state, session)
+        handle_rejected_request(command, state, session, adopter_state, event.request_id, tail)
     end
   end
 
@@ -218,15 +207,41 @@ defmodule GenRtmpServer.Protocol do
   end
 
   defp handle_event([event = %RtmpEvents.PlayStreamRequested{} | tail], state, session) do
-    {:accepted, adopter_state} = state.gen_rtmp_server_adopter.play_requested(event, state.adopter_state)
-    state = %{state | adopter_state: adopter_state}
+    case state.gen_rtmp_server_adopter.play_requested(event, state.adopter_state) do
+      {:accepted, adopter_state} ->
+        _ = Logger.info("#{state.session_id}: Play stream request accepted (app: '#{event.app_name}', key: '#{event.stream_key}')")
 
-    handle_event(tail, state, session)
+        handle_accepted_request(state, session, adopter_state, event.request_id, tail)
+
+      {{:rejected, command, reason}, adopter_state} ->
+        _ = Logger.info("#{state.session_id}: Play stream request rejected (app: '#{event.app_name}', key: '#{event.stream_key}') - #{reason}")
+
+        handle_rejected_request(command, state, session, adopter_state, event.request_id, tail)
+    end
   end
 
   defp handle_event([event | tail], state, session) do
     _ = Logger.warn("#{state.session_id}: No code to handle RTMP session event of type #{inspect(event)}")
     handle_event(tail, state, session)
+  end
+
+  defp handle_accepted_request(state, session, new_adopter_state, request_id, remaining_events) do
+    state = %{state | adopter_state: new_adopter_state}
+    {session, results} = RtmpSession.accept_request(session, request_id)
+    state.transport.send(state.socket, results.bytes_to_send)
+
+    {state, session} = handle_event(results.events, state, session)
+    handle_event(remaining_events, state, session)
+  end
+
+  defp handle_rejected_request(command, state, session, new_adopter_state, _request_id, remaining_events) do
+    case command do
+      :disconnect -> state.transport.close(state.socket)
+      _ -> :ok
+    end
+
+    state = %{state | adopter_state: new_adopter_state}
+    handle_event(remaining_events, state, session)
   end
 
 end

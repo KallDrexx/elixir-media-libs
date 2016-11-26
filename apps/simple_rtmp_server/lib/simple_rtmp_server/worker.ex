@@ -34,7 +34,6 @@ defmodule SimpleRtmpServer.Worker do
   end
 
   def play_requested(%RtmpEvents.PlayStreamRequested{}, state = %State{}) do
-    Logger.debug("test")
     {:accepted, state}
   end
 
