@@ -317,7 +317,7 @@ defmodule RtmpSession.Processor do
         {state, request_id} = create_request(state, request)
 
         {video_type, start_at} = case play_arguments.start_at do
-          -2 -> {:any, 0}
+          x when x < -1 -> {:any, 0} # since VLC sends -2000, assume anything below -1 means any
           -1 -> {:live, 0}
           x when x >= 0 -> {:recorded, 0}
         end

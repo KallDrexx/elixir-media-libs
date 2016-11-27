@@ -16,6 +16,8 @@ defmodule GenRtmpServer do
   @type adopter_state :: any
   @type command :: :ignore | :disconnect
   @type request_result :: :accepted | {:rejected, command, String.t}
+  @type outbound_data :: GenRtmpServer.AudioVideoData.t
+  @type stream_id :: non_neg_integer
   
   @callback init(session_id, client_ip) :: {:ok, adopter_state}
   @callback connection_requested(RtmpEvents.ConnectionRequested.t, adopter_state)
@@ -56,6 +58,11 @@ defmodule GenRtmpServer do
                           [module, options])
 
     
+  end
+
+  @spec send_message(pid, outbound_data, stream_id) :: :ok
+  def send_message(pid, outbound_data, stream_id) do
+    send(pid, {:rtmp_send, outbound_data, stream_id})
   end
 
 end

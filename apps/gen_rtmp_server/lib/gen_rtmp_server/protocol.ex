@@ -6,6 +6,8 @@ defmodule GenRtmpServer.Protocol do
   @behaviour :ranch_protocol
 
   alias RtmpSession.Events, as: RtmpEvents
+  alias RtmpSession.Messages, as: RtmpMessages
+
   use GenServer
   require Logger
 
@@ -100,6 +102,11 @@ defmodule GenRtmpServer.Protocol do
   def handle_info({:tcp_closed, _}, state = %State{}) do
     _ = Logger.info "#{state.session_id}: socket closed" 
     {:stop, :normal, state}
+  end
+
+  def handle_info({:rtmp_send, data, send_to_stream_id}, state = %State{}) do
+    state = rtmp_send(data, send_to_stream_id, state)
+    {:noreply, state}
   end
   
   def handle_info(message, state = %State{}) do
@@ -268,6 +275,25 @@ defmodule GenRtmpServer.Protocol do
 
     state = %{state | adopter_state: new_adopter_state}
     handle_event(remaining_events, state, session)
+  end
+
+  defp rtmp_send(av_data = %GenRtmpServer.AudioVideoData{}, send_to_stream_id, state) do
+    message = case av_data.data_type do
+      :audio -> %RtmpMessages.AudioData{data: av_data.data}
+      :video -> %RtmpMessages.VideoData{data: av_data.data}
+    end
+
+    {session, results} = RtmpSession.send_rtmp_message(state.rtmp_session_instance, send_to_stream_id, message)
+    state.transport.send(state.socket, results.bytes_to_send)
+
+    # There shouldn't be any events to handle since we are just sending a message
+    set_socket_options(state)
+    %{state | rtmp_session_instance: session}
+  end
+
+  defp rtmp_send(data, _send_to_stream_id, state) do
+    _ = Logger.warn("#{state.session_id}: No known way to perform an rtmp_send of data: #{inspect(data)}")
+    state
   end
 
 end

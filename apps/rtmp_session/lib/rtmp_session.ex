@@ -26,6 +26,8 @@ defmodule RtmpSession do
   @type t :: %RtmpSession.State{}
   @type app_name :: String.t
   @type stream_key :: String.t
+  @type rtmp_timestamp :: non_neg_integer
+  @type stream_id :: non_neg_integer
 
   @type deserialized_message :: RtmpSession.Messages.SetChunkSize.t |
     RtmpSession.Messages.Abort.t |
@@ -71,6 +73,18 @@ defmodule RtmpSession do
 
     state = %{state | processor: processor}
     handle_proc_result(state, %SessionResults{}, results)
+  end
+
+  @spec send_rtmp_message(%State{}, stream_id, deserialized_message) :: {%State{}, %SessionResults{}}
+  def send_rtmp_message(state = %State{}, stream_id, message) do
+    detailed_message = %DetailedMessage{
+      timestamp: get_current_rtmp_epoch(state),
+      stream_id: stream_id,
+      content: message
+    }
+
+    response = {:response, detailed_message}
+    handle_proc_result(state, %SessionResults{}, [response])
   end
 
   defp do_process_bytes(state, binary, results_so_far) do
@@ -156,5 +170,10 @@ defmodule RtmpSession do
   defp get_csid_for_message_type(%RawMessage{message_type_id: 9}), do: 4
   defp get_csid_for_message_type(%RawMessage{message_type_id: 8}), do: 5
   defp get_csid_for_message_type(%RawMessage{message_type_id: _}), do: 6
+
+  defp get_current_rtmp_epoch(state) do
+    time_since_start = :os.system_time(:milli_seconds) - state.self_epoch
+    RtmpSession.RtmpTime.to_rtmp_timestamp(time_since_start)
+  end
 
 end

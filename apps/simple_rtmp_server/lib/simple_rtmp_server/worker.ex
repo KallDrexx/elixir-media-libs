@@ -21,7 +21,8 @@ defmodule SimpleRtmpServer.Worker do
   defmodule Activity do
     defstruct type: nil, # publishing or playing
               app_name: nil,
-              stream_key: nil
+              stream_key: nil,
+              stream_id: nil
   end
 
   def start_link() do
@@ -75,7 +76,8 @@ defmodule SimpleRtmpServer.Worker do
         activity = %Activity{
           type: :playing,
           app_name: event.app_name,
-          stream_key: event.stream_key
+          stream_key: event.stream_key,
+          stream_id: event.stream_id
         }
 
         :pg2.create(activity_key)
@@ -121,6 +123,19 @@ defmodule SimpleRtmpServer.Worker do
     player_processes = :pg2.get_members(activity_key)
     :ok = send_to_processes(player_processes, {:av_data, event})
 
+    {:ok, state}
+  end
+
+  def handle_message({:av_data, event = %RtmpEvents.AudioVideoDataReceived{}}, state = %State{}) do
+    activity_key = generate_activity_key(event.app_name, event.stream_key)
+    {:ok, activity} = Map.fetch(state.activities, activity_key)
+
+    outbound_message = %GenRtmpServer.AudioVideoData{
+      data_type: event.data_type,
+      data: event.data
+    }
+
+    GenRtmpServer.send_message(self(), outbound_message, activity.stream_id)
     {:ok, state}
   end
 
