@@ -1,6 +1,6 @@
 defmodule GenRtmpServer.Protocol do
   @moduledoc """
-  Ranch protocol that abstract the RTMP logic
+  Ranch protocol that abstracts the RTMP protocol logic away
   """
 
   @behaviour :ranch_protocol
@@ -103,10 +103,22 @@ defmodule GenRtmpServer.Protocol do
   end
   
   def handle_info(message, state = %State{}) do
-    _ = Logger.error "#{state.session_id}: Unknown message: #{inspect(message)}"
-    
-    set_socket_options(state)
+    {:ok, adopter_state} = state.gen_rtmp_server_adopter.handle_message(message, state.adopter_state)
+    state = %{state | adopter_state: adopter_state}
+
+    set_socket_options(state) # Just in case
     {:noreply, state}
+  end
+
+  def code_change(old_version, state, _) do
+    case state.gen_rtmp_server_adopter.code_change(old_version, state.adopter_state) do
+      {:ok, new_adopter_state} ->
+        state = %{state | adopter_state: new_adopter_state}
+        {:ok, state}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
   end
   
   defp set_socket_options(state = %State{}) do

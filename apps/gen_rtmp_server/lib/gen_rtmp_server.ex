@@ -38,6 +38,9 @@ defmodule GenRtmpServer do
 
   @callback audio_video_data_received(RtmpEvents.AudioVideoDataReceived.t, adopter_state)
     :: {:ok, adopter_state}
+
+  @callback code_change(any, adopter_state) :: {:ok, adopter_state} | {:error, String.t}
+  @callback handle_message(any, adopter_state) :: {:ok, adopter_state}
   
   @spec start_link(module(), %GenRtmpServer.RtmpOptions{}) :: Supervisor.on_start
   def start_link(module, options = %GenRtmpServer.RtmpOptions{}) do

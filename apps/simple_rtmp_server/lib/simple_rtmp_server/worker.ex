@@ -52,4 +52,12 @@ defmodule SimpleRtmpServer.Worker do
   def audio_video_data_received(%RtmpEvents.AudioVideoDataReceived{}, state = %State{}) do
     {:ok, state}
   end
+
+  def handle_message(_message, state = %State{}) do
+    {:ok, state}
+  end
+
+  def code_change(_, state = %State{}) do
+    {:ok, state}
+  end
 end
