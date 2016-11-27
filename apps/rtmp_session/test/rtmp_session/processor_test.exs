@@ -316,41 +316,6 @@ defmodule RtmpSession.ProcessorTest do
     }})
   end
 
-  test "Accepting connection request responds with chunk size" do
-    alias RtmpSession.Messages.Amf0Command, as: Amf0Command
-    alias RtmpSession.Messages.SetChunkSize, as: SetChunkSize
-
-    chunk_size = 1024
-
-    command = %DetailedMessage{
-      timestamp: 0,
-      stream_id: 0,
-      content: %Amf0Command{
-        command_name: "connect",
-        transaction_id: 1,
-        command_object: %{"app" => "some_app"}
-      }
-    }
-
-    processor = RtmpProcessor.new(%SessionConfig{chunk_size: chunk_size}, "abc")
-    
-    # Make sure some time has passed since creating the processor
-    #   to allow for non-zero timestamp checking
-    :timer.sleep(200) 
-
-    {processor, connect_results} = RtmpProcessor.handle(processor, command)
-    {:event, event} = assert_contains(connect_results, {:event, %Events.ConnectionRequested{app_name: "some_app"}})
-
-    {_, accept_results} = RtmpProcessor.accept_request(processor, event.request_id)
-    assert_contains(accept_results, {:response, 
-      %DetailedMessage{
-        stream_id: 0,
-        timestamp: timestamp,
-        content: %SetChunkSize{size: ^chunk_size}
-      }} when timestamp > 0
-    )
-  end
-
   test "Publish finished event raised when deleteStream invoked on publishing stream id" do
     alias RtmpSession.Messages.Amf0Command, as: Amf0Command
 
