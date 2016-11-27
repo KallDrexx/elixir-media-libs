@@ -22,7 +22,8 @@ defmodule SimpleRtmpServer.Worker do
     defstruct type: nil, # publishing or playing
               app_name: nil,
               stream_key: nil,
-              stream_id: nil
+              stream_id: nil,
+              last_metadata_event: nil
   end
 
   def start_link() do
@@ -45,12 +46,65 @@ defmodule SimpleRtmpServer.Worker do
     {:accepted, state}
   end
 
-  def publish_requested(%RtmpEvents.PublishStreamRequested{}, state = %State{}) do
-    {:accepted, state}
+  def publish_requested(event = %RtmpEvents.PublishStreamRequested{}, state = %State{}) do
+    activity_key = generate_activity_key(event.app_name, event.stream_key)
+    publisher_key = generate_publisher_group_name(event.app_name, event.stream_key)
+    case Map.fetch(state.activities, activity_key) do
+      {:ok, activity} ->
+        # Activity already exists, error if we are playing on the same
+        # application and stream key that we are trying to publish on
+        if activity.type != :publishing do
+          message = "#{state.session_id}: Attempted to publish on application (#{event.app_name}) " <>
+            "and stream key (#{event.stream_key}) that's already active with type #{activity.type}"
+
+          raise(message)
+        end
+
+        Logger.warn("#{state.session_id}: Duplicate publishing request for application '#{event.app_name}' " <>
+            "and stream key '#{event.stream_key}'")
+
+        {:accepted, state}
+
+      :error ->
+        # Start this activity
+        activity = %Activity{
+          type: :publishing,
+          app_name: event.app_name,
+          stream_key: event.stream_key,
+          stream_id: event.stream_id
+        }
+
+        :pg2.create(publisher_key)
+        :pg2.join(publisher_key, self())
+        activities = Map.put(state.activities, activity_key, activity)
+        state = %{state | activities: activities}
+
+        {:accepted, state}
+    end
   end
 
-  def publish_finished(%RtmpEvents.PublishingFinished{}, state = %State{}) do
-    {:ok, state}
+  def publish_finished(event = %RtmpEvents.PublishingFinished{}, state = %State{}) do
+    activity_key = generate_activity_key(event.app_name, event.stream_key)
+    publisher_key = generate_publisher_group_name(event.app_name, event.stream_key)
+    case Map.fetch(state.activities, activity_key) do
+      {:ok, activity} ->
+        if activity.type != :publishing do
+          message = "#{state.session_id}: Attempted to stop publishing on application (#{event.app_name}) " <>
+            "and stream key (#{event.stream_key}) that's active with type #{activity.type}"
+
+            raise(message)
+        end
+
+        :pg2.leave(publisher_key, self())
+        activities = Map.delete(state.activities, activity_key)
+        state = %{state | activities: activities}
+        {:ok, state}
+
+      :error ->
+        Logger.warn("#{state.session_id}: Attempted to stop publishing for application '#{event.app_name}' " <>
+            "and stream key '#{event.stream_key}' but no publish activity was found")
+        {:ok, state}
+    end
   end
 
   def play_requested(event = %RtmpEvents.PlayStreamRequested{}, state = %State{}) do
@@ -85,6 +139,11 @@ defmodule SimpleRtmpServer.Worker do
         activities = Map.put(state.activities, activity_key, activity)
         state = %{state | activities: activities}
 
+        publisher_key = generate_publisher_group_name(event.app_name, event.stream_key)
+        :pg2.create(publisher_key)
+        publisher_processes = :pg2.get_members(publisher_key)
+        :ok = send_to_processes(publisher_processes, {:metadata_request, event.app_name, event.stream_key})
+
         {:accepted, state}
     end
   end
@@ -118,6 +177,11 @@ defmodule SimpleRtmpServer.Worker do
     :pg2.create(activity_key)
     player_processes = :pg2.get_members(activity_key)
     :ok = send_to_processes(player_processes, {:metadata, event})
+
+    activity = Map.fetch!(state.activities, activity_key)
+    activity = %{activity | last_metadata_event: event}
+    activities = Map.put(state.activities, activity_key, activity)
+    state = %{state | activities: activities}
 
     {:ok, state}
   end
@@ -157,6 +221,24 @@ defmodule SimpleRtmpServer.Worker do
     {:ok, state}
   end
 
+  def handle_message({:metadata_request, app_name, stream_key}, state = %State{}) do
+    activity_key = generate_activity_key(app_name, stream_key)
+    case Map.fetch(state.activities, activity_key) do
+      {:ok, activity} ->
+        if activity.last_metadata_event != nil do
+          Logger.debug("Metadata requested, repeating last event")
+
+          :pg2.create(activity_key)
+          player_processes = :pg2.get_members(activity_key)
+          :ok = send_to_processes(player_processes, {:metadata, activity.last_metadata_event})
+        end
+
+        {:ok, state}
+
+      :error -> {:ok, state}
+    end
+  end
+
   def handle_message(message, state = %State{}) do
     _ = Logger.debug("#{state.session_id}: Unknown message received: #{inspect(message)}")
     {:ok, state}
@@ -168,6 +250,10 @@ defmodule SimpleRtmpServer.Worker do
 
   defp generate_activity_key(app_name, stream_key) do
     app_name <> "__" <> stream_key
+  end
+
+  defp generate_publisher_group_name(app_name, stream_key) do
+    app_name <> "__" <> stream_key <> "__publisher"
   end
 
   defp send_to_processes([], _message) do
