@@ -226,8 +226,6 @@ defmodule SimpleRtmpServer.Worker do
     case Map.fetch(state.activities, activity_key) do
       {:ok, activity} ->
         if activity.last_metadata_event != nil do
-          Logger.debug("Metadata requested, repeating last event")
-
           :pg2.create(activity_key)
           player_processes = :pg2.get_members(activity_key)
           :ok = send_to_processes(player_processes, {:metadata, activity.last_metadata_event})

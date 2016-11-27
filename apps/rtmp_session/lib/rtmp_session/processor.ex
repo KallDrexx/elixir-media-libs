@@ -17,7 +17,7 @@ defmodule RtmpSession.Processor do
 
   defmodule State do
     defstruct current_stage: :started,
-      start_time: :os.system_time(:milli_seconds),
+      start_time: nil,
       peer_window_ack_size: nil,
       peer_bytes_received: 0,
       last_acknowledgement_sent_at: 0,
@@ -47,7 +47,8 @@ defmodule RtmpSession.Processor do
   def new(config = %SessionConfig{}, session_id) do
     %State{
       configuration: config,
-      session_id: session_id
+      session_id: session_id,
+      start_time: :os.system_time(:milli_seconds)
     }
   end
 
@@ -545,7 +546,10 @@ defmodule RtmpSession.Processor do
         ]
       }, stream_id)}
 
-    responses = if is_reset, do: [reset_response], else: []
+    audio_response = {:response, form_response_message(state, %MessageTypes.AudioData{data: <<>>}, stream_id)}
+    video_response = {:response, form_response_message(state, %MessageTypes.VideoData{data: <<>>}, stream_id)}
+
+    responses = if is_reset, do: [audio_response, video_response, reset_response], else: [audio_response, video_response]
     responses = responses ++ [
       stream_begin_response,
       start_response,
