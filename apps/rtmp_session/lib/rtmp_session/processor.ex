@@ -518,7 +518,11 @@ defmodule RtmpSession.Processor do
         }]
       }, stream_id)}
 
-    responses = [stream_begin_response]
+    chunk_size_response = {:response,
+      form_response_message(state, %MessageTypes.SetChunkSize{size: state.configuration.chunk_size}, 0)
+    }
+
+    responses = [stream_begin_response, chunk_size_response]
     responses = case is_reset do
       true -> [reset_response | responses]
       false -> responses
