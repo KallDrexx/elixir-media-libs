@@ -183,13 +183,12 @@ defmodule RtmpSession.ProcessorTest do
     {:event, event} = assert_contains(pub_results, 
       {:event, %Events.PublishStreamRequested{
         app_name: ^app_name,
-        stream_key: "stream_key"
+        stream_key: "stream_key",
+        stream_id: ^active_stream_id
       }}
     )
 
     {_, accept_results} = RtmpProcessor.accept_request(processor, event.request_id)
-
-
 
     assert_contains(accept_results,
       {:response, %DetailedMessage{
@@ -407,7 +406,8 @@ defmodule RtmpSession.ProcessorTest do
         video_type: :any,
         start_at: 0,
         duration: -1,
-        reset: false
+        reset: false,
+        stream_id: ^active_stream_id
       }}
     )
 
@@ -481,7 +481,8 @@ defmodule RtmpSession.ProcessorTest do
         video_type: :any,
         start_at: 0,
         duration: -1,
-        reset: true
+        reset: true,
+        stream_id: ^active_stream_id
       }}
     )
 

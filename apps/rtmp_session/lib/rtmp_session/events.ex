@@ -54,12 +54,14 @@ defmodule RtmpSession.Events do
     @type t :: %__MODULE__{
       request_id: integer(),
       app_name: RtmpSession.app_name,
-      stream_key: RtmpSession.stream_key
+      stream_key: RtmpSession.stream_key,
+      stream_id: non_neg_integer
     }
 
     defstruct request_id: nil,
               app_name: nil,
-              stream_key: nil
+              stream_key: nil,
+              stream_id: nil
   end
 
   defmodule PublishingFinished do
@@ -116,7 +118,8 @@ defmodule RtmpSession.Events do
       video_type: video_type,
       start_at: non_neg_integer,
       duration: integer,
-      reset: boolean
+      reset: boolean,
+      stream_id: non_neg_integer
     }
 
     defstruct request_id: nil,
@@ -125,7 +128,8 @@ defmodule RtmpSession.Events do
               video_type: nil,
               start_at: nil,
               duration: nil,
-              reset: nil
+              reset: nil,
+              stream_id: nil
   end
 
   defmodule PlayStreamFinished do

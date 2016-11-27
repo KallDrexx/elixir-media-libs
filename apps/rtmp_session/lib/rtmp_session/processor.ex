@@ -261,7 +261,8 @@ defmodule RtmpSession.Processor do
         event = {:event, %Events.PublishStreamRequested{
           request_id: request_id,
           app_name: state.connected_app_name,
-          stream_key: stream_key
+          stream_key: stream_key,
+          stream_id: stream_id
         }}
 
         {state, [event]}
@@ -328,7 +329,8 @@ defmodule RtmpSession.Processor do
           video_type: video_type,
           start_at: start_at,
           duration: play_arguments.duration,
-          reset: play_arguments.is_reset
+          reset: play_arguments.is_reset,
+          stream_id: stream_id
         }}
 
         {state, [event]}
