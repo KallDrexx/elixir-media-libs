@@ -520,13 +520,14 @@ defmodule RtmpSession.Processor do
         }]
       }, stream_id)}
 
-    chunk_size_response = {:response,
-      form_response_message(state, %MessageTypes.SetChunkSize{size: state.configuration.chunk_size}, 0)
-    }
+    # WARNING: Even though the RTMP specification (7.2.1.2) clearly says that you should
+    # send a SetChunkSize message in response to a play request, for whatever reason
+    # this breaks players (JWPlayer and VLC).  I have no idea why, but since packet
+    # captures against other media servers do not ever send a SetChunkSize message
+    # I guess this isn't needed, but I have no idea exactly how RTMP chunks are not
+    # improperly split by the client.  However, this does seem to work.
 
-    # Even though it's not marked as required in the rtnp spec, this seems to
-    # be required for players to not crap the bed
-
+    # Note: Following responses were added based on packet captures
     sample_access_response =
       {:response, form_response_message(state, %MessageTypes.Amf0Data{
         parameters: [
@@ -544,7 +545,7 @@ defmodule RtmpSession.Processor do
         ]
       }, stream_id)}
 
-    responses = if is_reset, do: [chunk_size_response, reset_response], else: [chunk_size_response]
+    responses = if is_reset, do: [reset_response], else: []
     responses = responses ++ [
       stream_begin_response,
       start_response,

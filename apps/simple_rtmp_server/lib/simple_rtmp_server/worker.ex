@@ -58,8 +58,8 @@ defmodule SimpleRtmpServer.Worker do
     case Map.fetch(state.activities, activity_key) do
       {:ok, activity} ->
         # Activity already exists, error if we are publishing on the same
-        # application and stream key that we are trying to publish for
-        if activity.type != :publishing do
+        # application and stream key that we are trying to play for
+        if activity.type != :playing do
           message = "#{state.session_id}: Attempted to play on application (#{event.app_name}) " <>
             "and stream key (#{event.stream_key}) that's already active with type #{activity.type}"
 
@@ -112,7 +112,13 @@ defmodule SimpleRtmpServer.Worker do
     end
   end
 
-  def metadata_received(%RtmpEvents.StreamMetaDataChanged{}, state = %State{}) do
+  def metadata_received(event = %RtmpEvents.StreamMetaDataChanged{}, state = %State{}) do
+    activity_key = generate_activity_key(event.app_name, event.stream_key)
+
+    :pg2.create(activity_key)
+    player_processes = :pg2.get_members(activity_key)
+    :ok = send_to_processes(player_processes, {:metadata, event})
+
     {:ok, state}
   end
 
@@ -133,6 +139,18 @@ defmodule SimpleRtmpServer.Worker do
     outbound_message = %GenRtmpServer.AudioVideoData{
       data_type: event.data_type,
       data: event.data
+    }
+
+    GenRtmpServer.send_message(self(), outbound_message, activity.stream_id)
+    {:ok, state}
+  end
+
+  def handle_message({:metadata, event = %RtmpEvents.StreamMetaDataChanged{}}, state = %State{}) do
+    activity_key = generate_activity_key(event.app_name, event.stream_key)
+    {:ok, activity} = Map.fetch(state.activities, activity_key)
+
+    outbound_message = %GenRtmpServer.MetaData{
+      details: event.meta_data
     }
 
     GenRtmpServer.send_message(self(), outbound_message, activity.stream_id)

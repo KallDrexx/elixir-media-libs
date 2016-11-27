@@ -380,7 +380,6 @@ defmodule RtmpSession.ProcessorTest do
     alias RtmpSession.Messages.Amf0Command, as: Amf0Command
     alias RtmpSession.Messages.Amf0Data, as: Amf0Data
     alias RtmpSession.Messages.UserControl, as: UserControl
-    alias RtmpSession.Messages.SetChunkSize, as: SetChunkSize
 
     %TestContext{
       processor: processor,
@@ -442,15 +441,6 @@ defmodule RtmpSession.ProcessorTest do
       }} when timestamp > 0
     )
 
-    %SessionConfig{chunk_size: chunk_size} = %SessionConfig{}
-    assert_contains(accept_results, {:response,
-      %DetailedMessage{
-        stream_id: 0,
-        timestamp: timestamp,
-        content: %SetChunkSize{size: ^chunk_size}
-      }} when timestamp > 0
-    )
-
     assert_contains(accept_results,
       {:response, %DetailedMessage{
         stream_id: ^active_stream_id,
@@ -483,7 +473,6 @@ defmodule RtmpSession.ProcessorTest do
     alias RtmpSession.Messages.Amf0Command, as: Amf0Command
     alias RtmpSession.Messages.Amf0Data, as: Amf0Data
     alias RtmpSession.Messages.UserControl, as: UserControl
-    alias RtmpSession.Messages.SetChunkSize, as: SetChunkSize
 
     %TestContext{
       processor: processor,
@@ -559,15 +548,6 @@ defmodule RtmpSession.ProcessorTest do
             "description" => _
           }]
         }
-      }} when timestamp > 0
-    )
-
-    %SessionConfig{chunk_size: chunk_size} = %SessionConfig{}
-    assert_contains(accept_results, {:response,
-      %DetailedMessage{
-        stream_id: 0,
-        timestamp: timestamp,
-        content: %SetChunkSize{size: ^chunk_size}
       }} when timestamp > 0
     )
 

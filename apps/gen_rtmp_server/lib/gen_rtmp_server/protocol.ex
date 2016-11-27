@@ -277,11 +277,8 @@ defmodule GenRtmpServer.Protocol do
     handle_event(remaining_events, state, session)
   end
 
-  defp rtmp_send(av_data = %GenRtmpServer.AudioVideoData{}, send_to_stream_id, state) do
-    message = case av_data.data_type do
-      :audio -> %RtmpMessages.AudioData{data: av_data.data}
-      :video -> %RtmpMessages.VideoData{data: av_data.data}
-    end
+  defp rtmp_send(data, send_to_stream_id, state) do
+    message = form_outbound_rtmp_message(data)
 
     {session, results} = RtmpSession.send_rtmp_message(state.rtmp_session_instance, send_to_stream_id, message)
     state.transport.send(state.socket, results.bytes_to_send)
@@ -291,9 +288,32 @@ defmodule GenRtmpServer.Protocol do
     %{state | rtmp_session_instance: session}
   end
 
-  defp rtmp_send(data, _send_to_stream_id, state) do
-    _ = Logger.warn("#{state.session_id}: No known way to perform an rtmp_send of data: #{inspect(data)}")
-    state
+  defp form_outbound_rtmp_message(av_data = %GenRtmpServer.AudioVideoData{}) do
+    case av_data.data_type do
+      :audio -> %RtmpMessages.AudioData{data: av_data.data}
+      :video -> %RtmpMessages.VideoData{data: av_data.data}
+    end
+  end
+
+  defp form_outbound_rtmp_message(%GenRtmpServer.MetaData{details: metadata}) do
+    %RtmpMessages.Amf0Data{parameters: [
+      "onMetaData",
+      %{
+        "width" => metadata.video_width,
+        "height" => metadata.video_height,
+        "framerate" => metadata.video_frame_rate,
+        "videocodecid" => metadata.video_codec,
+        "audiocodecid" => metadata.audio_codec,
+        "audiochannels" => metadata.audio_channels,
+        "audiodatarate" => metadata.audio_bitrate_kbps,
+        "audiosamplerate" => metadata.audio_sample_rate,
+        "videodatarate" => metadata.video_bitrate_kbps
+      }
+    ]}
+  end
+
+  defp form_outbound_rtmp_message(data) do
+    raise("No known way to form outbound rtmp message for data: #{inspect(data)}")
   end
 
 end

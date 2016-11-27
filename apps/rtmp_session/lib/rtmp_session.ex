@@ -136,7 +136,7 @@ defmodule RtmpSession do
   defp handle_proc_result(state, results_so_far, [proc_result_head | proc_result_tail]) do
     case proc_result_head do
       {:response, message = %DetailedMessage{}} ->
-        raw_message = RawMessage.pack(message) 
+        raw_message = RawMessage.pack(message)
         csid = get_csid_for_message_type(raw_message)
 
         {chunk_io, data} = ChunkIo.serialize(state.chunk_io, raw_message, csid)
