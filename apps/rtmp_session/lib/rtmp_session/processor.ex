@@ -524,14 +524,33 @@ defmodule RtmpSession.Processor do
       form_response_message(state, %MessageTypes.SetChunkSize{size: state.configuration.chunk_size}, 0)
     }
 
-    responses = [stream_begin_response, chunk_size_response]
-    responses = case is_reset do
-      true -> [reset_response | responses]
-      false -> responses
-    end
+    # Even though it's not marked as required in the rtnp spec, this seems to
+    # be required for players to not crap the bed
 
-    responses = [start_response | responses]
-      |> Enum.reverse
+    sample_access_response =
+      {:response, form_response_message(state, %MessageTypes.Amf0Data{
+        parameters: [
+          "|RtmpSampleAccess",
+          false,
+          false
+        ]
+      }, stream_id)}
+
+    data_start_response =
+      {:response, form_response_message(state, %MessageTypes.Amf0Data{
+        parameters: [
+          "onStatus",
+          %{"code" => "NetStream.Data.Start"}
+        ]
+      }, stream_id)}
+
+    responses = if is_reset, do: [chunk_size_response, reset_response], else: [chunk_size_response]
+    responses = responses ++ [
+      stream_begin_response,
+      start_response,
+      sample_access_response,
+      data_start_response
+    ]
 
     {state, responses}
   end

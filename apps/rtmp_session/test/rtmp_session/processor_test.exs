@@ -378,6 +378,7 @@ defmodule RtmpSession.ProcessorTest do
 
   test "Can accept play command with all optional parameters to requested stream key" do
     alias RtmpSession.Messages.Amf0Command, as: Amf0Command
+    alias RtmpSession.Messages.Amf0Data, as: Amf0Data
     alias RtmpSession.Messages.UserControl, as: UserControl
     alias RtmpSession.Messages.SetChunkSize, as: SetChunkSize
 
@@ -449,10 +450,38 @@ defmodule RtmpSession.ProcessorTest do
         content: %SetChunkSize{size: ^chunk_size}
       }} when timestamp > 0
     )
+
+    assert_contains(accept_results,
+      {:response, %DetailedMessage{
+        stream_id: ^active_stream_id,
+        timestamp: timestamp,
+        content: %Amf0Data{
+          parameters: [
+            "|RtmpSampleAccess",
+            false,
+            false
+          ]
+        }
+      }} when timestamp > 0
+    )
+
+    assert_contains(accept_results,
+      {:response, %DetailedMessage{
+        stream_id: ^active_stream_id,
+        timestamp: timestamp,
+        content: %Amf0Data{
+          parameters: [
+            "onStatus",
+            %{"code" => "NetStream.Data.Start"}
+          ]
+        }
+      }} when timestamp > 0
+    )
   end
 
   test "Can accept play command with no optional parameters to requested stream key" do
     alias RtmpSession.Messages.Amf0Command, as: Amf0Command
+    alias RtmpSession.Messages.Amf0Data, as: Amf0Data
     alias RtmpSession.Messages.UserControl, as: UserControl
     alias RtmpSession.Messages.SetChunkSize, as: SetChunkSize
 
@@ -539,6 +568,33 @@ defmodule RtmpSession.ProcessorTest do
         stream_id: 0,
         timestamp: timestamp,
         content: %SetChunkSize{size: ^chunk_size}
+      }} when timestamp > 0
+    )
+
+    assert_contains(accept_results,
+      {:response, %DetailedMessage{
+        stream_id: ^active_stream_id,
+        timestamp: timestamp,
+        content: %Amf0Data{
+          parameters: [
+            "|RtmpSampleAccess",
+            false,
+            false
+          ]
+        }
+      }} when timestamp > 0
+    )
+
+    assert_contains(accept_results,
+      {:response, %DetailedMessage{
+        stream_id: ^active_stream_id,
+        timestamp: timestamp,
+        content: %Amf0Data{
+          parameters: [
+            "onStatus",
+            %{"code" => "NetStream.Data.Start"}
+          ]
+        }
       }} when timestamp > 0
     )
   end
