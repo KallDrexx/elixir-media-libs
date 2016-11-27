@@ -78,7 +78,7 @@ defmodule RtmpSession do
   @spec send_rtmp_message(%State{}, stream_id, deserialized_message) :: {%State{}, %SessionResults{}}
   def send_rtmp_message(state = %State{}, stream_id, message) do
     detailed_message = %DetailedMessage{
-      timestamp: :os.system_time(:milli_seconds) - state.self_epoch, # get_current_rtmp_epoch(state),
+      timestamp: :os.system_time(:milli_seconds) - state.self_epoch,
       stream_id: stream_id,
       content: message
     }
