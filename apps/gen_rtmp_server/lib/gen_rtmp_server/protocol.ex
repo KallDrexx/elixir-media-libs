@@ -129,7 +129,9 @@ defmodule GenRtmpServer.Protocol do
   end
   
   defp set_socket_options(state = %State{}) do
-    :ok = state.transport.setopts(state.socket, active: :once, packet: :raw)
+    # Ignore the result, as theoretically a tcp closed message should be arriving
+    # that will kill this connection
+    _ = state.transport.setopts(state.socket, active: :once, packet: :raw)
   end
 
   defp process_binary(state, binary) do
