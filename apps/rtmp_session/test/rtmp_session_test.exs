@@ -7,9 +7,13 @@ defmodule RtmpSessionTest do
 
   test "Can parse Obs-1 recorded session" do
     reader = RecordedChunkReader.new("test/captured_sessions/obs-1/")
-    session = RtmpSession.new(0, "session")
+    config = %RtmpSession.SessionConfig{chunk_size: 5000}
+    session = RtmpSession.new(0, "session", config)
 
-    {_session, _reader} = read_data(session, reader)
+    {session, _reader} = read_data(session, reader)
+
+    # Verify we triggered an outbound chunk size change
+    assert session.chunk_io.sending_max_chunk_size == config.chunk_size
 
     # TODO: check for expected events
     # assert(false)

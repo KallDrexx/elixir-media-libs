@@ -150,6 +150,12 @@ defmodule RtmpSession do
         results_so_far = %{results_so_far | events: [%RtmpEvents.PeerChunkSizeChanged{new_chunk_size: size} | results_so_far.events]}
         handle_proc_result(state, results_so_far, proc_result_tail)
 
+      {:event, %RtmpEvents.SelfChunkSizeChanged{new_chunk_size: size}} ->
+        chunk_io = ChunkIo.set_sending_max_chunk_size(state.chunk_io, size)
+        state = %{state | chunk_io: chunk_io}
+        results_so_far = %{results_so_far | events: [%RtmpEvents.PeerChunkSizeChanged{new_chunk_size: size} | results_so_far.events]}
+        handle_proc_result(state, results_so_far, proc_result_tail)
+
       {:event, event} ->
         results_so_far = %{results_so_far | events: [event | results_so_far.events]}
         handle_proc_result(state, results_so_far, proc_result_tail)

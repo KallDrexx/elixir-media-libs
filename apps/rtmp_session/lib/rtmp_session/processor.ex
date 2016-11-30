@@ -186,29 +186,35 @@ defmodule RtmpSession.Processor do
     request = {:connect, app_name}
     {state, request_id} = create_request(state, request)
 
-    # FYI, sending a SetChunkSize here before connection is accepted will break OBS
+
     responses = [
-      {
-        :response, 
+      {:response,
         form_response_message(state,
           %MessageTypes.SetPeerBandwidth{window_size: state.configuration.peer_bandwidth, limit_type: :dynamic},
-          0, true)  
+        0, true)
       },
-      {
-        :response,
+
+      {:response,
         form_response_message(state,
           %MessageTypes.WindowAcknowledgementSize{size: state.configuration.window_ack_size},
-          0, true)
+        0, true)
       },
-      {
-        :response,
+      {:response,
         form_response_message(state,
           %MessageTypes.UserControl{type: :stream_begin, stream_id: 0},
-          0, true)
+        0, true)
+      },
+      {:response,
+        form_response_message(state,
+          %MessageTypes.SetChunkSize{size: state.configuration.chunk_size},
+        0, true)
       }
     ]
 
     events = [
+      {:event, %Events.SelfChunkSizeChanged{
+          new_chunk_size: state.configuration.chunk_size
+      }},
       {:event, %Events.ConnectionRequested{
         request_id: request_id,
         app_name: app_name
@@ -323,7 +329,7 @@ defmodule RtmpSession.Processor do
           x when x >= 0 -> {:recorded, 0}
         end
 
-        event = {:event, %Events.PlayStreamRequested{
+        play_event = {:event, %Events.PlayStreamRequested{
           request_id: request_id,
           app_name: state.connected_app_name,
           stream_key: stream_key,
@@ -334,7 +340,11 @@ defmodule RtmpSession.Processor do
           stream_id: stream_id
         }}
 
-        {state, [event]}
+        chunk_size_event = {:event, %Events.SelfChunkSizeChanged{
+          new_chunk_size: state.configuration.chunk_size
+        }}
+
+        {state, [chunk_size_event, play_event]}
 
       %ActiveStream{current_state: stream_state} ->
         _ = log(state, :info, "Bad attempt made to play on stream id #{stream_id} " <>
@@ -521,12 +531,6 @@ defmodule RtmpSession.Processor do
         }]
       }, stream_id)}
 
-    # WARNING: Even though the RTMP specification (7.2.1.2) clearly says that you should
-    # send a SetChunkSize message in response to a play request, for whatever reason
-    # this breaks players (JWPlayer and VLC).  I have no idea why, but since packet
-    # captures against other media servers do not ever send a SetChunkSize message
-    # I guess this isn't needed, but I have no idea exactly how RTMP chunks are not
-    # improperly split by the client.  However, this does seem to work.
 
     # Note: Following responses were added based on packet captures
     sample_access_response =

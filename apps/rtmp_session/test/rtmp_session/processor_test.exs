@@ -49,6 +49,7 @@ defmodule RtmpSession.ProcessorTest do
     alias RtmpSession.Messages.Amf0Command, as: Amf0Command
     alias RtmpSession.Messages.SetPeerBandwidth, as: SetPeerBandwidth
     alias RtmpSession.Messages.UserControl, as: UserControl
+    alias RtmpSession.Messages.SetChunkSize, as: SetChunkSize
 
     config = %SessionConfig{
       fms_version: "version",
@@ -95,9 +96,21 @@ defmodule RtmpSession.ProcessorTest do
       force_uncompressed: true
     }} when timestamp > 0)
 
+    expectedChunkSize = config.chunk_size
+    assert_contains(connect_results, {:response, %DetailedMessage{
+      stream_id: 0,
+      timestamp: timestamp,
+      content: %SetChunkSize{size: ^expectedChunkSize},
+      force_uncompressed: true
+    }} when timestamp > 0)
+
     {:event, event} = assert_contains(connect_results, {:event, %Events.ConnectionRequested{
       request_id: _,
       app_name: "some_app"
+    }})
+
+    {:event, _} = assert_contains(connect_results, {:event, %Events.SelfChunkSizeChanged{
+      new_chunk_size: ^expectedChunkSize
     }})
 
     # Accept connection request
