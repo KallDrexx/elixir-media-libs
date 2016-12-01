@@ -46,22 +46,29 @@ defmodule RtmpSession do
               peer_initial_time: nil,
               chunk_io: nil,
               processor: nil,
-              session_id: nil
+              session_id: nil,
+              config: nil,
+              log_files: %{}
   end
 
   @spec new(non_neg_integer(), String.t, %SessionConfig{}) :: %State{}
   def new(peer_initial_time, session_id, config \\ %SessionConfig{}) do
-    %State{
+    state = %State{
       peer_initial_time: peer_initial_time,
       self_epoch: :erlang.system_time(:milli_seconds),
       chunk_io: ChunkIo.new(),
       processor: Processor.new(config, session_id),
-      session_id: session_id
+      session_id: session_id,
+      config: config
     }
+
+    prepare_log_files(state)
   end
 
   @spec process_bytes(%State{}, <<>>) :: {%State{}, %SessionResults{}}
   def process_bytes(state = %State{}, binary) when is_binary(binary) do
+    :ok = log_io_data(state, :input, binary)
+
     {state, results} = do_process_bytes(state, binary, %SessionResults{})
     results = %{results | events: Enum.reverse(results.events)}
 
@@ -136,6 +143,7 @@ defmodule RtmpSession do
   end
 
   defp handle_proc_result(state, results_so_far, []) do
+    :ok = log_io_data(state, :input, results_so_far.bytes_to_send)
     {state, results_so_far}
   end
 
@@ -169,8 +177,9 @@ defmodule RtmpSession do
   end
 
   # Csid seems to mostly be for better utilizing compression by spreading
-  # different message types among different chunk stream ids.  These numbers
-  # are just based on observations of current client-server activity
+  # different message types among different chunk stream ids.  It also allows
+  # video and audio data to track different timestamps then other messages.
+  # These numbers are just based on observations of current client-server activity
   defp get_csid_for_message_type(%RawMessage{message_type_id: 1}), do: 2
   defp get_csid_for_message_type(%RawMessage{message_type_id: 2}), do: 2
   defp get_csid_for_message_type(%RawMessage{message_type_id: 3}), do: 2
@@ -182,5 +191,39 @@ defmodule RtmpSession do
   defp get_csid_for_message_type(%RawMessage{message_type_id: 9}), do: 21
   defp get_csid_for_message_type(%RawMessage{message_type_id: 8}), do: 20
   defp get_csid_for_message_type(%RawMessage{message_type_id: _}), do: 6
+
+  defp prepare_log_files(state = %State{config: %SessionConfig{io_log_mode: :none}}) do
+    state
+  end
+
+  defp prepare_log_files(state = %State{config: %SessionConfig{io_log_mode: :raw_io}}) do
+    path = "dumps"
+
+    :ok = File.mkdir_p!(path)
+    input = File.open!("#{path}/#{state.session_id}.input.rtmp", [:binary, :write, :exclusive])
+    output = File.open!("#{path}/#{state.session_id}.output.rtmp", [:binary, :write, :exclusive])
+
+    log_files = Map.put(state.log_files, :input_append, input)
+    log_files = Map.put(log_files, :output_append, output)
+    %{state | log_files: log_files}
+  end
+
+  defp log_io_data(%State{config: %SessionConfig{io_log_mode: :none}}, _input_or_output, _data) do
+    :ok
+  end
+
+  defp log_io_data(_, _, <<>>) do
+    :ok
+  end
+
+  defp log_io_data(state = %State{config: %SessionConfig{io_log_mode: :raw_io}}, :input, data) do
+    file = Map.fetch!(state.log_files, :input_append)
+    IO.binwrite(file, data)
+  end
+
+  defp log_io_data(state = %State{config: %SessionConfig{io_log_mode: :raw_io}}, :output, data) do
+    file = Map.fetch!(state.log_files, :output_append)
+    IO.binwrite(file, data)
+  end
 
 end

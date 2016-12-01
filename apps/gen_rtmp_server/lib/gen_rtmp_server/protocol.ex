@@ -158,6 +158,11 @@ defmodule GenRtmpServer.Protocol do
       :error -> config
     end
 
+    config = case Keyword.fetch(options, :log_mode) do
+      {:ok, value} -> %{config| io_log_mode: value}
+      :error -> config
+    end
+
     config
   end
 

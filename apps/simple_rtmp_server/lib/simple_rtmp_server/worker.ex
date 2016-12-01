@@ -27,7 +27,7 @@ defmodule SimpleRtmpServer.Worker do
   end
 
   def start_link() do
-    options = %GenRtmpServer.RtmpOptions{}
+    options = %GenRtmpServer.RtmpOptions{log_mode: :none}
     GenRtmpServer.start_link(__MODULE__, options)
   end
 
