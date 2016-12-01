@@ -123,7 +123,8 @@ defmodule RtmpSession.Processor do
       app_name: state.connected_app_name,
       stream_key: active_stream.stream_key,
       data_type: :audio,
-      data: message.content.data
+      data: message.content.data,
+      timestamp: message.timestamp
     }}
 
     {state, [event]}
@@ -140,7 +141,8 @@ defmodule RtmpSession.Processor do
       app_name: state.connected_app_name,
       stream_key: active_stream.stream_key,
       data_type: :video,
-      data: message.content.data
+      data: message.content.data,
+      timestamp: message.timestamp
     }}
 
     {state, [event]}

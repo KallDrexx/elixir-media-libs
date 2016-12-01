@@ -287,7 +287,7 @@ defmodule RtmpSession.ProcessorTest do
     } = get_publishing_processor()
 
     message = %DetailedMessage{
-      timestamp: 0,
+      timestamp: 500,
       stream_id: stream_id,
       content: %AudioData{data: <<1,2,3>>}
     }
@@ -298,7 +298,8 @@ defmodule RtmpSession.ProcessorTest do
       app_name: ^application_name,
       stream_key: ^stream_key,
       data_type: :audio,
-      data: <<1,2,3>>
+      data: <<1,2,3>>,
+      timestamp: 500
     }})
   end
 
@@ -313,7 +314,7 @@ defmodule RtmpSession.ProcessorTest do
     } = get_publishing_processor()
 
     message = %DetailedMessage{
-      timestamp: 0,
+      timestamp: 500,
       stream_id: stream_id,
       content: %VideoData{data: <<1,2,3>>}
     }
@@ -324,7 +325,8 @@ defmodule RtmpSession.ProcessorTest do
       app_name: ^application_name,
       stream_key: ^stream_key,
       data_type: :video,
-      data: <<1,2,3>>
+      data: <<1,2,3>>,
+      timestamp: 500
     }})
   end
 

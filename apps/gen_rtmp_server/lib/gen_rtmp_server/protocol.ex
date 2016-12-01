@@ -104,8 +104,8 @@ defmodule GenRtmpServer.Protocol do
     {:stop, :normal, state}
   end
 
-  def handle_info({:rtmp_send, data, send_to_stream_id}, state = %State{}) do
-    state = rtmp_send(data, send_to_stream_id, state)
+  def handle_info({:rtmp_send, data, send_to_stream_id, forced_timestamp}, state = %State{}) do
+    state = rtmp_send(data, send_to_stream_id, state, forced_timestamp)
     {:noreply, state}
   end
   
@@ -279,10 +279,10 @@ defmodule GenRtmpServer.Protocol do
     handle_event(remaining_events, state, session)
   end
 
-  defp rtmp_send(data, send_to_stream_id, state) do
+  defp rtmp_send(data, send_to_stream_id, state, forced_timestamp) do
     message = form_outbound_rtmp_message(data)
 
-    {session, results} = RtmpSession.send_rtmp_message(state.rtmp_session_instance, send_to_stream_id, message)
+    {session, results} = RtmpSession.send_rtmp_message(state.rtmp_session_instance, send_to_stream_id, message, forced_timestamp)
     state.transport.send(state.socket, results.bytes_to_send)
 
     # There shouldn't be any events to handle since we are just sending a message

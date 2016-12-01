@@ -91,13 +91,15 @@ defmodule RtmpSession.Events do
       app_name: RtmpSession.app_name,
       stream_key: RtmpSession.stream_key,
       data_type: :audio | :video,
-      data: <<>>
+      data: <<>>,
+      timestamp: non_neg_integer
     }
 
     defstruct app_name: nil,
               stream_key: nil,
               data_type: nil, 
-              data: <<>>
+              data: <<>>,
+              timestamp: nil
   end
 
   defmodule UnhandleableAmf0Command do

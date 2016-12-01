@@ -18,6 +18,7 @@ defmodule GenRtmpServer do
   @type request_result :: :accepted | {:rejected, command, String.t}
   @type outbound_data :: GenRtmpServer.AudioVideoData.t
   @type stream_id :: non_neg_integer
+  @type forced_timestamp :: non_neg_integer | nil
   
   @callback init(session_id, client_ip) :: {:ok, adopter_state}
   @callback connection_requested(RtmpEvents.ConnectionRequested.t, adopter_state)
@@ -60,9 +61,9 @@ defmodule GenRtmpServer do
     
   end
 
-  @spec send_message(pid, outbound_data, stream_id) :: :ok
-  def send_message(pid, outbound_data, stream_id) do
-    send(pid, {:rtmp_send, outbound_data, stream_id})
+  @spec send_message(pid, outbound_data, stream_id, forced_timestamp) :: :ok
+  def send_message(pid, outbound_data, stream_id, forced_timestamp \\ nil) do
+    send(pid, {:rtmp_send, outbound_data, stream_id, forced_timestamp})
   end
 
 end

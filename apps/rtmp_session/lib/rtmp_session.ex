@@ -28,6 +28,7 @@ defmodule RtmpSession do
   @type stream_key :: String.t
   @type rtmp_timestamp :: non_neg_integer
   @type stream_id :: non_neg_integer
+  @type forced_timestamp :: non_neg_integer | nil
 
   @type deserialized_message :: RtmpSession.Messages.SetChunkSize.t |
     RtmpSession.Messages.Abort.t |
@@ -75,10 +76,15 @@ defmodule RtmpSession do
     handle_proc_result(state, %SessionResults{}, results)
   end
 
-  @spec send_rtmp_message(%State{}, stream_id, deserialized_message) :: {%State{}, %SessionResults{}}
-  def send_rtmp_message(state = %State{}, stream_id, message) do
+  @spec send_rtmp_message(%State{}, stream_id, deserialized_message, forced_timestamp) :: {%State{}, %SessionResults{}}
+  def send_rtmp_message(state = %State{}, stream_id, message, forced_timestamp \\ nil) do
+    timestamp = case forced_timestamp do
+      nil -> :os.system_time(:milli_seconds) - state.self_epoch
+      x when x >= 0 -> x
+    end
+
     detailed_message = %DetailedMessage{
-      timestamp: :os.system_time(:milli_seconds) - state.self_epoch,
+      timestamp: timestamp,
       stream_id: stream_id,
       content: message
     }
