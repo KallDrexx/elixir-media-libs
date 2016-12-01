@@ -4,6 +4,7 @@
 erl_crash.dump
 *.ez
 dumps/
+*.escript
 
 #Intellij
 **/.idea/
