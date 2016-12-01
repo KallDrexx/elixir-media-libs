@@ -4,3 +4,6 @@
 erl_crash.dump
 *.ez
 dumps/
+
+#Intellij
+**/.idea/
