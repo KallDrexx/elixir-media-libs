@@ -143,7 +143,7 @@ defmodule RtmpSession do
   end
 
   defp handle_proc_result(state, results_so_far, []) do
-    :ok = log_io_data(state, :input, results_so_far.bytes_to_send)
+    :ok = log_io_data(state, :output, results_so_far.bytes_to_send)
     {state, results_so_far}
   end
 
