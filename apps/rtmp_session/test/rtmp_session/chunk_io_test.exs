@@ -307,6 +307,30 @@ defmodule RtmpSession.ChunkIoTest do
                               
       assert expected_binary == binary
     end
+
+    test "Serialize: 2nd chunk with negative time serialized as type 0 chunk" do
+      message1 = %RawMessage{
+        timestamp: 72,
+        message_type_id: 3,
+        stream_id: 55,
+        payload: <<152::size(100)-unit(8)>>
+      }
+
+      message2 = %RawMessage{
+        timestamp: 62,
+        message_type_id: 3,
+        stream_id: 55,
+        payload: <<152::size(100)-unit(8)>>
+      }
+
+      {serializer, _} = ChunkIo.new() |> ChunkIo.serialize(message1, 50)
+      {_, binary} = ChunkIo.serialize(serializer, message2, 50)
+
+      expected_binary = <<0::2, 50::6, 62::size(3)-unit(8), 100::size(3)-unit(8),
+                          3::8, 55::size(4)-unit(8)-little, 152::size(100)-unit(8)>>
+
+      assert expected_binary == binary
+    end
   
   end
 end

@@ -52,7 +52,7 @@ defmodule RtmpSession.ChunkIo do
 
   @spec serialize(%State{}, %RawMessage{}, non_neg_integer()) :: {%State{}, iodata()}
   def serialize(state = %State{}, message = %RawMessage{}, csid) do
-    do_serialize(state, message, csid, message.force_uncompressed)    
+    do_serialize(state, message, csid, message.force_uncompressed)
   end
 
   ## Deserialization functions
@@ -279,14 +279,14 @@ defmodule RtmpSession.ChunkIo do
         serialize_message(state, x, csid, force_uncompressed, size)
 
       {size, [x | rest]} -> 
-        serialize_split_message(state, [x | rest], csid, true, <<>>, size) 
+        serialize_split_message(state, [x | rest], csid, false, <<>>, size)
     end
   end
 
   defp serialize_split_message(state, messages, csid, force_uncompressed, binary, total_payload_size) do
     case messages do
       [] -> {state, binary}
-      [x | rest] -> 
+      [x | rest] ->
         {new_state, new_binary} = serialize_message(state, x, csid, force_uncompressed, total_payload_size)
         serialize_split_message(new_state, rest, csid, false, binary <> new_binary, total_payload_size)
     end
@@ -303,7 +303,8 @@ defmodule RtmpSession.ChunkIo do
       message_stream_id: message.stream_id
     }
 
-    header = if force_uncompressed == true, do: header, else: compress_header(state, header)
+    compressed_header = if force_uncompressed == true, do: header, else: compress_header(state, header)
+    header = if compressed_header.last_timestamp_delta < 0, do: header, else: compressed_header
 
     {
       %{state | sent_headers: Map.put(state.sent_headers, csid, header)},
@@ -313,7 +314,8 @@ defmodule RtmpSession.ChunkIo do
   
   defp compress_header(state, header_to_send) do
     case Map.fetch(state.sent_headers, header_to_send.csid) do
-      :error -> header_to_send
+      :error ->
+        header_to_send
 
       {:ok, previous_header} ->
         current_delta = header_to_send.timestamp - previous_header.timestamp # TODO: get rtmp timestamp difference
@@ -349,7 +351,7 @@ defmodule RtmpSession.ChunkIo do
     >> 
   end
   
-  defp serialize_type_1_header(header, payload) do   
+  defp serialize_type_1_header(header, payload) do
     <<
       header.type::2, 
       get_csid_binary(header.csid)::bitstring,
