@@ -202,7 +202,8 @@ defmodule SimpleRtmpServer.Worker do
 
     outbound_message = %GenRtmpServer.AudioVideoData{
       data_type: event.data_type,
-      data: event.data
+      data: event.data,
+      received_at_timestamp: event.received_at_timestamp
     }
 
     GenRtmpServer.send_message(self(), outbound_message, activity.stream_id, event.timestamp)

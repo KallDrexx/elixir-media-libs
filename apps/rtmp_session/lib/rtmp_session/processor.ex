@@ -124,7 +124,8 @@ defmodule RtmpSession.Processor do
       stream_key: active_stream.stream_key,
       data_type: :audio,
       data: message.content.data,
-      timestamp: message.timestamp
+      timestamp: message.timestamp,
+      received_at_timestamp: message.deserialization_system_time
     }}
 
     {state, [event]}
@@ -142,7 +143,8 @@ defmodule RtmpSession.Processor do
       stream_key: active_stream.stream_key,
       data_type: :video,
       data: message.content.data,
-      timestamp: message.timestamp
+      timestamp: message.timestamp,
+      received_at_timestamp: message.deserialization_system_time
     }}
 
     {state, [event]}

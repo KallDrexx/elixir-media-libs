@@ -92,14 +92,16 @@ defmodule RtmpSession.Events do
       stream_key: RtmpSession.stream_key,
       data_type: :audio | :video,
       data: <<>>,
-      timestamp: non_neg_integer
+      timestamp: non_neg_integer,
+      received_at_timestamp: pos_integer
     }
 
     defstruct app_name: nil,
               stream_key: nil,
               data_type: nil, 
               data: <<>>,
-              timestamp: nil
+              timestamp: nil,
+              received_at_timestamp: nil
   end
 
   defmodule UnhandleableAmf0Command do

@@ -11,6 +11,7 @@ defmodule RtmpSession.RawMessage do
     message_type_id: non_neg_integer(),
     stream_id: non_neg_integer(),
     force_uncompressed: false,
+    deserialization_system_time: pos_integer(),
     payload: <<>>
   }
 
@@ -18,6 +19,7 @@ defmodule RtmpSession.RawMessage do
             message_type_id: nil,
             stream_id: nil,
             force_uncompressed: false,
+            deserialization_system_time: nil,
             payload: <<>>
 
   @callback deserialize(binary) :: any
@@ -33,7 +35,8 @@ defmodule RtmpSession.RawMessage do
         {:ok, %RtmpSession.DetailedMessage{
           timestamp: message.timestamp,
           stream_id: message.stream_id,
-          content: module.deserialize(message.payload)
+          content: module.deserialize(message.payload),
+          deserialization_system_time: message.deserialization_system_time
         }}
     end
   end

@@ -230,6 +230,8 @@ defmodule RtmpSession.ChunkIo do
 
     updated_message = %{incomplete_message | payload: incomplete_message.payload <> payload}
     if byte_size(updated_message.payload) == full_length do
+      updated_message = %{updated_message | deserialization_system_time: :os.system_time(:milli_seconds)}
+
       new_state = %{state |
         unparsed_binary: rest,
         incomplete_message: nil

@@ -21,7 +21,9 @@ defmodule GenRtmpServer.Protocol do
               handshake_instance: nil,
               rtmp_session_instance: nil,
               gen_rtmp_server_adopter: nil,
-              adopter_state: nil
+              adopter_state: nil,
+              outbound_byte_queue: [],
+              outbound_queue_count: 0
   end
 
   @doc "Starts the protocol for the accepted socket"
@@ -34,7 +36,13 @@ defmodule GenRtmpServer.Protocol do
     :ok = :ranch.accept_ack(ref)
 
     send(self(), {:perform_handshake, module, options})
-    :gen_server.enter_loop(__MODULE__, [], %State{socket: socket, transport: transport})
+
+    state = %State{
+      socket: socket,
+      transport: transport
+    }
+
+    :gen_server.enter_loop(__MODULE__, [], state)
   end
 
   def handle_info({:perform_handshake, module, initial_options}, state) do
@@ -89,6 +97,8 @@ defmodule GenRtmpServer.Protocol do
         state = %{state | adopter_state: adopter_state}        
         state = process_binary(state, remaining_binary)
 
+        #:timer.send_interval(100, :send_queue)
+
         set_socket_options(state)
         {:noreply, state}
     end    
@@ -106,6 +116,13 @@ defmodule GenRtmpServer.Protocol do
 
   def handle_info({:rtmp_send, data, send_to_stream_id, forced_timestamp}, state = %State{}) do
     state = rtmp_send(data, send_to_stream_id, state, forced_timestamp)
+    {:noreply, state}
+  end
+
+  def handle_info(:send_queue, state = %State{}) do
+    state.transport.send(state.socket, state.outbound_byte_queue)
+    state = %{state | outbound_byte_queue: []}
+    #:timer.send_after(5, :send_queue)
     {:noreply, state}
   end
   
@@ -131,7 +148,7 @@ defmodule GenRtmpServer.Protocol do
   defp set_socket_options(state = %State{}) do
     # Ignore the result, as theoretically a tcp closed message should be arriving
     # that will kill this connection
-    _ = state.transport.setopts(state.socket, active: :once, packet: :raw)
+    _ = state.transport.setopts(state.socket, active: :once, packet: :raw, buffer: 4096)
   end
 
   defp process_binary(state, binary) do
@@ -288,14 +305,30 @@ defmodule GenRtmpServer.Protocol do
     message = form_outbound_rtmp_message(data)
 
     {session, results} = RtmpSession.send_rtmp_message(state.rtmp_session_instance, send_to_stream_id, message, forced_timestamp)
-    state.transport.send(state.socket, results.bytes_to_send)
+    state = %{state |
+      outbound_byte_queue: [state.outbound_byte_queue | results.bytes_to_send],
+      outbound_queue_count: state.outbound_queue_count + 1
+    }
+
+    state = case state.outbound_queue_count >= 5 do
+      false -> state
+      true ->
+        state.transport.send(state.socket, state.outbound_byte_queue)
+        %{state | outbound_byte_queue: [], outbound_queue_count: 0}
+    end
+
+    #state.transport.send(state.socket, results.bytes_to_send)
 
     # There shouldn't be any events to handle since we are just sending a message
-    set_socket_options(state)
+    #set_socket_options(state)
     %{state | rtmp_session_instance: session}
   end
 
   defp form_outbound_rtmp_message(av_data = %GenRtmpServer.AudioVideoData{}) do
+    time_now = :os.system_time(:milli_seconds)
+    time_diff = time_now - av_data.received_at_timestamp
+    #Logger.debug("AV Time To Resend: #{time_diff}ms (receved at #{av_data.received_at_timestamp}, now: #{time_now}")
+
     case av_data.data_type do
       :audio -> %RtmpMessages.AudioData{data: av_data.data}
       :video -> %RtmpMessages.VideoData{data: av_data.data}
