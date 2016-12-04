@@ -8,3 +8,4 @@ dumps/
 
 #Intellij
 **/.idea/
+*.iml
