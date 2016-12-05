@@ -554,8 +554,20 @@ defmodule RtmpSession.Processor do
         ]
       }, stream_id)}
 
-    audio_response = {:response, form_response_message(state, %MessageTypes.AudioData{data: <<>>}, stream_id)}
-    video_response = {:response, form_response_message(state, %MessageTypes.VideoData{data: <<>>}, stream_id)}
+#    audio_response = {:response, form_response_message(state, %MessageTypes.AudioData{data: <<>>}, stream_id)}
+#    video_response = {:response, form_response_message(state, %MessageTypes.VideoData{data: <<>>}, stream_id)}
+
+    audio_response = {:response, %DetailedMessage{
+      stream_id: stream_id,
+      timestamp: 0,
+      content: %MessageTypes.AudioData{data: <<>>}
+    }}
+
+    video_response = {:response, %DetailedMessage{
+      stream_id: stream_id,
+      timestamp: 0,
+      content: %MessageTypes.AudioData{data: <<>>}
+    }}
 
     responses = if is_reset, do: [audio_response, video_response, reset_response], else: [audio_response, video_response]
     responses = responses ++ [
