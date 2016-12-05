@@ -23,7 +23,8 @@ defmodule SimpleRtmpServer.Worker do
               app_name: nil,
               stream_key: nil,
               stream_id: nil,
-              last_metadata_event: nil
+              last_metadata_event: nil,
+              has_sent_keyframe: false
   end
 
   def start_link() do
@@ -200,13 +201,32 @@ defmodule SimpleRtmpServer.Worker do
     activity_key = generate_activity_key(event.app_name, event.stream_key)
     {:ok, activity} = Map.fetch(state.activities, activity_key)
 
-    outbound_message = %GenRtmpServer.AudioVideoData{
-      data_type: event.data_type,
-      data: event.data,
-      received_at_timestamp: event.received_at_timestamp
-    }
+    should_send_message = case {activity.has_sent_keyframe, is_keyframe(event.data)} do
+      {true, _} -> true
+      {false, true} -> true
+      _ -> false
+    end
 
-    GenRtmpServer.send_message(self(), outbound_message, activity.stream_id, event.timestamp)
+    state = if should_send_message do
+        outbound_message = %GenRtmpServer.AudioVideoData{
+        data_type: event.data_type,
+        data: event.data,
+        received_at_timestamp: event.received_at_timestamp
+      }
+
+      GenRtmpServer.send_message(self(), outbound_message, activity.stream_id, event.timestamp)
+      if !activity.has_sent_keyframe do
+        activity = %{activity | has_sent_keyframe: true}
+        activities = Map.put(state.activities, activity_key, activity)
+        %{state | activities: activities}
+      else
+        state
+      end
+
+    else
+      state
+    end
+
     {:ok, state}
   end
 
@@ -263,4 +283,7 @@ defmodule SimpleRtmpServer.Worker do
     send(pid, message)
     send_to_processes(rest, message)
   end
+
+  defp is_keyframe(<<0x17, _::binary>>), do: true
+  defp is_keyframe(_), do: false
 end
