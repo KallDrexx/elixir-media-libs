@@ -311,6 +311,7 @@ defmodule GenRtmpServer.Protocol do
 
   defp form_outbound_rtmp_message(%GenRtmpServer.MetaData{details: metadata}) do
     %RtmpMessages.Amf0Data{parameters: [
+      "@setDataFrame",
       "onMetaData",
       %{
         "width" => metadata.video_width,

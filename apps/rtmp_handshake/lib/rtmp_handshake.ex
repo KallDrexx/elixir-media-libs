@@ -5,11 +5,31 @@ defmodule RtmpHandshake do
 
   require Logger
 
+  alias RtmpHandshake.OldHandshakeFormat, as: OldHandshakeFormat
+  alias RtmpHandshake.ParseResult, as: ParseResult
+  alias RtmpHandshake.HandshakeResult, as: HandshakeResult
+
+  @type handshake_type :: :unknown | :old
+  @type is_valid_format_result :: :yes | :no | :unknown
+  @type start_time :: non_neg_integer
+  @type remaining_binary :: <<>>
+  @type binary_response :: <<>>
+  @type behaviour_state :: any
+  @type process_result :: {:success, start_time, binary_response, remaining_binary}
+                          | {:incomplete, binary_response}
+                          | :failure
+
+
+  @callback is_valid_format(<<>>) :: is_valid_format_result
+  @callback process_bytes(behaviour_state, <<>>) :: {behaviour_state, process_result}
+  @callback create_p0_and_p1_to_send(behaviour_state) :: {behaviour_state, <<>>}
+
   defmodule State do
-    defstruct current_state: :waiting_for_p0,
-              unparsed_binary: <<>>,
-              peer_start_timestamp: nil,
-              random_data: <<>>
+    defstruct status: :pending,
+              handshake_state: nil,
+              handshake_type: :unknown,
+              remaining_binary: <<>>,
+              peer_start_timestamp: nil
   end
 
   @doc """
@@ -17,22 +37,40 @@ defmodule RtmpHandshake do
     and preliminary parse results, including the initial x0 and x1
     binary to send to the peer.
   """
-  @spec new() :: {%State{}, RtmpHandshake.ParseResult.t}
+  @spec new() :: {%State{}, ParseResult.t}
   def new() do
-    state = %State{random_data: generate_random_binary(1528, <<>>)}
-    p0 = <<3::8>>
-    p1 = <<0::4 * 8, 0::4 * 8>> <> state.random_data # local start time is alawys zero
-    {state, %RtmpHandshake.ParseResult{current_state: :waiting_for_data, bytes_to_send: p0 <> p1}}
+    {handshake_state, bytes_to_send} =
+      OldHandshakeFormat.new()
+      |> OldHandshakeFormat.create_p0_and_p1_to_send()
+
+    state = %State{handshake_type: :old, handshake_state: handshake_state}
+    result = %ParseResult{current_state: :waiting_for_data, bytes_to_send: bytes_to_send}
+    {state, result}
   end
 
   @doc "Reads the passed in binary to proceed with the handshaking process"
-  @spec process_bytes(%State{}, <<>>) :: {%State{}, RtmpHandshake.ParseResult.t}
+  @spec process_bytes(%State{}, <<>>) :: {%State{}, ParseResult.t}
   def process_bytes(state = %State{}, binary) when is_binary(binary) do
+    case OldHandshakeFormat.process_bytes(state.handshake_state, binary) do
+      {handshake_state, :failure} ->
+        state = %{state | handshake_state: handshake_state}
+        {state, %ParseResult{current_state: :failure}}
 
-    binary = state.unparsed_binary <> binary
-   
-    %{state | unparsed_binary: <<>>} 
-    |> do_process(binary)
+      {handshake_state, {:incomplete, bytes_to_send}} ->
+        state = %{state | handshake_state: handshake_state}
+        {state, %ParseResult{current_state: :waiting_for_data, bytes_to_send: bytes_to_send}}
+
+      {handshake_state, {:success, start_time, response, remaining_binary}} ->
+        state = %{state |
+          handshake_state: handshake_state,
+          remaining_binary: remaining_binary,
+          peer_start_timestamp: start_time,
+          status: :complete
+        }
+
+        result = %ParseResult{current_state: :success, bytes_to_send: response}
+        {state, result}
+    end
   end
 
   @doc """
@@ -41,76 +79,17 @@ defmodule RtmpHandshake do
     may need to be parsed later (not part of the handshake but instead part
     of the rtmp protocol).
   """
-  @spec get_handshake_result(%State{}) :: {%State{}, RtmpHandshake.HandshakeResult.t}
-  def get_handshake_result(state = %State{current_state: :complete}) do
-    unparsed_binary = state.unparsed_binary
+  @spec get_handshake_result(%State{}) :: {%State{}, HandshakeResult.t}
+  def get_handshake_result(state = %State{status: :complete}) do
+    unparsed_binary = state.remaining_binary
     
     {
-      %{state | unparsed_binary: <<>>},
-      %RtmpHandshake.HandshakeResult{
+      %{state | remaining_binary: <<>>},
+      %HandshakeResult{
         peer_start_timestamp: state.peer_start_timestamp, 
         remaining_binary: unparsed_binary
       }
     }
-  end
-
-  defp generate_random_binary(0, accumulator),     do: accumulator
-  defp generate_random_binary(count, accumulator), do: generate_random_binary(count - 1,  accumulator <> <<:random.uniform(254)>> )
-
-  defp do_process(state, <<>>),                                            do: do_process_fallthrough(state)
-  defp do_process(state = %State{current_state: :waiting_for_p0}, binary), do: do_process_waiting_for_p0(state, binary)
-  defp do_process(state = %State{current_state: :waiting_for_p1}, binary), do: do_process_waiting_for_p1(state, binary)
-  defp do_process(state = %State{current_state: :waiting_for_p2}, binary), do: do_process_waiting_for_p2(state, binary)
-
-  defp do_process_fallthrough(state) do
-    {state, %RtmpHandshake.ParseResult{current_state: :waiting_for_data}}
-  end
-
-  defp do_process_waiting_for_p0(state, binary) do
-    case binary do
-      <<3::8, rest::binary>> -> 
-        %{state | current_state: :waiting_for_p1}
-        |> do_process(rest)
-
-      _ -> {state, %RtmpHandshake.ParseResult{current_state: :failure}}
-    end
-  end
-
-  defp do_process_waiting_for_p1(state, binary) do
-    if byte_size(binary) < 1536 do
-      {%{state | unparsed_binary: binary},  %RtmpHandshake.ParseResult{current_state: :waiting_for_data}}
-    else
-      <<time::4 * 8, _::4 * 8, random::binary-size(1528), rest::binary>> = binary
-      binary_response = <<time::4 * 8, 0::4 * 8>> <> random # send packet 2
-
-      {new_state, parse_result} = 
-        %{state | current_state: :waiting_for_p2, peer_start_timestamp: time}
-        |> do_process(rest)
-
-      {new_state, %{parse_result | bytes_to_send: binary_response <> parse_result.bytes_to_send}}
-    end
-  end
-
-  defp do_process_waiting_for_p2(state, binary) do
-    if byte_size(binary) < 1536 do
-      {%{state | unparsed_binary: binary},  %RtmpHandshake.ParseResult{current_state: :waiting_for_data}}
-    else
-      expected_random = state.random_data
-      random_size = byte_size(expected_random)
-
-      case binary do
-        <<0::4 * 8, _::4 * 8, ^expected_random::size(random_size)-binary, rest::binary>> ->
-
-          {
-            %{state | current_state: :complete, unparsed_binary: rest}, 
-            %RtmpHandshake.ParseResult{current_state: :success}
-          }
-
-        _ ->
-          <<_::4*8, _::4*8, received_random::binary>> = binary
-          {state, %RtmpHandshake.ParseResult{current_state: :failure}}
-      end
-    end
   end
 
 end

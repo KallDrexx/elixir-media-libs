@@ -212,6 +212,16 @@ defmodule RtmpSession.Processor do
         form_response_message(state,
           %MessageTypes.SetChunkSize{size: state.configuration.chunk_size},
         0, true)
+      },
+      {:response,
+        form_response_message(state,
+          %MessageTypes.Amf0Command{
+            command_name: "onBWDone",
+            transaction_id: 0,
+            command_object: nil,
+            additional_values: [8192]
+          },
+        0, true)
       }
     ]
 
