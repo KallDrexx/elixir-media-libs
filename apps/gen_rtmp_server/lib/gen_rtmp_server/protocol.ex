@@ -52,7 +52,7 @@ defmodule GenRtmpServer.Protocol do
     _ = Logger.info "#{session_id}: client connected from ip #{client_ip_string}"
 
     {handshake_instance, %RtmpHandshake.ParseResult{bytes_to_send: bytes_to_send}} 
-      = RtmpHandshake.new()
+      = RtmpHandshake.new(:unknown) # Let the client's handshake tell us the format
 
     :ok = state.transport.send(state.socket, bytes_to_send)
 
@@ -96,6 +96,12 @@ defmodule GenRtmpServer.Protocol do
         state = process_binary(state, remaining_binary)
 
         set_socket_options(state)
+        {:noreply, state}
+
+      {_, %RtmpHandshake.ParseResult{current_state: :failure}} ->
+        _ = Logger.info "#{state.session_id}: Client failed the handshake, disconnecting..."
+
+        state.transport.close(state.socket)
         {:noreply, state}
     end    
   end

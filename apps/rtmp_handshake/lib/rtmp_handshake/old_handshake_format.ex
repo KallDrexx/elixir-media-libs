@@ -25,12 +25,14 @@ defmodule RtmpHandshake.OldHandshakeFormat do
   @spec is_valid_format(<<>>) :: RtmpHandshake.is_valid_format_result
   @doc "Validates if the passed in binary can be parsed using the old style handshake."
   def is_valid_format(binary) do
-    case byte_size(binary < 16) do
+    case byte_size(binary) >= 16 do
       false -> :unknown
       true ->
         case binary do
-          <<3::8, _::4, 0::4, _::binary>> -> :yes
-          _ -> :no
+          <<3::1 * 8, _::4 * 8, 0::4 * 8, _::binary>> -> :yes
+          _ ->
+            Logger.debug("Bad handshake: #{inspect(binary)}")
+            :no
         end
     end
   end

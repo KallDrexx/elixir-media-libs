@@ -19,7 +19,6 @@ defmodule RtmpHandshake do
                           | {:incomplete, binary_response}
                           | :failure
 
-
   @callback is_valid_format(<<>>) :: is_valid_format_result
   @callback process_bytes(behaviour_state, <<>>) :: {behaviour_state, process_result}
   @callback create_p0_and_p1_to_send(behaviour_state) :: {behaviour_state, <<>>}
@@ -37,8 +36,8 @@ defmodule RtmpHandshake do
     and preliminary parse results, including the initial x0 and x1
     binary to send to the peer.
   """
-  @spec new() :: {%State{}, ParseResult.t}
-  def new() do
+  @spec new(handshake_type) :: {%State{}, ParseResult.t}
+  def new(:old) do
     {handshake_state, bytes_to_send} =
       OldHandshakeFormat.new()
       |> OldHandshakeFormat.create_p0_and_p1_to_send()
@@ -48,9 +47,43 @@ defmodule RtmpHandshake do
     {state, result}
   end
 
+  def new(:unknown) do
+    state = %State{handshake_type: :unknown}
+    {state, %ParseResult{current_state: :waiting_for_data}}
+  end
+
   @doc "Reads the passed in binary to proceed with the handshaking process"
   @spec process_bytes(%State{}, <<>>) :: {%State{}, ParseResult.t}
-  def process_bytes(state = %State{}, binary) when is_binary(binary) do
+  def process_bytes(state = %State{handshake_type: :unknown}, binary) when is_binary(binary) do
+    state = %{state | remaining_binary: state.remaining_binary <> binary}
+    is_old_format = OldHandshakeFormat.is_valid_format(state.remaining_binary)
+    case is_old_format do
+      :yes ->
+        {handshake_state, bytes_to_send} =
+          OldHandshakeFormat.new()
+          |> OldHandshakeFormat.create_p0_and_p1_to_send()
+
+        binary = state.remaining_binary
+        state = %{state |
+          remaining_binary: <<>>,
+          handshake_type: :old,
+          handshake_state: handshake_state
+        }
+
+        {state, result} = process_bytes(state, binary)
+        result = %{result | bytes_to_send: bytes_to_send <> result.bytes_to_send}
+        {state, result}
+
+      :no ->
+        # No known handhsake format
+        {state, %ParseResult{current_state: :failure}}
+
+      _ ->
+        {state, %ParseResult{}}
+    end
+  end
+
+  def process_bytes(state = %State{handshake_type: :old}, binary) when is_binary(binary) do
     case OldHandshakeFormat.process_bytes(state.handshake_state, binary) do
       {handshake_state, :failure} ->
         state = %{state | handshake_state: handshake_state}
