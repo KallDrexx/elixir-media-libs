@@ -1,7 +1,9 @@
 defmodule RtmpHandshake.OldHandshakeFormat do
   @moduledoc """
   Functions to parse and validate RTMP handshakes as specified in the
-  official RTMP specification
+  official RTMP specification.
+
+  This handshake format does *NOT* work for h.264 video.
   """
 
   @behaviour RtmpHandshake
@@ -16,13 +18,11 @@ defmodule RtmpHandshake.OldHandshakeFormat do
               received_start_time: 0
   end
 
-  @spec new() :: %State{}
   @doc "Creates a new old handshake format instance"
   def new() do
     %State{}
   end
 
-  @spec is_valid_format(<<>>) :: RtmpHandshake.is_valid_format_result
   @doc "Validates if the passed in binary can be parsed using the old style handshake."
   def is_valid_format(binary) do
     case byte_size(binary) >= 16 do
@@ -30,21 +30,17 @@ defmodule RtmpHandshake.OldHandshakeFormat do
       true ->
         case binary do
           <<3::1 * 8, _::4 * 8, 0::4 * 8, _::binary>> -> :yes
-          _ ->
-            Logger.debug("Bad handshake: #{inspect(binary)}")
-            :no
+          _ -> :no
         end
     end
   end
 
-  @spec process_bytes(%State{}, <<>>) :: {%State{}, RtmpHandshake.process_result}
   @doc "Attempts to proceed with the handshake process with the passed in bytes"
   def process_bytes(state = %State{}, binary) do
     state = %{state | unparsed_binary: state.unparsed_binary <> binary}
     do_process_bytes(state)
   end
 
-  @spec create_p0_and_p1_to_send(%State{}) :: {%State{}, <<>>}
   @doc "Returns packets 0 and 1 to send to the peer"
   def create_p0_and_p1_to_send(state = %State{}) do
     state = %{state | random_data: generate_random_binary(1528, <<>>)}

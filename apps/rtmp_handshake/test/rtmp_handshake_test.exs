@@ -1,5 +1,5 @@
 defmodule RtmpHandshakeTest do
-  use ExUnit.Case
+  use ExUnit.Case, async: true
   require Logger
 
   test "Initial creation of handshake with old format specified returns packet 0" do
