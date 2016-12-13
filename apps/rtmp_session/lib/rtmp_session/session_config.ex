@@ -11,7 +11,7 @@ defmodule RtmpSession.SessionConfig do
     io_log_mode: :none | :raw_io
   }
 
-  defstruct fms_version: "FMS/3,0,0,123",
+  defstruct fms_version: "FMS/3,0,1,123",
     chunk_size: 4096,
     peer_bandwidth: 2500000,
     window_ack_size: 1048576,

@@ -13,7 +13,7 @@ defmodule GenRtmpServer.RtmpOptions do
   @type options_list :: [port: pos_integer, fms_version: String.t, chunk_size: pos_integer]
 
   defstruct port: 1935,
-            fms_version: "FMS/3,0,0,1233",
+            fms_version: "FMS/3,0,1,1233",
             chunk_size: 4096,
             log_mode: :none
   
