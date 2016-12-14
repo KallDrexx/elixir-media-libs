@@ -27,7 +27,8 @@ defmodule RtmpSession.Processor do
       last_created_stream_id: 0,
       connected_app_name: nil,
       active_streams: %{},
-      session_id: nil
+      session_id: nil,
+      specified_amf_version: 0
   end
 
   defmodule ActiveStream do
@@ -186,10 +187,14 @@ defmodule RtmpSession.Processor do
 
     _ = log(state, :debug, "Connect command received")
 
+    state = case command_obj["objectEncoding"] do
+      x when x == 3 -> state = %{state | specified_amf_version: 3}
+      _ -> state
+    end
+
     app_name = String.replace_trailing(command_obj["app"], "/", "")
     request = {:connect, app_name}
     {state, request_id} = create_request(state, request)
-
 
     responses = [
       {:response,
@@ -460,7 +465,7 @@ defmodule RtmpSession.Processor do
           "level" => "status",
           "code" => "NetConnection.Connect.Success",
           "description" => "Connection succeeded",
-          "objectEncoding" => 0
+          "objectEncoding" => state.specified_amf_version
         }]
       }, 0)
     }

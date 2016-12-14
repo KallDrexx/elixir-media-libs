@@ -138,6 +138,67 @@ defmodule RtmpSession.ProcessorTest do
     )
   end
 
+  test "Accepted connection responds with same object encoding value as connect request" do
+    alias RtmpSession.Messages.Amf0Command, as: Amf0Command
+    alias RtmpSession.Messages.UserControl, as: UserControl
+
+    config = %SessionConfig{
+      fms_version: "version",
+      chunk_size: 5000,
+      peer_bandwidth: 6000,
+      window_ack_size: 7000
+    }
+
+    command = %DetailedMessage{
+      timestamp: 0,
+      stream_id: 0,
+      content: %Amf0Command{
+        command_name: "connect",
+        transaction_id: 1,
+        command_object: %{
+          "app" => "some_app",
+          "objectEncoding" => 3.0
+        },
+        additional_values: []
+      }
+    }
+
+    processor = RtmpProcessor.new(config, "abc")
+    :timer.sleep(100)
+
+    # Connect command received
+    {processor, connect_results} = RtmpProcessor.handle(processor, command)
+
+    {:event, event} = assert_contains(connect_results, {:event, %Events.ConnectionRequested{
+      request_id: _,
+      app_name: "some_app"
+    }})
+
+    {_, accept_results} = RtmpProcessor.accept_request(processor, event.request_id)
+
+    assert_contains(accept_results, {:response,
+      %DetailedMessage{
+        stream_id: 0,
+        timestamp: timestamp,
+        content: %Amf0Command{
+          command_name: "_result",
+          transaction_id: 1,
+          command_object: %{
+            "fmsVer" => "version",
+            "capabilities" => 31
+          },
+          additional_values: [%{
+            "level" => "status",
+            "code" => "NetConnection.Connect.Success",
+            "description" => "Connection succeeded",
+            "objectEncoding" => 3
+          }]
+        }
+      }} when timestamp > 0
+    )
+
+  end
+
   test "Can create stream on connected session" do
     alias RtmpSession.Messages.Amf0Command, as: Amf0Command
 
