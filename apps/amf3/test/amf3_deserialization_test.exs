@@ -19,13 +19,13 @@ defmodule Amf3DeserializationTest do
 
   test "Integer marker with value deserializes to number" do
     assert [127] == Amf3.deserialize(<<0x04, 0x7f>>)
-    assert [65407] == Amf3.deserialize( <<0x04, 0xff, 0x7f>>)
-    assert [16777087] == Amf3.deserialize(<<0x04, 0xff, 0xff, 0x7f>>)
-    assert [4294967295] == Amf3.deserialize(<<0x04, 0xff, 0xff, 0xff, 0xff>>)
+    assert [127] == Amf3.deserialize(<<0x04, 0x80, 0x7f>>)
+    assert [16383] == Amf3.deserialize(<<0x04, 0x80, 0xff, 0x7f>>)
+    assert [4194303] == Amf3.deserialize(<<0x04, 0x80, 0xff, 0xff, 0xff>>)
+    assert [-26] == Amf3.deserialize(<<0x04, 0xff, 0xff, 0xff, 0xe6>>)
   end
 
   test "Double marker with value deserializes to number" do
     assert [532.5] == Amf3.deserialize(<<0x05, 532.5::float-64>>)
   end
-  
 end
