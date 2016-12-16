@@ -65,6 +65,12 @@ defmodule RtmpSession.RawMessage do
   defp get_message_module(9), do: RtmpSession.Messages.VideoData
   defp get_message_module(18), do: RtmpSession.Messages.Amf0Data
   defp get_message_module(20), do: RtmpSession.Messages.Amf0Command
+
+  # I have no idea why but AMF3 messages are actually internally encoded
+  # in AMF0, so just use amf0 for decoding
+  defp get_message_module(17), do: RtmpSession.Messages.Amf0Command
+  defp get_message_module(15), do: RtmpSession.Messages.Amf0Data
+
   defp get_message_module(_), do: nil
 
   # WARNING: We have to match on the module names themselves instead of

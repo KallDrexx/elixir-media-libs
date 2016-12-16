@@ -1,10 +1,8 @@
 defmodule RtmpSession.Messages.Amf0Command do
   @moduledoc """
-  
   Message used to denote an amf0 encoded command (or resposne to a command)
-  
   """
-  
+
   @behaviour RtmpSession.RawMessage
   @type t :: %__MODULE__{}
   
@@ -14,7 +12,7 @@ defmodule RtmpSession.Messages.Amf0Command do
             additional_values: []
   
   def deserialize(data) do
-    {:ok, objects} = Amf0.deserialize(data)
+    {:ok, objects} = get_data(data) |> Amf0.deserialize()
     [command_name, transaction_id, command_object | rest] = objects
 
     %__MODULE__{
@@ -32,4 +30,9 @@ defmodule RtmpSession.Messages.Amf0Command do
   end
   
   def get_default_chunk_stream_id(%__MODULE__{}),  do: 3
+
+  # For some reason AMF3 commands are just AMF0 encoded commands with a zero in front of it
+  # so remove the zero
+  defp get_data(<<0::8, rest::binary>>), do: rest
+  defp get_data(binary), do: binary
 end
