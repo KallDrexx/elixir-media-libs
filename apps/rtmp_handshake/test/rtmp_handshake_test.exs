@@ -90,4 +90,18 @@ defmodule RtmpHandshakeTest do
     }} = RtmpHandshake.process_bytes(handshake, <<1::4 * 8, 0::4 * 8, 555::1528 * 8>>)
   end
 
+  test "Two digest handshake instances can complete handshake against each other" do
+    {client, %RtmpHandshake.ParseResult{bytes_to_send: c0_c1}} = RtmpHandshake.new(:digest)
+    {server, %RtmpHandshake.ParseResult{bytes_to_send: <<>>}} = RtmpHandshake.new(:unknown)
+
+     assert {server, %RtmpHandshake.ParseResult{current_state: :waiting_for_data, bytes_to_send: s0_s1_s2}}
+      = RtmpHandshake.process_bytes(server, c0_c1)
+
+    assert {client, %RtmpHandshake.ParseResult{current_state: :success, bytes_to_send: c2}}
+      = RtmpHandshake.process_bytes(client, s0_s1_s2)
+
+    assert {_, %RtmpHandshake.ParseResult{current_state: :success}}
+      = RtmpHandshake.process_bytes(server, c2)
+  end
+
 end

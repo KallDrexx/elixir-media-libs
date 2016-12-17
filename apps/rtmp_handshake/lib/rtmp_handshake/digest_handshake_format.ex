@@ -106,11 +106,8 @@ defmodule RtmpHandshake.DigestHandshakeFormat do
   defp do_process_bytes(state = %State{current_stage: :p1, is_server: nil}) do
     # Since is_server is nil, that means we got packet 1 from the peer before we sent
     # our packet 1.  This means we are a server reacting to a client
-    {state, p0_and_p1} = create_p0_and_p1_to_send(state)
-    state = %{state |
-      is_server: true,
-      bytes_to_send: state.bytes_to_send <> p0_and_p1,
-    }
+    {state, p0_and_p1} = create_p0_and_p1_to_send(%{state | is_server: true})
+    state = %{state | bytes_to_send: state.bytes_to_send <> p0_and_p1 }
 
     do_process_bytes(state)
   end

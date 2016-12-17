@@ -118,5 +118,11 @@ defmodule DigestHandshakeFormatTest do
     assert state.unparsed_binary == <<>>
   end
 
+  test "Can recognize its own c0 and c1 as valid" do
+    {_, binary} = DigestHandshakeFormat.new() |> DigestHandshakeFormat.create_p0_and_p1_to_send()
+
+    assert :yes == DigestHandshakeFormat.is_valid_format(binary)
+  end
+
   
 end
