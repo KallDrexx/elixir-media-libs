@@ -28,10 +28,11 @@ defmodule RtmpHandshake.OldHandshakeFormat do
     case byte_size(binary) >= 16 do
       false -> :unknown
       true ->
-        case binary do
-          <<3::1 * 8, _::4 * 8, 0::4 * 8, _::binary>> -> :yes
-          _ -> :no
-        end
+        :yes
+#        case binary do
+#          <<3::1 * 8, _::4 * 8, 0::4 * 8, _::binary>> -> :yes
+#          _ -> :no
+#        end
     end
   end
 
@@ -72,7 +73,7 @@ defmodule RtmpHandshake.OldHandshakeFormat do
       send_incomplete_response(state)
     else
       case state.unparsed_binary do
-        <<time::4 * 8, 0::4 * 8, random::binary-size(1528), rest::binary>> ->
+        <<time::4 * 8, _::4 * 8, random::binary-size(1528), rest::binary>> ->
           state = %{state |
             bytes_to_send: state.bytes_to_send <> <<time::4 * 8, 0::4 * 8>> <> random, # packet 2
             unparsed_binary: rest,
@@ -91,6 +92,7 @@ defmodule RtmpHandshake.OldHandshakeFormat do
   end
 
   defp do_process_bytes(state = %State{current_stage: :p2}) do
+    Logger.debug("p2")
     if byte_size(state.unparsed_binary) < 1536 do
       send_incomplete_response(state)
     else

@@ -71,21 +71,21 @@ defmodule RtmpHandshake do
     is_digest_format = DigestHandshakeFormat.is_valid_format(state.remaining_binary)
 
     case {is_old_format, is_digest_format} do
-      {_, :yes} ->
-        Logger.debug("Digest format")
-        handshake_state = DigestHandshakeFormat.new()
-
-        binary = state.remaining_binary
-        state = %{state |
-          remaining_binary: <<>>,
-          handshake_type: :digest,
-          handshake_state: handshake_state
-        }
-
-        # Processing bytes should trigger p0 and p1 to be sent
-        {state, result} = process_bytes(state, binary)
-        result = %{result | bytes_to_send: result.bytes_to_send}
-        {state, result}
+#      {_, :yes} ->
+#        Logger.debug("Digest format")
+#        handshake_state = DigestHandshakeFormat.new()
+#
+#        binary = state.remaining_binary
+#        state = %{state |
+#          remaining_binary: <<>>,
+#          handshake_type: :digest,
+#          handshake_state: handshake_state
+#        }
+#
+#        # Processing bytes should trigger p0 and p1 to be sent
+#        {state, result} = process_bytes(state, binary)
+#        result = %{result | bytes_to_send: result.bytes_to_send}
+#        {state, result}
 
       {:yes, _} ->
         Logger.debug("Old format")
@@ -99,6 +99,8 @@ defmodule RtmpHandshake do
           handshake_type: :old,
           handshake_state: handshake_state
         }
+
+        Logger.debug("Bytes to send: #{inspect(bytes_to_send)}")
 
         {state, result} = process_bytes(state, binary)
         result = %{result | bytes_to_send: bytes_to_send <> result.bytes_to_send}
