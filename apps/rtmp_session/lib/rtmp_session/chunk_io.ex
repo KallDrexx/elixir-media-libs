@@ -186,8 +186,16 @@ defmodule RtmpSession.ChunkIo do
     if byte_size(remaining_binary) < get_expected_chunk_size(state, previous_header.message_length) do
       {state, :incomplete}
     else
+      # If this is a continutation of a split message, do not update the timestamp.
+      # Some rtmp clients (like ffmpeg) will do an chunk type 1 with a delta and have each chunk of the same message
+      # in a type 3 chunk.  We don't want to apply the time delta each time in this circumstance
+      timestamp = case state.incomplete_message do
+        nil -> RtmpTime.apply_delta(previous_header.timestamp, previous_header.last_timestamp_delta)
+        _ -> previous_header.timestamp
+      end
+
       updated_header = %{previous_header |
-        timestamp: RtmpTime.apply_delta(previous_header.timestamp, previous_header.last_timestamp_delta),
+        timestamp: timestamp,
       }
 
       new_state = %{state | received_headers: Map.put(state.received_headers, csid, updated_header)}
@@ -219,7 +227,7 @@ defmodule RtmpSession.ChunkIo do
     deserialize_payload(state, chunk_payload_length, message_length, current_message, remaining_binary)
   end
 
-  defp deserialize_payload(state, chunk_payload_length, _full_length, _incomplete_message, remaining_binary) 
+  defp deserialize_payload(state, chunk_payload_length, _full_length, _incomplete_message, remaining_binary)
     when byte_size(remaining_binary) < chunk_payload_length do
     
     {state, :incomplete}
