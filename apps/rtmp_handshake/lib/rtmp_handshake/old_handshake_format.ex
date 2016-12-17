@@ -63,7 +63,8 @@ defmodule RtmpHandshake.OldHandshakeFormat do
 
           do_process_bytes(state)
 
-        _ -> {state, :failure}
+        _ ->
+          {state, :failure}
       end
     end
   end
@@ -84,9 +85,7 @@ defmodule RtmpHandshake.OldHandshakeFormat do
           do_process_bytes(state)
 
         _ ->
-          bytes_to_send = state.bytes_to_send
-          state = %{state | bytes_to_send: <<>>}
-          {state, {:incomplete, bytes_to_send}}
+          {state, :failure}
       end
     end
   end
