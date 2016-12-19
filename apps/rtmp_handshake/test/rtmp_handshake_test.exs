@@ -97,7 +97,7 @@ defmodule RtmpHandshakeTest do
      assert {server, %RtmpHandshake.ParseResult{current_state: :waiting_for_data, bytes_to_send: s0_s1_s2}}
       = RtmpHandshake.process_bytes(server, c0_c1)
 
-    assert {client, %RtmpHandshake.ParseResult{current_state: :success, bytes_to_send: c2}}
+    assert {_client, %RtmpHandshake.ParseResult{current_state: :success, bytes_to_send: c2}}
       = RtmpHandshake.process_bytes(client, s0_s1_s2)
 
     assert {_, %RtmpHandshake.ParseResult{current_state: :success}}

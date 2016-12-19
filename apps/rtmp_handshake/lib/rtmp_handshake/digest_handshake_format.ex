@@ -122,10 +122,12 @@ defmodule RtmpHandshake.DigestHandshakeFormat do
         false -> @genuine_fms_name
       end
 
-      key_offset = case get_message_format(handshake, const_to_use) do
-        :version1 -> get_client_dh_offset(handshake)
-        :version2 -> get_server_dh_offset(handshake)
+      {challenge_key_offset, key_offset} = case get_message_format(handshake, const_to_use) do
+        :version1 -> {get_client_digest_offset(handshake), get_client_dh_offset(handshake)}
+        :version2 -> {get_server_digest_offset(handshake), get_server_dh_offset(handshake)}
       end
+
+      <<_::bytes-size(challenge_key_offset), challenge_key::bytes-size(32), _::binary>> = handshake
 
       key_offset_without_time = key_offset - 4
       <<
@@ -138,7 +140,7 @@ defmodule RtmpHandshake.DigestHandshakeFormat do
       state = %{state |
         received_start_time: time,
         current_stage: :p2,
-        bytes_to_send: state.bytes_to_send <> generate_p2(state.is_server, key),
+        bytes_to_send: state.bytes_to_send <> generate_p2(state.is_server, challenge_key),
         unparsed_binary: rest
       }
 
@@ -160,15 +162,15 @@ defmodule RtmpHandshake.DigestHandshakeFormat do
     end
   end
 
-  defp generate_p2(is_server, public_key) do
+  defp generate_p2(is_server, challenge_key) do
     random_binary = :crypto.rand_bytes(1536 - @sha_256_digest_length)
     string = case is_server do
       true -> @genuine_fms_with_crud
       false -> @genuine_player_with_crud
     end
 
-    digest = :crypto.hmac(:sha256, public_key, string)
-    signature = :crypto.hmac(:sha256, random_binary, digest)
+    digest = :crypto.hmac(:sha256, string, challenge_key)
+    signature = :crypto.hmac(:sha256, digest, random_binary)
 
     random_binary <> signature
   end
