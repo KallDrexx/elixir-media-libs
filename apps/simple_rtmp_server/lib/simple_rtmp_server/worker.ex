@@ -24,7 +24,8 @@ defmodule SimpleRtmpServer.Worker do
               stream_key: nil,
               stream_id: nil,
               last_metadata_event: nil,
-              has_sent_keyframe: false
+              has_sent_keyframe: false,
+              sequence_header_event: nil
   end
 
   def start_link() do
@@ -144,6 +145,7 @@ defmodule SimpleRtmpServer.Worker do
         :pg2.create(publisher_key)
         publisher_processes = :pg2.get_members(publisher_key)
         :ok = send_to_processes(publisher_processes, {:metadata_request, event.app_name, event.stream_key})
+        :ok = send_to_processes(publisher_processes, {:sequence_header_request, event.app_name, event.stream_key})
 
         {:accepted, state}
     end
@@ -190,6 +192,16 @@ defmodule SimpleRtmpServer.Worker do
   def audio_video_data_received(event = %RtmpEvents.AudioVideoDataReceived{}, state = %State{}) do
     activity_key = generate_activity_key(event.app_name, event.stream_key)
 
+    state = case is_sequence_header(event.data) do
+      true ->
+        activity = Map.fetch!(state.activities, activity_key)
+        activity = %{activity | sequence_header_event: event}
+        activities = Map.put(state.activities, activity_key, activity)
+        %{state | activities: activities}
+
+      false -> state
+    end
+
     :pg2.create(activity_key)
     player_processes = :pg2.get_members(activity_key)
     :ok = send_to_processes(player_processes, {:av_data, event})
@@ -214,15 +226,19 @@ defmodule SimpleRtmpServer.Worker do
         received_at_timestamp: event.received_at_timestamp
       }
 
-      GenRtmpServer.send_message(self(), outbound_message, activity.stream_id, event.timestamp)
-      if !activity.has_sent_keyframe do
-        activity = %{activity | has_sent_keyframe: true}
-        activities = Map.put(state.activities, activity_key, activity)
-        %{state | activities: activities}
-      else
-        state
+      stream_id = activity.stream_id
+
+      state = case activity.has_sent_keyframe do
+        true -> state
+        false ->
+          send_sequence_header(activity.sequence_header_event, event.received_at_timestamp, activity.stream_id)
+          activity = %{activity | has_sent_keyframe: true}
+          activities = Map.put(state.activities, activity_key, activity)
+          %{state | activities: activities}
       end
 
+      GenRtmpServer.send_message(self(), outbound_message, stream_id, event.timestamp)
+      state
     else
       state
     end
@@ -242,6 +258,17 @@ defmodule SimpleRtmpServer.Worker do
     {:ok, state}
   end
 
+  def handle_message({:sequence_header, event = %RtmpEvents.AudioVideoDataReceived{}}, state = %State{}) do
+    activity_key = generate_activity_key(event.app_name, event.stream_key)
+    {:ok, activity} = Map.fetch(state.activities, activity_key)
+
+    activity = %{activity | sequence_header_event: event}
+    activities = Map.put(state.activities, activity_key, activity)
+    state = %{state | activities: activities}
+
+    {:ok, state}
+  end
+
   def handle_message({:metadata_request, app_name, stream_key}, state = %State{}) do
     activity_key = generate_activity_key(app_name, stream_key)
     case Map.fetch(state.activities, activity_key) do
@@ -250,6 +277,22 @@ defmodule SimpleRtmpServer.Worker do
           :pg2.create(activity_key)
           player_processes = :pg2.get_members(activity_key)
           :ok = send_to_processes(player_processes, {:metadata, activity.last_metadata_event})
+        end
+
+        {:ok, state}
+
+      :error -> {:ok, state}
+    end
+  end
+
+  def handle_message({:sequence_header_request, app_name, stream_key}, state = %State{}) do
+    activity_key = generate_activity_key(app_name, stream_key)
+    case Map.fetch(state.activities, activity_key) do
+      {:ok, activity} ->
+        if activity.sequence_header_event != nil do
+          :pg2.create(activity_key)
+          player_processes = :pg2.get_members(activity_key)
+          :ok = send_to_processes(player_processes, {:sequence_header, activity.sequence_header_event})
         end
 
         {:ok, state}
@@ -286,4 +329,22 @@ defmodule SimpleRtmpServer.Worker do
 
   defp is_keyframe(<<0x17, _::binary>>), do: true
   defp is_keyframe(_), do: false
+
+  defp is_sequence_header(<<0x17, 0x00, _::binary>>), do: true
+  defp is_sequence_header(_), do: false
+
+  defp send_sequence_header(nil, _, _) do
+    :ok
+  end
+
+  defp send_sequence_header(event = %RtmpEvents.AudioVideoDataReceived{}, forced_timestamp, stream_id) do
+    outbound_message = %GenRtmpServer.AudioVideoData{
+      data_type: event.data_type,
+      data: event.data,
+      received_at_timestamp: forced_timestamp
+    }
+
+    Logger.debug("Sending sequence header")
+    GenRtmpServer.send_message(self(), outbound_message, stream_id)
+  end
 end
