@@ -211,36 +211,39 @@ defmodule SimpleRtmpServer.Worker do
 
   def handle_message({:av_data, event = %RtmpEvents.AudioVideoDataReceived{}}, state = %State{}) do
     activity_key = generate_activity_key(event.app_name, event.stream_key)
-    {:ok, activity} = Map.fetch(state.activities, activity_key)
 
-    should_send_message = case {activity.has_sent_keyframe, is_keyframe(event.data)} do
-      {true, _} -> true
-      {false, true} -> true
-      _ -> false
-    end
+    state = case Map.fetch(state.activities, activity_key) do
+      :error -> state # race condition, AV data sent while activity was being closed
+      {:ok, activity} ->
+        should_send_message = case {activity.has_sent_keyframe, is_keyframe(event.data)} do
+          {true, _} -> true
+          {false, true} -> true
+          _ -> false
+        end
 
-    state = if should_send_message do
-        outbound_message = %GenRtmpServer.AudioVideoData{
-        data_type: event.data_type,
-        data: event.data,
-        received_at_timestamp: event.received_at_timestamp
-      }
+        state = if should_send_message do
+            outbound_message = %GenRtmpServer.AudioVideoData{
+            data_type: event.data_type,
+            data: event.data,
+            received_at_timestamp: event.received_at_timestamp
+          }
 
-      stream_id = activity.stream_id
+          stream_id = activity.stream_id
 
-      state = case activity.has_sent_keyframe do
-        true -> state
-        false ->
-          send_sequence_header(activity.sequence_header_event, event.received_at_timestamp, activity.stream_id)
-          activity = %{activity | has_sent_keyframe: true}
-          activities = Map.put(state.activities, activity_key, activity)
-          %{state | activities: activities}
-      end
+          state = case activity.has_sent_keyframe do
+            true -> state
+            false ->
+              send_sequence_header(activity.sequence_header_event, event.received_at_timestamp, activity.stream_id)
+              activity = %{activity | has_sent_keyframe: true}
+              activities = Map.put(state.activities, activity_key, activity)
+              %{state | activities: activities}
+          end
 
-      GenRtmpServer.send_message(self(), outbound_message, stream_id, event.timestamp)
-      state
-    else
-      state
+          GenRtmpServer.send_message(self(), outbound_message, stream_id, event.timestamp)
+          state
+        else
+          state
+        end
     end
 
     {:ok, state}
