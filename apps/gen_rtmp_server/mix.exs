@@ -21,16 +21,30 @@ defmodule GenRtmpServer.Mixfile do
   end
 
   defp deps do
+    get_umbrella_dependencies(Mix.env) ++
     [
-      #{:rtmp_handshake, in_umbrella: true},
-      #{:rtmp_session, in_umbrella: true},
-      {:rtmp_handshake, "~> 1.0", hex: :eml_rtmp_handshake},
-      {:rtmp_session, "~> 0.1.0", hex: :eml_rtmp_session},
-      {:ranch, "~> 1.2.1", manager: :rebar},
+      get_ranch_dependency(Mix.env),
       {:uuid, "~> 1.1"},
       {:ex_doc, "~> 0.14", only: :dev}
     ]
   end
+
+  defp get_umbrella_dependencies(:umbrella) do
+    [
+      {:rtmp_handshake, in_umbrella: true},
+      {:rtmp_session, in_umbrella: true},
+    ]
+  end
+
+  defp get_umbrella_dependencies(_) do
+    [
+      {:rtmp_handshake, "~> 1.0", hex: :eml_rtmp_handshake},
+      {:rtmp_session, "~> 0.1.0", hex: :eml_rtmp_session},
+    ]
+  end
+
+  defp get_ranch_dependency(:publish), do: {:ranch, "~> 1.2.1"}
+  defp get_ranch_dependency(_), do: {:ranch, "~> 1.2.1", manager: :rebar}
 
   defp package do
     [

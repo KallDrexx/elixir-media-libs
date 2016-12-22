@@ -23,12 +23,14 @@ defmodule RtmpSession.Mixfile do
 
   defp deps do
     [
-      #{:amf0, in_umbrella: true},
-      {:amf0, "~> 1.0", hex: :eml_amf0},
+      get_umbrella_dependencies(Mix.env),
       {:dialyxir, "~> 0.3.5", only: [:dev]},
       {:ex_doc, "~> 0.14", only: :dev}
     ]
   end
+
+  defp get_umbrella_dependencies(:umbrella), do: {:amf0, in_umbrella: true}
+  defp get_umbrella_dependencies(_), do: {:amf0, "~> 1.0", hex: :eml_amf0}
 
   defp package do
     [
