@@ -1,4 +1,4 @@
-defmodule Mmids.Mixfile do
+defmodule ElixirMediaLibs.Mixfile do
   use Mix.Project
 
   def project do
