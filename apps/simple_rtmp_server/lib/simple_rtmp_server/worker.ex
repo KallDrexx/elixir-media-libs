@@ -213,7 +213,10 @@ defmodule SimpleRtmpServer.Worker do
     activity_key = generate_activity_key(event.app_name, event.stream_key)
 
     state = case Map.fetch(state.activities, activity_key) do
-      :error -> state # race condition, AV data sent while activity was being closed
+      :error ->
+        # race condition, AV data sent while activity was being closed.  Can be ignored I believe
+        state
+
       {:ok, activity} ->
         should_send_message = case {activity.has_sent_keyframe, is_keyframe(event.data)} do
           {true, _} -> true
@@ -221,29 +224,7 @@ defmodule SimpleRtmpServer.Worker do
           _ -> false
         end
 
-        state = if should_send_message do
-            outbound_message = %GenRtmpServer.AudioVideoData{
-            data_type: event.data_type,
-            data: event.data,
-            received_at_timestamp: event.received_at_timestamp
-          }
-
-          stream_id = activity.stream_id
-
-          state = case activity.has_sent_keyframe do
-            true -> state
-            false ->
-              send_sequence_header(activity.sequence_header_event, event.received_at_timestamp, activity.stream_id)
-              activity = %{activity | has_sent_keyframe: true}
-              activities = Map.put(state.activities, activity_key, activity)
-              %{state | activities: activities}
-          end
-
-          GenRtmpServer.send_message(self(), outbound_message, stream_id, event.timestamp)
-          state
-        else
-          state
-        end
+        state = if should_send_message, do: send_message(state, event, activity, activity_key), else: state
     end
 
     {:ok, state}
@@ -350,4 +331,27 @@ defmodule SimpleRtmpServer.Worker do
     _ = Logger.debug("Sending sequence header")
     GenRtmpServer.send_message(self(), outbound_message, stream_id)
   end
+
+  defp send_message(state, event, activity, activity_key) do
+    outbound_message = %GenRtmpServer.AudioVideoData{
+      data_type: event.data_type,
+      data: event.data,
+      received_at_timestamp: event.received_at_timestamp
+    }
+
+    stream_id = activity.stream_id
+
+    state = case activity.has_sent_keyframe do
+      true -> state
+      false ->
+        send_sequence_header(activity.sequence_header_event, event.received_at_timestamp, activity.stream_id)
+        activity = %{activity | has_sent_keyframe: true}
+        activities = Map.put(state.activities, activity_key, activity)
+        %{state | activities: activities}
+    end
+
+    GenRtmpServer.send_message(self(), outbound_message, stream_id, event.timestamp)
+    state
+  end
+
 end
