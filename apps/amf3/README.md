@@ -1,24 +1,3 @@
 # Amf3
 
-**TODO: Add description**
-
-## Installation
-
-If [available in Hex](https://hex.pm/docs/publish), the package can be installed as:
-
-  1. Add `amf3` to your list of dependencies in `mix.exs`:
-
-    ```elixir
-    def deps do
-      [{:amf3, "~> 0.1.0"}]
-    end
-    ```
-
-  2. Ensure `amf3` is started before your application:
-
-    ```elixir
-    def application do
-      [applications: [:amf3]]
-    end
-    ```
-
+**WARNING:** This library is incomplete and should not be used.  Initially created for AMF3 support with RTMP it was abandoned when it was realized that AMF3 RTMP clients send AMF0 encoded data inside of AMF3 messages.

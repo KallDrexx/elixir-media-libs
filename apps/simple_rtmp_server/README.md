@@ -1,24 +1,7 @@
 # SimpleRtmpServer
 
-**TODO: Add description**
+The simple RTMP server is a very basic example of a `GenRtmpServer` implementation.  It is meant to test the publication and playback of a server with very little logic surrounding it.  It therefore accepts all RTMP requests and takes very little actions on top of it besides routing audio, video, and metadata values between connected publishers and players.
 
-## Installation
+Starting a server on port 1935 is as simple as running:
 
-If [available in Hex](https://hex.pm/docs/publish), the package can be installed as:
-
-  1. Add `simple_rtmp_server` to your list of dependencies in `mix.exs`:
-
-    ```elixir
-    def deps do
-      [{:simple_rtmp_server, "~> 0.1.0"}]
-    end
-    ```
-
-  2. Ensure `simple_rtmp_server` is started before your application:
-
-    ```elixir
-    def application do
-      [applications: [:simple_rtmp_server]]
-    end
-    ```
-
+`mix run --no-halt`

@@ -1,24 +1,3 @@
 # Flv
 
-**TODO: Add description**
-
-## Installation
-
-If [available in Hex](https://hex.pm/docs/publish), the package can be installed as:
-
-  1. Add `flv` to your list of dependencies in `mix.exs`:
-
-    ```elixir
-    def deps do
-      [{:flv, "~> 0.1.0"}]
-    end
-    ```
-
-  2. Ensure `flv` is started before your application:
-
-    ```elixir
-    def application do
-      [applications: [:flv]]
-    end
-    ```
-
+Functionality for parsing FLV encoded media streams.  This library is a work in progress and is not very usable at the moment.

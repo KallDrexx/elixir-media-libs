@@ -1,20 +1,5 @@
 # RtmpHandshake
 
-**TODO: Add description**
+This library can be used to facilitate handshake with RTMP servers and clients.  It fully supports both the simple handshake process specified in the (RTMP Specification)[http://wwwimages.adobe.com/content/dam/Adobe/en/devnet/rtmp/pdf/rtmp_specification_1.0.pdf] and the flash 9/10 digest handshake based on (the following unofficial specification)[https://www.cs.cmu.edu/~dst/Adobe/Gallery/RTMPE.txt].
 
-## Installation
-
-If [available in Hex](https://hex.pm/docs/publish), the package can be installed as:
-
-  1. Add rtmp_handshake to your list of dependencies in `mix.exs`:
-
-        def deps do
-          [{:rtmp_handshake, "~> 0.0.1"}]
-        end
-
-  2. Ensure rtmp_handshake is started before your application:
-
-        def application do
-          [applications: [:rtmp_handshake]]
-        end
 

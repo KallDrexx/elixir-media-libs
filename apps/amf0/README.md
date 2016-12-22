@@ -1,20 +1,24 @@
 # Amf0
 
-**TODO: Add description**
+Provides functions to serialize and deserialize data encoded in the AMF0 data format based on the official (Adobe Specification)[http://wwwimages.adobe.com/content/dam/Adobe/en/devnet/amf/pdf/amf0-file-format-specification.pdf].  
 
-## Installation
+This library so far implements basic types required for RTMP communication and thus currently supports:
+* numbers
+* booleans
+* UTF8 strings
+* Nulls
+* Arrays
+* Objects with properties
 
-If [available in Hex](https://hex.pm/docs/publish), the package can be installed as:
+## Examples
 
-  1. Add amf0 to your list of dependencies in `mix.exs`:
+```
+iex> Amf0.deserialize(<<0::8, 532::float-64, 1::8, 1::8>>)
+{:ok, [532.0, true]}
 
-        def deps do
-          [{:amf0, "~> 0.0.1"}]
-        end
+iex> Amf0.serialize("test")
+<<2::8, 4::16>> <> "test"
 
-  2. Ensure amf0 is started before your application:
-
-        def application do
-          [applications: [:amf0]]
-        end
-
+iex> Amf0.serialize([532, true])
+<<0::8, 532::float-64, 1::8, 1::8>>
+```

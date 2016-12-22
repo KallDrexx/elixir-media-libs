@@ -1,24 +1,7 @@
 # GenRtmpServer
 
-**TODO: Add description**
-
-## Installation
-
-If [available in Hex](https://hex.pm/docs/publish), the package can be installed as:
-
-  1. Add `gen_rtmp_server` to your list of dependencies in `mix.exs`:
-
-    ```elixir
-    def deps do
-      [{:gen_rtmp_server, "~> 0.1.0"}]
-    end
-    ```
-
-  2. Ensure `gen_rtmp_server` is started before your application:
-
-    ```elixir
-    def application do
-      [applications: [:gen_rtmp_server]]
-    end
-    ```
-
+`GenRtmpServer` is a behaviour that allows developers to easily implement custom RTMP servers without worrying about the underlying protocol or internal RTMP workflows (such as chunk sizes).  
+ 
+ It will trigger functions in modules that implement the behaviour when any events occur that may need application specific workflows, such as if a connection should be accepted or rejected, if a connection should be allowed to publish or play video on a specific stream key, or even when audio and video data is received.  
+ 
+ It also contains functions for sending RTMP messages back to clients as an application determines it is needed.
