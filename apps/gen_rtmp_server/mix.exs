@@ -11,29 +11,15 @@ defmodule GenRtmpServer.Mixfile do
      elixir: "~> 1.3",
      build_embedded: Mix.env == :prod,
      start_permanent: Mix.env == :prod,
+     description: description,
+     package: package,
      deps: deps]
   end
 
-  # Configuration for the OTP application
-  #
-  # Type "mix help compile.app" for more information
   def application do
     [applications: [:logger, :ranch]]
   end
 
-  # Dependencies can be Hex packages:
-  #
-  #   {:mydep, "~> 0.3.0"}
-  #
-  # Or git/path repositories:
-  #
-  #   {:mydep, git: "https://github.com/elixir-lang/mydep.git", tag: "0.1.0"}
-  #
-  # To depend on another app inside the umbrella:
-  #
-  #   {:myapp, in_umbrella: true}
-  #
-  # Type "mix help deps" for more examples and options
   defp deps do
     [
       {:rtmp_handshake, in_umbrella: true},
@@ -41,5 +27,18 @@ defmodule GenRtmpServer.Mixfile do
       {:ranch, "~> 1.2.1", manager: :rebar},
       {:uuid, "~> 1.1"}
     ]
+  end
+
+  defp package do
+    [
+      name: :eml_gen_rtmp_server,
+      maintainers: ["Matthew Shapiro"],
+      licenses: ["MIT"],
+      links: %{"GitHub" => "https://github.com/KallDrexx/elixir-media-libs/tree/master/apps/gen_rtmp_server"}
+    ]
+  end
+
+  defp description do
+    "Behaviour to make it easy to create custom RTMP servers"
   end
 end

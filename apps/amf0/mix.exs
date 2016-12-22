@@ -3,7 +3,7 @@ defmodule Amf0.Mixfile do
 
   def project do
     [app: :amf0,
-     version: "0.0.1",
+     version: "1.0.0",
      build_path: "../../_build",
      config_path: "../../config/config.exs",
      deps_path: "../../deps",
@@ -11,30 +11,29 @@ defmodule Amf0.Mixfile do
      elixir: "~> 1.2",
      build_embedded: Mix.env == :prod,
      start_permanent: Mix.env == :prod,
+     description: description,
+     package: package,
      deps: deps]
   end
 
-  # Configuration for the OTP application
-  #
-  # Type "mix help compile.app" for more information
   def application do
     [applications: [:logger]]
   end
 
-  # Dependencies can be Hex packages:
-  #
-  #   {:mydep, "~> 0.3.0"}
-  #
-  # Or git/path repositories:
-  #
-  #   {:mydep, git: "https://github.com/elixir-lang/mydep.git", tag: "0.1.0"}
-  #
-  # To depend on another app inside the umbrella:
-  #
-  #   {:myapp, in_umbrella: true}
-  #
-  # Type "mix help deps" for more examples and options
   defp deps do
     []
+  end
+
+  defp package do
+    [
+      name: :eml_amf0,
+      maintainers: ["Matthew Shapiro"],
+      licenses: ["MIT"],
+      links: %{"GitHub" => "https://github.com/KallDrexx/elixir-media-libs/tree/master/apps/amf0"}
+    ]
+  end
+
+  defp description do
+    "Provides functions to serialize and deserialize data encoded in the AMF0 data format"
   end
 end
