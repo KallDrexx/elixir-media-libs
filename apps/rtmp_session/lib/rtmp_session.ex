@@ -52,6 +52,11 @@ defmodule RtmpSession do
   end
 
   @spec new(non_neg_integer(), String.t, %SessionConfig{}) :: %State{}
+  @doc """
+  Starts a new RTMP session.  The provided session_id is used to be able to
+  track logs and information about this session across the whole application
+  and should be relatively unique to the connection.
+  """
   def new(peer_initial_time, session_id, config \\ %SessionConfig{}) do
     state = %State{
       peer_initial_time: peer_initial_time,
@@ -65,7 +70,11 @@ defmodule RtmpSession do
     prepare_log_files(state)
   end
 
-  @spec process_bytes(%State{}, <<>>) :: {%State{}, %SessionResults{}}
+  @spec process_bytes(%State{}, binary) :: {%State{}, %SessionResults{}}
+  @doc """
+  Takes the passed in binary and processes it as a partial or whole RTMP
+  chunk.
+  """
   def process_bytes(state = %State{}, binary) when is_binary(binary) do
     :ok = log_io_data(state, :input, binary)
 
@@ -76,6 +85,13 @@ defmodule RtmpSession do
   end
 
   @spec accept_request(%State{}, non_neg_integer()) :: {%State{}, %SessionResults{}}
+  @doc """
+  Accepts a specific request originating from an event returned by the session.
+
+  For example, when the peer requests to connect to an application name, the session
+  will return a `%RtmpSession.Events.ConnectionRequested{}` event.  If the consumer
+  decides to allow this connection request it will pass the request id to this method.
+  """
   def accept_request(state = %State{}, request_id) do
     {processor, results} = Processor.accept_request(state.processor, request_id)
 
@@ -84,6 +100,12 @@ defmodule RtmpSession do
   end
 
   @spec send_rtmp_message(%State{}, stream_id, deserialized_message, forced_timestamp) :: {%State{}, %SessionResults{}}
+  @doc """
+  Used for an application to manually send an RTMP message to the connected peer.
+
+  If no forced timestamp is provided then it determines the timestamp using the time since
+  the connection began.  Forcing a timestamp is usually only needed for video and audio packets.
+  """
   def send_rtmp_message(state = %State{}, stream_id, message, forced_timestamp \\ nil) do
     timestamp = case forced_timestamp do
       nil -> :os.system_time(:milli_seconds) - state.self_epoch

@@ -23,8 +23,10 @@ defmodule RtmpSession.Mixfile do
 
   defp deps do
     [
-      {:amf0, in_umbrella: true},
-      {:dialyxir, "~> 0.3.5", only: [:dev]}
+      #{:amf0, in_umbrella: true},
+      {:amf0, "~> 1.0", hex: :eml_amf0},
+      {:dialyxir, "~> 0.3.5", only: [:dev]},
+      {:ex_doc, "~> 0.14", only: :dev}
     ]
   end
 

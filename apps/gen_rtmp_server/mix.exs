@@ -22,10 +22,13 @@ defmodule GenRtmpServer.Mixfile do
 
   defp deps do
     [
-      {:rtmp_handshake, in_umbrella: true},
-      {:rtmp_session, in_umbrella: true},
+      #{:rtmp_handshake, in_umbrella: true},
+      #{:rtmp_session, in_umbrella: true},
+      {:rtmp_handshake, "~> 1.0", hex: :eml_rtmp_handshake},
+      {:rtmp_session, "~> 0.1.0", hex: :eml_rtmp_session},
       {:ranch, "~> 1.2.1", manager: :rebar},
-      {:uuid, "~> 1.1"}
+      {:uuid, "~> 1.1"},
+      {:ex_doc, "~> 0.14", only: :dev}
     ]
   end
 

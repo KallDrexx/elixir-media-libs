@@ -6,6 +6,8 @@ defmodule GenRtmpServer do
   and data so that modules that implement this behaviour can focus on 
   the business logic of the actual RTMP events that are received and
   should be sent.
+
+  Each client that connects is placed in it's own process.
   """
 
   alias RtmpSession.Events, as: RtmpEvents
@@ -19,33 +21,68 @@ defmodule GenRtmpServer do
   @type outbound_data :: GenRtmpServer.AudioVideoData.t
   @type stream_id :: non_neg_integer
   @type forced_timestamp :: non_neg_integer | nil
-  
+
+  @doc "Called when a new RTMP client connects"
   @callback init(session_id, client_ip) :: {:ok, adopter_state}
+
+  @doc "Called when the client is requesting a connection to the specified application name"
   @callback connection_requested(RtmpEvents.ConnectionRequested.t, adopter_state)
     :: {request_result, adopter_state}
 
+  @doc """
+  Called when a client wants to publish a stream to the specified application name
+  and stream key combination
+  """
   @callback publish_requested(RtmpEvents.PublishStreamRequested.t, adopter_state)
     :: {request_result, adopter_state}
 
+  @doc """
+  Called when the client is no longer publishing to the specified application name
+  and stream key
+  """
   @callback publish_finished(RtmpEvents.PublishingFinished.t, adopter_state)
     :: {:ok, adopter_state}
 
+  @doc """
+  Called when the client is wanting to play a stream from the specified application
+  name and stream key combination
+  """
   @callback play_requested(RtmpEvents.PlayStreamRequested.t, adopter_state)
     :: {request_result, adopter_state}
 
+  @doc """
+  Called when the client no longer wants to play the stream from the specified
+  application name and stream key combination
+  """
   @callback play_finished(RtmpEvents.PlayStreamFinished.t, adopter_state)
     :: {:ok, adopter_state}
 
+  @doc """
+  Called when a client publishing a stream has changed the metadata information
+  for that stream.
+  """
   @callback metadata_received(RtmpEvents.StreamMetaDataChanged.t, adopter_state)
     :: {:ok, adopter_state}
 
+  @doc """
+  Called when audio or video data has been received on a published stream
+  """
   @callback audio_video_data_received(RtmpEvents.AudioVideoDataReceived.t, adopter_state)
     :: {:ok, adopter_state}
 
+  @doc "Called when an code change is ocurring"
   @callback code_change(any, adopter_state) :: {:ok, adopter_state} | {:error, String.t}
+
+  @doc """
+  Called when any BEAM message is received that is not handleable by the generic RTMP server,
+  and is thus being passed along to the module adopting this behaviour.
+  """
   @callback handle_message(any, adopter_state) :: {:ok, adopter_state}
   
   @spec start_link(module(), %GenRtmpServer.RtmpOptions{}) :: Supervisor.on_start
+  @doc """
+  Starts the generic RTMP server using the provided RTMP options
+  """
   def start_link(module, options = %GenRtmpServer.RtmpOptions{}) do
     {:ok, _} = Application.ensure_all_started(:ranch)
 
@@ -62,6 +99,9 @@ defmodule GenRtmpServer do
   end
 
   @spec send_message(pid, outbound_data, stream_id, forced_timestamp) :: :ok
+  @doc """
+  Signals a specific RTMP server process to send an RTMP message to its client
+  """
   def send_message(pid, outbound_data, stream_id, forced_timestamp \\ nil) do
     send(pid, {:rtmp_send, outbound_data, stream_id, forced_timestamp})
   end

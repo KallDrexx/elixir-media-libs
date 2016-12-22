@@ -1,6 +1,28 @@
 defmodule RtmpHandshake do
   @moduledoc """
-  Provides functionality to handle the RTMP handshake process
+  Provides functionality to handle the RTMP handshake process.
+
+  ## Examples
+
+  The following is an example of handling a handshake as a server:
+
+      # Since we are a server we don't know what handshake type
+      # the client will send
+      {handshake, %RtmpHandshake.ParseResult{}} = RtmpHandshake.new(:unknown)
+
+      c0_and_c1 = get_packets_0_and_1_from_client()
+      {handshake, %RtmpHandshake.ParseResult{
+        bytes_to_send: bytes,
+        current_state: :waiting_for_data
+      }} = RtmpHandshake.process_bytes(handshake, c0_and_c1)
+
+      send_bytes_to_client(bytes)
+      c2 = get_packet_c2_from_client()
+
+      {handshake, %RtmpHandshake.ParseResult{
+        current_state: :success
+      }} = RtmpHandshake.process_bytes(handshake, c2)
+
   """
 
   require Logger
@@ -34,8 +56,11 @@ defmodule RtmpHandshake do
 
   @doc """
   Creates a new finite state machine to handle the handshake process,
-    and preliminary parse results, including the initial x0 and x1
-    binary to send to the peer.
+  and preliminary parse results.
+
+  If a handshake type is specified we assume we are acting as a client
+  (since a server won't know what type of handshake to use until it
+  receives packets c0 and c1).
   """
   @spec new(handshake_type) :: {%State{}, ParseResult.t}
   def new(:old) do
@@ -158,10 +183,10 @@ defmodule RtmpHandshake do
   end
 
   @doc """
-  After a handshake has been successfully completed it is called to 
-    retrieve the peer's starting timestamp and any left over binary that
-    may need to be parsed later (not part of the handshake but instead part
-    of the rtmp protocol).
+  After a handshake has been successfully completed this is called to
+  retrieve the peer's starting timestamp and any left over binary that
+  may need to be parsed later (not part of the handshake but instead
+  the beginning of the rtmp protocol).
   """
   @spec get_handshake_result(%State{}) :: {%State{}, HandshakeResult.t}
   def get_handshake_result(state = %State{status: :complete}) do

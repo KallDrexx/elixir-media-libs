@@ -8,8 +8,8 @@ defmodule Amf0 do
 
   ## Examples
 
-    iex> Amf0.deserialize(<<0::8, 532::float-64, 1::8, 1::8>>)
-    {:ok, [532.0, true]}
+      iex> Amf0.deserialize(<<0::8, 532::float-64, 1::8, 1::8>>)
+      {:ok, [532.0, true]}
 
   """
   @spec deserialize(<<>>) :: {:ok, [any()]}
@@ -22,11 +22,11 @@ defmodule Amf0 do
 
   ## Examples
 
-    iex> Amf0.serialize("test")
-    <<2::8, 4::16>> <> "test"
+      iex> Amf0.serialize("test")
+      <<2::8, 4::16>> <> "test"
 
-    iex> Amf0.serialize([532, true])
-    <<0::8, 532::float-64, 1::8, 1::8>>
+      iex> Amf0.serialize([532, true])
+      <<0::8, 532::float-64, 1::8, 1::8>>
   """
   @spec serialize(any() | [any()]) :: <<>>
   def serialize(values) when is_list(values), do: do_serialize(values, <<>>)
