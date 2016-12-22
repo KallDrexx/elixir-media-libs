@@ -1,7 +1,7 @@
 defmodule Amf3.Deserializer do
   use Bitwise
 
-  @spec deserialize(<<>>) :: {:ok, [any]}
+  @spec deserialize(<<>>) :: [any]
   def deserialize(binary) do
     do_deserialize(binary, [])
   end

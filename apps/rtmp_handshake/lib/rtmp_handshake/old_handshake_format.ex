@@ -90,7 +90,6 @@ defmodule RtmpHandshake.OldHandshakeFormat do
   end
 
   defp do_process_bytes(state = %State{current_stage: :p2}) do
-    Logger.debug("p2")
     if byte_size(state.unparsed_binary) < 1536 do
       send_incomplete_response(state)
     else

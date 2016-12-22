@@ -18,8 +18,6 @@ defmodule RtmpReaderCli do
     binary = get_file_binary!(file_path)
     chunk_io = ChunkIo.new()
 
-    Logger.debug("test")
-
     IO.puts("Reading file '#{file_path}' (totalling #{byte_size(binary)} bytes)")
     IO.puts("RTMP messages will be displayed one at a time, enter will need to be called to proceed after each one")
     IO.puts("")
@@ -68,7 +66,7 @@ defmodule RtmpReaderCli do
         end
 
         IO.puts("")
-        IO.gets("Press enter for next message.")
+        _ = IO.gets("Press enter for next message.")
         read_next_message(chunk_io, <<>>, count_so_far + 1, display_options)
     end
   end

@@ -72,7 +72,6 @@ defmodule RtmpHandshake do
 
     case {is_old_format, is_digest_format} do
       {_, :yes} ->
-        Logger.debug("Digest format")
         handshake_state = DigestHandshakeFormat.new()
 
         binary = state.remaining_binary
@@ -88,7 +87,6 @@ defmodule RtmpHandshake do
         {state, result}
 
       {:yes, _} ->
-        Logger.debug("Old format")
         {handshake_state, bytes_to_send} =
           OldHandshakeFormat.new()
           |> OldHandshakeFormat.create_p0_and_p1_to_send()
@@ -100,15 +98,12 @@ defmodule RtmpHandshake do
           handshake_state: handshake_state
         }
 
-        Logger.debug("Bytes to send: #{inspect(bytes_to_send)}")
-
         {state, result} = process_bytes(state, binary)
         result = %{result | bytes_to_send: bytes_to_send <> result.bytes_to_send}
         {state, result}
 
       {:no, :no} ->
         # No known handhsake format
-        Logger.debug("Unknown format")
         {state, %ParseResult{current_state: :failure}}
 
       _ ->

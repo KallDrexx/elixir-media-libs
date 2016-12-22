@@ -62,7 +62,7 @@ defmodule SimpleRtmpServer.Worker do
           raise(message)
         end
 
-        Logger.warn("#{state.session_id}: Duplicate publishing request for application '#{event.app_name}' " <>
+        _ = Logger.warn("#{state.session_id}: Duplicate publishing request for application '#{event.app_name}' " <>
             "and stream key '#{event.stream_key}'")
 
         {:accepted, state}
@@ -77,7 +77,7 @@ defmodule SimpleRtmpServer.Worker do
         }
 
         :pg2.create(publisher_key)
-        :pg2.join(publisher_key, self())
+        :ok = :pg2.join(publisher_key, self())
         activities = Map.put(state.activities, activity_key, activity)
         state = %{state | activities: activities}
 
@@ -97,13 +97,13 @@ defmodule SimpleRtmpServer.Worker do
             raise(message)
         end
 
-        :pg2.leave(publisher_key, self())
+        :ok = :pg2.leave(publisher_key, self())
         activities = Map.delete(state.activities, activity_key)
         state = %{state | activities: activities}
         {:ok, state}
 
       :error ->
-        Logger.warn("#{state.session_id}: Attempted to stop publishing for application '#{event.app_name}' " <>
+        _ = Logger.warn("#{state.session_id}: Attempted to stop publishing for application '#{event.app_name}' " <>
             "and stream key '#{event.stream_key}' but no publish activity was found")
         {:ok, state}
     end
@@ -122,7 +122,7 @@ defmodule SimpleRtmpServer.Worker do
           raise(message)
         end
 
-        Logger.warn("#{state.session_id}: Duplicate play request for application '#{event.app_name}' " <>
+        _ = Logger.warn("#{state.session_id}: Duplicate play request for application '#{event.app_name}' " <>
             "and stream key '#{event.stream_key}'")
 
         {:accepted, state}
@@ -137,7 +137,7 @@ defmodule SimpleRtmpServer.Worker do
         }
 
         :pg2.create(activity_key)
-        :pg2.join(activity_key, self())
+        :ok = :pg2.join(activity_key, self())
         activities = Map.put(state.activities, activity_key, activity)
         state = %{state | activities: activities}
 
@@ -162,13 +162,13 @@ defmodule SimpleRtmpServer.Worker do
             raise(message)
         end
 
-        :pg2.leave(activity_key, self())
+        :ok = :pg2.leave(activity_key, self())
         activities = Map.delete(state.activities, activity_key)
         state = %{state | activities: activities}
         {:ok, state}
 
       :error ->
-        Logger.warn("#{state.session_id}: Attempted to stop playing for application '#{event.app_name}' " <>
+        _ = Logger.warn("#{state.session_id}: Attempted to stop playing for application '#{event.app_name}' " <>
             "and stream key '#{event.stream_key}' but no publish activity was found")
         {:ok, state}
     end
@@ -344,7 +344,7 @@ defmodule SimpleRtmpServer.Worker do
       received_at_timestamp: forced_timestamp
     }
 
-    Logger.debug("Sending sequence header")
+    _ = Logger.debug("Sending sequence header")
     GenRtmpServer.send_message(self(), outbound_message, stream_id)
   end
 end
