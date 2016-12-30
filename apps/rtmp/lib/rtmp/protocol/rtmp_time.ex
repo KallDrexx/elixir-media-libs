@@ -7,6 +7,8 @@ defmodule Rtmp.Protocol.RtmpTime do
   each other (e.g.  10000 comes after 4000000000, and 3000000000 comes before 4000000000).
   
   """
+
+  @type rtmp_timestamp :: 0..2147483647
   
   @max_timestamp :math.pow(2, 32)
   @adjacent_threshold :math.pow(2, 31) - 1
