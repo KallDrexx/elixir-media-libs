@@ -21,6 +21,7 @@ defmodule Rtmp.Protocol.Handler do
   alias Rtmp.Protocol.ChunkIo, as: ChunkIo
   alias Rtmp.Protocol.RawMessage, as: RawMessage
   alias Rtmp.Protocol.DetailedMessage, as: DetailedMessage
+  alias Rtmp.Protocol.Messages.SetChunkSize, as: SetChunkSize
 
   @type protocol_handler :: pid
   @type socket :: any
@@ -103,6 +104,15 @@ defmodule Rtmp.Protocol.Handler do
 
     {chunk_io_state, data} = ChunkIo.serialize(state.chunk_io_state, raw_message, csid)
     state = %{state | chunk_io_state: chunk_io_state}
+
+    state = case message.content do
+      %SetChunkSize{size: size} ->
+        chunk_io_state = ChunkIo.set_sending_max_chunk_size(state.chunk_io_state, size)
+        %{state | chunk_io_state: chunk_io_state}
+
+      _ -> state
+    end
+
     :ok = state.notfy_socket_output.(state.socket, data)
 
     {:noreply, state}
@@ -123,6 +133,12 @@ defmodule Rtmp.Protocol.Handler do
     case RawMessage.unpack(raw_message) do
       {:error, :unknown_message_type} ->
         _ = Logger.error "#{state.connection_id}: Received message of type #{raw_message.message_type_id} but we have no known way to unpack it!"
+        state
+
+      {:ok, message = %DetailedMessage{content: %SetChunkSize{size: size}}} ->
+        chunk_io_state = ChunkIo.set_receiving_max_chunk_size(state.chunk_io_state, size)
+        state = %{state | chunk_io_state: chunk_io_state}
+        :ok = state.notify_parsed_input.(state.session_process, message)
         state
 
       {:ok, message = %DetailedMessage{}} ->
