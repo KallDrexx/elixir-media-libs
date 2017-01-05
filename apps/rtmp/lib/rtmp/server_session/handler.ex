@@ -40,7 +40,22 @@ defmodule Rtmp.ServerSession.Handler do
               specified_amf_version: 0,
               last_request_id: 0,
               active_requests: %{},
-              connected_app_name: nil
+              connected_app_name: nil,
+              last_created_stream_id: 0,
+              active_streams: %{}
+  end
+
+  defmodule ActiveStream do
+    defstruct stream_id: nil,
+              current_state: :created,
+              stream_key: nil,
+              buffer_size_in_ms: nil
+  end
+
+  defmodule PlayArguments do
+    defstruct start_at: -2, # default to live or recorded
+              duration: -1, # full duration
+              is_reset: true
   end
 
   @spec start_link(Rtmp.connection_id, Configuration.t) :: {:ok, session_handler}
@@ -133,6 +148,8 @@ defmodule Rtmp.ServerSession.Handler do
 
     state = case request do
       {:connect, app_name} -> accept_connect_request(state, app_name)
+      {:publish, {sid, stream_key}} -> accept_publish_request(state, sid, stream_key)
+      {:play, {sid, stream_key, is_reset}} -> accept_play_request(state, sid, stream_key, is_reset)
     end
 
     {:noreply, state}
@@ -147,11 +164,99 @@ defmodule Rtmp.ServerSession.Handler do
                    message.content.additional_values)
   end
 
+  defp do_handle(state, message = %DetailedMessage{content: %Messages.Amf0Data{}}) do
+    active_stream = Map.fetch!(state.active_streams, message.stream_id)
+    handle_data(state, active_stream, message.content.parameters)
+  end
+
+  defp do_handle(state, message = %DetailedMessage{content: %Messages.AudioData{}}) do
+    active_stream = Map.fetch!(state.active_streams, message.stream_id)
+    if active_stream.current_state != :publishing do
+      error_message = "Client attempted to send audio data on stream in state #{active_stream.current_state}"
+      raise("#{state.connection_id}: #{error_message}")
+    end
+
+    event = %Events.AudioVideoDataReceived{
+      app_name: state.connected_app_name,
+      stream_key: active_stream.stream_key,
+      data_type: :audio,
+      data: message.content.data,
+      timestamp: message.timestamp,
+      received_at_timestamp: message.deserialization_system_time
+    }
+
+    raise_event(state, event)
+    state
+  end
+
+  defp do_handle(state, message = %DetailedMessage{content: %Messages.VideoData{}}) do
+    active_stream = Map.fetch!(state.active_streams, message.stream_id)
+    if active_stream.current_state != :publishing do
+      error_message = "Client attempted to send video data on stream in state #{active_stream.current_state}"
+      raise("#{state.connection_id}: #{error_message}")
+    end
+
+    event = %Events.AudioVideoDataReceived{
+      app_name: state.connected_app_name,
+      stream_key: active_stream.stream_key,
+      data_type: :video,
+      data: message.content.data,
+      timestamp: message.timestamp,
+      received_at_timestamp: message.deserialization_system_time
+    }
+
+    raise_event(state, event)
+    state
+  end
+
   defp do_handle(state, message = %DetailedMessage{content: %{__struct__: message_type}}) do
     simple_name = String.replace(to_string(message_type), "Elixir.Rtmp.Protocol.Messages.", "")
 
     _ = Logger.warn("#{state.connection_id}: Unable to handle #{simple_name} message on stream id #{message.stream_id}")
     state
+  end
+
+  defp handle_command(state = %State{current_stage: :connected},
+                      stream_id,
+                      "closeStream",
+                      _transaction_id,
+                      nil,
+                      _) do
+    _ = Logger.debug("#{state.connection_id}: Received closeStream command on stream #{stream_id}")
+
+    case Map.fetch(state.active_streams, stream_id) do
+      {:ok, stream = %ActiveStream{}} ->
+        current_state = stream.current_state
+        stream = %{stream | current_state: :created}
+        state = %{state | active_streams: Map.put(state.active_streams, stream_id, stream)}
+
+        case current_state do
+          :playing ->
+            event = %Events.PlayStreamFinished{
+              app_name: state.connected_app_name,
+              stream_key: stream.stream_key
+            }
+
+            raise_event(state, event)
+            state
+
+          :publishing ->
+            event = %Events.PublishingFinished{
+              app_name: state.connected_app_name,
+              stream_key: stream.stream_key
+            }
+
+            raise_event(state, event)
+            state
+
+          :created -> state
+        end
+
+      :error ->
+        # Since this is not an active stream, ignore the request
+        state
+    end
+
   end
 
   defp handle_command(state = %State{current_stage: :started},
@@ -194,9 +299,168 @@ defmodule Rtmp.ServerSession.Handler do
     state
   end
 
+  defp handle_command(state = %State{current_stage: :connected},
+                      _stream_id,
+                      "createStream",
+                      transaction_id,
+                      _command_obj,
+                      _args) do
+
+    _ = Logger.debug("#{state.connection_id}: createStream command received")
+
+    new_stream_id = state.last_created_stream_id + 1
+    state = %{state |
+      last_created_stream_id: new_stream_id,
+      active_streams: Map.put(state.active_streams, new_stream_id, %ActiveStream{stream_id: new_stream_id})
+    }
+
+    response = %Messages.Amf0Command{
+      command_name: "_result",
+      transaction_id: transaction_id,
+      command_object: nil,
+      additional_values: [new_stream_id]
+    }
+
+    :ok = send_output_message(state, response, 0)
+
+    _ = Logger.debug("#{state.connection_id}: Created stream id #{new_stream_id}")
+    state
+  end
+
+  defp handle_command(state = %State{current_stage: :connected},
+                      stream_id,
+                      "play",
+                      _transaction_id,
+                      nil,
+                      [stream_key | other_args]) do
+
+    _ = Logger.debug("#{state.connection_id}: Received play command")
+
+    play_arguments = parse_play_other_args(other_args)
+
+    case Map.fetch!(state.active_streams, stream_id) do
+      %ActiveStream{current_state: :created} ->
+        request = {:play, {stream_id, stream_key, play_arguments.is_reset}}
+        {state, request_id} = create_request(state, request)
+
+        {video_type, start_at} = case play_arguments.start_at do
+          x when x < -1 -> {:any, 0} # since VLC sends -2000, assume anything below -1 means any
+          -1 -> {:live, 0}
+          x when x >= 0 -> {:recorded, 0}
+        end
+
+        play_event = %Events.PlayStreamRequested{
+          request_id: request_id,
+          app_name: state.connected_app_name,
+          stream_key: stream_key,
+          video_type: video_type,
+          start_at: start_at,
+          duration: play_arguments.duration,
+          reset: play_arguments.is_reset,
+          stream_id: stream_id
+        }
+
+        raise_event(state, play_event)
+        state
+
+      %ActiveStream{current_state: stream_state} ->
+        _ = Logger.debug("#{state.connection_id}: Bad attempt made to play on stream id #{stream_id} " <>
+          "that's in state '#{stream_state}'")
+
+        state
+    end
+  end
+
+  defp handle_command(state = %State{current_stage: :connected},
+                      stream_id,
+                      "publish",
+                      _transaction_id,
+                      nil,
+                      [stream_key, "live"]) do
+    _ = Logger.debug("#{state.connection_id}: Received publish command on stream '#{stream_id}'")
+
+    case Map.fetch!(state.active_streams, stream_id) do
+      %ActiveStream{current_state: :created} ->
+        request = {:publish, {stream_id, stream_key}}
+        {state, request_id} = create_request(state, request)
+
+        event = %Events.PublishStreamRequested{
+          request_id: request_id,
+          app_name: state.connected_app_name,
+          stream_key: stream_key,
+          stream_id: stream_id
+        }
+
+        raise_event(state, event)
+        state
+
+      %ActiveStream{current_state: stream_state} ->
+        _ = Logger.info("#{state.connection_id}: Bad attempt made to publish on stream id #{stream_id} " <>
+          "that's in state '#{stream_state}'")
+
+        state
+    end
+  end
+
+  defp handle_command(state = %State{current_stage: :connected},
+                      _stream_id,
+                      "deleteStream",
+                      _transaction_id,
+                      nil,
+                      [stream_id_to_delete]) do
+    _ = Logger.debug("#{state.connection_id}: Received deleteStream command")
+
+    case Map.fetch(state.active_streams, stream_id_to_delete) do
+      {:ok, stream = %ActiveStream{}} ->
+        state = %{state | active_streams: Map.delete(state.active_streams, stream_id_to_delete)}
+
+        event = %Events.PublishingFinished{
+          app_name: state.connected_app_name,
+          stream_key: stream.stream_key
+        }
+
+        raise_event(state, event)
+        state
+
+      :error ->
+        # Since this is not an active stream, ignore the request
+        state
+    end
+  end
+
   defp handle_command(state, stream_id, command_name, transaction_id, _command_obj, _args) do
     _ = Logger.warn("#{state.connection_id}: Unable to handle command '#{command_name}' while in stage '#{state.current_stage}' " <>
       "(stream id '#{stream_id}', transaction_id: #{transaction_id})")
+    state
+  end
+
+  defp handle_data(state, stream = %ActiveStream{current_state: :publishing}, ["@setDataFrame", "onMetaData", metadata = %{}]) do
+    event = %Events.StreamMetaDataChanged{
+      app_name: state.connected_app_name,
+      stream_key: stream.stream_key,
+      meta_data: %Rtmp.StreamMetadata{
+        video_width: metadata["width"],
+        video_height: metadata["height"],
+        video_codec: metadata["videocodecid"],
+        video_frame_rate: metadata["framerate"],
+        video_bitrate_kbps: metadata["videodatarate"],
+        audio_codec: metadata["audiocodecid"],
+        audio_bitrate_kbps: metadata["audiodatarate"],
+        audio_sample_rate: metadata["audiosamplerate"],
+        audio_channels: metadata["audiochannels"],
+        audio_is_stereo: metadata["stereo"],
+        encoder: metadata["encoder"]
+      }
+    }
+
+    raise_event(state, event)
+    state
+  end
+
+  defp handle_data(state, stream, data) do
+    _ = Logger.info("#{state.connection_id}: No known way to handle incoming data on stream id '#{stream.stream_id}' " <>
+      "in state #{stream.current_state}.  Data: #{inspect data}")
+
     state
   end
 
@@ -237,6 +501,88 @@ defmodule Rtmp.ServerSession.Handler do
     state
   end
 
+  defp accept_publish_request(state, stream_id, stream_key) do
+    active_stream = Map.fetch!(state.active_streams, stream_id)
+    if active_stream.current_state != :created do
+      message = "Attempted to accept publish request on stream id #{stream_id} that's in state '#{active_stream.current_state}'"
+      raise("#{state.connection_id}: #{message}")
+    end
+
+    active_stream = %{active_stream |
+      current_state: :publishing,
+      stream_key: stream_key
+    }
+
+    state = %{state |
+      active_streams: Map.put(state.active_streams, stream_id, active_stream)
+    }
+
+    response = %Messages.Amf0Command{
+      command_name: "onStatus",
+      transaction_id: 0,
+      command_object: nil,
+      additional_values: [%{
+        "level" => "status",
+        "code" => "NetStream.Publish.Start",
+        "description" => "#{stream_key} is now published."
+      }]
+    }
+
+    send_output_message(state, response, stream_id)
+    state
+  end
+
+  defp accept_play_request(state, stream_id, stream_key, is_reset) do
+    active_stream = Map.fetch!(state.active_streams, stream_id)
+    if active_stream.current_state != :created do
+      message = "Attempted to accept play request on stream id #{stream_id} that's in state '#{active_stream.current_state}'"
+      raise("#{state.connection_id}: #{message}")
+    end
+
+    active_stream = %{active_stream |
+      current_state: :playing,
+      stream_key: stream_key
+    }
+
+    state = %{state |
+      active_streams: Map.put(state.active_streams, stream_id, active_stream)
+    }
+
+    messages = [
+      %Messages.UserControl{
+        type: :stream_begin,
+        stream_id: stream_id
+      },
+      %Messages.Amf0Command{
+        command_name: "onStatus",
+        transaction_id: 0,
+        command_object: nil,
+        additional_values: [%{
+          "level" => "status",
+          "code" => "NetStream.Play.Start",
+          "description" => "Starting stream #{stream_key}"
+        }]
+      },
+      %Messages.Amf0Data{parameters: ["|RtmpSampleAccess",false,false]},
+      %Messages.Amf0Data{parameters: ["onStatus", %{"code" => "NetStream.Data.Start"}]},
+    ]
+
+    reset_message = %Messages.Amf0Command{
+      command_name: "onStatus",
+      transaction_id: 0,
+      command_object: nil,
+      additional_values: [%{
+        "level" => "status",
+        "code" => "NetStream.Play.Reset",
+        "description" => "Reset for stream #{stream_key}"
+      }]
+    }
+
+    messages = if is_reset, do: [reset_message | messages], else: messages
+    send_output_message(state, messages, stream_id)
+    state
+  end
+
   defp send_output_message(state, messages, stream_id, force_uncompressed \\ false)
 
   defp send_output_message(_, [], _, _) do
@@ -265,6 +611,29 @@ defmodule Rtmp.ServerSession.Handler do
   defp get_current_rtmp_epoch(state) do
     time_since_start = :os.system_time(:milli_seconds) - state.start_time
     Rtmp.Protocol.RtmpTime.to_rtmp_timestamp(time_since_start)
+  end
+
+  defp parse_play_other_args(args) do
+    parse_play_other_args(:start_at, args, %PlayArguments{})
+  end
+
+  defp parse_play_other_args(_, [], results = %PlayArguments{}) do
+    results
+  end
+
+  defp parse_play_other_args(:start_at, [value | rest], results = %PlayArguments{}) do
+    results = %{results | start_at: value}
+    parse_play_other_args(:duration, rest, results)
+  end
+
+  defp parse_play_other_args(:duration, [value | rest], results = %PlayArguments{}) do
+    results = %{results | duration: value}
+    parse_play_other_args(:reset, rest, results)
+  end
+
+  defp parse_play_other_args(:reset, [value | _], results = %PlayArguments{}) do
+    results = %{results | is_reset: value}
+    results
   end
 
   defp raise_event(_, []) do
