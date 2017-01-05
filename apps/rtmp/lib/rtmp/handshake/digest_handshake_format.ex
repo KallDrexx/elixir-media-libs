@@ -20,7 +20,6 @@ defmodule Rtmp.Handshake.DigestHandshakeFormat do
   @genuine_player_with_crud @genuine_player_name <> @random_crud
 
   @sha_256_digest_length 32
-  @swf_verify_sig <<0x1, 0x1>>
 
   @adobe_version <<128, 0, 7, 2>> # copied from jwplayer handshake
 

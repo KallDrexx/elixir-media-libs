@@ -267,7 +267,7 @@ defmodule Rtmp.ServerSession.Handler do
                       _args) do
 
     state = case command_obj["objectEncoding"] do
-      x when x == 3 -> state = %{state | specified_amf_version: 3}
+      x when x == 3 -> %{state | specified_amf_version: 3}
       _ -> state
     end
 
