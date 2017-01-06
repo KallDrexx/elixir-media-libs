@@ -25,32 +25,32 @@ defmodule Rtmp.Protocol.Handler do
 
   @type protocol_handler :: pid
   @type socket :: any
-  @type socket_output_notify_function :: (socket, iodata -> :ok)
+  @type socket_transport_module :: module
   @type session_process :: pid
-  @type session_input_notify_function :: (session_process, %DetailedMessage{} -> :ok)
+  @type session_handler_module :: module
 
   defmodule State do
     defstruct connection_id: nil,
               socket: nil,
-              notfy_socket_output: nil,
+              socket_module: nil,
               chunk_io_state: nil,
               session_process: nil,
-              notify_parsed_input: nil
+              session_module: nil
   end
 
-  @spec start_link(Rtmp.connection_id, socket, socket_output_notify_function) :: {:ok, protocol_handler}
+  @spec start_link(Rtmp.connection_id, socket, socket_transport_module) :: {:ok, protocol_handler}
   @doc "Starts a new protocol handler process"
-  def start_link(connection_id, socket, socket_send_function) do
-    GenServer.start_link(__MODULE__, [connection_id, socket, socket_send_function])
+  def start_link(connection_id, socket, socket_module) do
+    GenServer.start_link(__MODULE__, [connection_id, socket, socket_module])
   end
 
-  @spec set_session(protocol_handler, session_process, session_input_notify_function) :: :ok | :session_already_set
+  @spec set_session(protocol_handler, session_process, session_handler_module) :: :ok | :session_already_set
   @doc """
   Specifies the session handler process and function to use to send deserialized
   RTMP messages to for the session handler
   """
-  def set_session(pid, session_process, session_send_function) do
-    GenServer.call(pid, {:set_session, {session_process, session_send_function}})
+  def set_session(pid, session_process, session_module) do
+    GenServer.call(pid, {:set_session, {session_process, session_module}})
   end
 
   @spec notify_input(protocol_handler, binary) :: :ok
@@ -70,27 +70,27 @@ defmodule Rtmp.Protocol.Handler do
     GenServer.cast(pid, {:send_message, message})
   end
 
-  def init([connection_id, socket, socket_send_function]) do
+  def init([connection_id, socket, socket_module]) do
     state = %State{
       connection_id: connection_id,
       socket: socket,
-      notfy_socket_output: socket_send_function,
+      socket_module: socket_module,
       chunk_io_state: ChunkIo.new()
     }
     {:ok, state}
   end
 
-  def handle_call({:set_session, {pid, send_function}}, _from, state) do
+  def handle_call({:set_session, {pid, session_module}}, _from, state) do
     state = %{state |
       session_process: pid,
-      notify_parsed_input: send_function
+      session_module: session_module
     }
 
     {:reply, :ok, state}
   end
 
   def handle_cast({:socket_input, binary}, state) do
-    if state.session_process == nil || state.notify_parsed_input == nil do
+    if state.session_process == nil || state.session_module == nil do
       raise ("Input received, but session process and notification functions are not set yet")
     end
 
@@ -113,8 +113,7 @@ defmodule Rtmp.Protocol.Handler do
       _ -> state
     end
 
-    :ok = state.notfy_socket_output.(state.socket, data)
-
+    :ok = state.socket_module.send_data(state.socket, data)
     {:noreply, state}
   end
 
@@ -138,11 +137,12 @@ defmodule Rtmp.Protocol.Handler do
       {:ok, message = %DetailedMessage{content: %SetChunkSize{size: size}}} ->
         chunk_io_state = ChunkIo.set_receiving_max_chunk_size(state.chunk_io_state, size)
         state = %{state | chunk_io_state: chunk_io_state}
-        :ok = state.notify_parsed_input.(state.session_process, message)
+
+        :ok = state.session_module.handle_rtmp_input(state.session_process, message)
         state
 
       {:ok, message = %DetailedMessage{}} ->
-        :ok = state.notify_parsed_input.(state.session_process, message)
+        :ok = state.session_module.handle_rtmp_input(state.session_process, message)
         state
     end
   end

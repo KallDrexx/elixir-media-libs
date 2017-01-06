@@ -15,10 +15,17 @@ defmodule Rtmp.ServerSession.HandlerTest do
               options: nil
   end
 
-  setup do
-    output_handler = fn(pid, message) -> send(pid, {:message, message}); :ok end
-    event_handler = fn(pid, event) -> send(pid, {:event, event}); :ok end
+  def send_event(pid, event) do
+    _ = send(pid, {:event, event})
+    :ok
+  end
 
+  def send_message(pid, message) do
+    _ = send(pid, {:message, message})
+    :ok
+  end
+
+  setup do
     connection_id = "test_connection"
     options = %Configuration{
       fms_version: "test version",
@@ -28,8 +35,8 @@ defmodule Rtmp.ServerSession.HandlerTest do
     }
 
     {:ok, session} = Handler.start_link(connection_id, options)
-    :ok = Handler.set_event_handler(session, self(), event_handler)
-    :ok = Handler.set_rtmp_output_handler(session, self(), output_handler)
+    :ok = Handler.set_event_handler(session, self(), __MODULE__)
+    :ok = Handler.set_rtmp_output_handler(session, self(), __MODULE__)
 
     [session: session, connection_id: connection_id, options: options]
   end

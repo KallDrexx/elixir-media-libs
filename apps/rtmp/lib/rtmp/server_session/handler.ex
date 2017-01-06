@@ -23,9 +23,9 @@ defmodule Rtmp.ServerSession.Handler do
   @type rtmp_output_handler :: pid
   @type session_handler :: pid
   @type event_notification_process :: pid
-  @type rtmp_output_notification_function :: (rtmp_output_handler, %DetailedMessage{} -> :ok)
+  @type protocol_handler_module :: module
   @type event_receiver_process :: pid
-  @type event_notification_function ::  (event_receiver_process, Events.t -> :ok)
+  @type event_receiver_module ::  module
   @type request_id :: non_neg_integer
 
   defmodule State do
@@ -33,9 +33,9 @@ defmodule Rtmp.ServerSession.Handler do
               configuration: nil,
               start_time: nil,
               protocol_handler_pid: nil,
-              protocol_output_notification_function: nil,
+              protocol_handler_module: nil,
               event_receiver_pid: nil,
-              event_notification_function: nil,
+              event_receiver_module: nil,
               current_stage: :started,
               specified_amf_version: 0,
               last_request_id: 0,
@@ -64,18 +64,18 @@ defmodule Rtmp.ServerSession.Handler do
     GenServer.start_link(__MODULE__, [connection_id, configuration])
   end
 
-  @spec set_event_handler(session_handler, event_notification_process, event_notification_function)
+  @spec set_event_handler(session_handler, event_notification_process, event_receiver_module)
     :: :ok | :event_handler_already_set
   @doc "Specifies the process id and function to use to raise event notifications"
-  def set_event_handler(session_pid, event_pid, event_function) do
-    GenServer.call(session_pid, {:set_event_handler, {event_pid, event_function}})
+  def set_event_handler(session_pid, event_pid, event_receiver_module) do
+    GenServer.call(session_pid, {:set_event_handler, {event_pid, event_receiver_module}})
   end
 
-  @spec set_rtmp_output_handler(session_handler, rtmp_output_handler, rtmp_output_notification_function)
+  @spec set_rtmp_output_handler(session_handler, rtmp_output_handler, protocol_handler_module)
     :: :ok | :output_handler_already_set
   @doc "Specifies the process id and function to send outbound RTMP messages"
-  def set_rtmp_output_handler(session_pid, output_pid, output_function) do
-    GenServer.call(session_pid, {:set_output_handler, {output_pid, output_function}})
+  def set_rtmp_output_handler(session_pid, protocol_handler_pid, protocol_handler_module) do
+    GenServer.call(session_pid, {:set_output_handler, {protocol_handler_pid, protocol_handler_module}})
   end
 
   @spec handle_rtmp_input(session_handler, %DetailedMessage{}) :: :ok
@@ -100,30 +100,30 @@ defmodule Rtmp.ServerSession.Handler do
     {:ok, state}
   end
 
-  def handle_call({:set_event_handler, {event_pid, event_function}}, _from, state) do
+  def handle_call({:set_event_handler, {event_pid, event_receiver_module}}, _from, state) do
     handler_set = state.event_receiver_pid != nil
-    function_set = state.event_notification_function != nil
+    function_set = state.event_receiver_module != nil
     case handler_set && function_set do
       true ->
         {:reply, :event_handler_already_set, state}
 
       false ->
-        state = %{state | event_receiver_pid: event_pid, event_notification_function: event_function}
+        state = %{state | event_receiver_pid: event_pid, event_receiver_module: event_receiver_module}
         {:reply, :ok, state}
     end
   end
 
-  def handle_call({:set_output_handler, {output_pid, output_function}}, _from, state) do
+  def handle_call({:set_output_handler, {protocol_handler_pid, protocol_handler_module}}, _from, state) do
     handler_set = state.protocol_handler_pid != nil
-    function_set = state.protocol_output_notification_function != nil
+    function_set = state.protocol_handler_module != nil
     case handler_set && function_set do
       true ->
         {:reply, :event_handler_already_set, state}
 
       false ->
         state = %{state |
-          protocol_handler_pid: output_pid,
-          protocol_output_notification_function: output_function
+          protocol_handler_pid: protocol_handler_pid,
+          protocol_handler_module: protocol_handler_module
         }
 
         {:reply, :ok, state}
@@ -133,9 +133,9 @@ defmodule Rtmp.ServerSession.Handler do
   def handle_cast({:rtmp_input, message}, state) do
     cond do
       state.event_receiver_pid == nil -> raise("No event handler set")
-      state.event_notification_function == nil -> raise("No event handler set")
+      state.event_receiver_module == nil -> raise("No event handler set")
       state.protocol_handler_pid == nil -> raise("No protocol handler set")
-      state.protocol_output_notification_function == nil -> raise("No protocol handler set")
+      state.protocol_handler_module == nil -> raise("No protocol handler set")
       true ->
         state = do_handle(state, message)
         {:noreply, state}
@@ -591,7 +591,7 @@ defmodule Rtmp.ServerSession.Handler do
 
   defp send_output_message(state, [message | rest], stream_id, force_uncompressed) do
     response = form_output_message(state, message, stream_id, force_uncompressed)
-    :ok = state.protocol_output_notification_function.(state.protocol_handler_pid, response)
+    :ok = state.protocol_handler_module.send_message(state.protocol_handler_pid, response)
     send_output_message(state, rest, stream_id, force_uncompressed)
   end
 
@@ -641,7 +641,7 @@ defmodule Rtmp.ServerSession.Handler do
   end
 
   defp raise_event(state, [event | rest]) do
-    :ok = state.event_notification_function.(state.event_receiver_pid, event)
+    :ok = state.event_receiver_module.send_event(state.event_receiver_pid, event)
     raise_event(state, rest)
   end
 
