@@ -41,18 +41,7 @@ defmodule Rtmp.ServerSession.HandlerTest do
     [session: session, connection_id: connection_id, options: options]
   end
 
-  test "Connection request automatically triggers sending initial responses", context do
-    command = %DetailedMessage{
-      timestamp: 0,
-      stream_id: 0,
-      content: %Messages.Amf0Command{
-        command_name: "connect",
-        transaction_id: 1,
-        command_object: %{"app" => "some_app"},
-        additional_values: []
-      }
-    }
-
+  test "Can manually trigger sending initial responses", context do
     expected_window_size = context[:options].window_ack_size
     expected_peer_bandwidth = context[:options].peer_bandwidth
 
@@ -60,7 +49,7 @@ defmodule Rtmp.ServerSession.HandlerTest do
     :timer.sleep(100)
 
     session = context[:session]
-    assert :ok = Handler.handle_rtmp_input(session, command)
+    assert :ok = Handler.send_stream_zero_begin(session)
 
     assert_receive {:message, %DetailedMessage{
       stream_id: 0,

@@ -74,6 +74,11 @@ defmodule GenRtmpServer.Protocol do
     {:noreply, state}
   end
 
+  def handle_cast({:rtmp_output, binary}, state) do
+    state.transport.send(state.socket, binary)
+    {:noreply, state}
+  end
+
   def handle_info({:tcp, _, binary}, state = %State{handshake_completed: false}) do
     case Rtmp.Handshake.process_bytes(state.handshake_instance, binary) do
       {instance, result = %Rtmp.Handshake.ParseResult{current_state: :waiting_for_data}} ->
@@ -98,6 +103,7 @@ defmodule GenRtmpServer.Protocol do
 
         {:ok, adopter_state} = state.gen_rtmp_server_adopter.init(state.session_id, get_ip_address(state.socket))
         :ok = Rtmp.Protocol.Handler.notify_input(protocol_pid, remaining_binary)
+        :ok = Rtmp.ServerSession.Handler.send_stream_zero_begin(session_pid)
 
         state = %{state |
           handshake_instance: nil,

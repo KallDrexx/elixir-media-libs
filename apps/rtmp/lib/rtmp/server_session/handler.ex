@@ -90,6 +90,12 @@ defmodule Rtmp.ServerSession.Handler do
     GenServer.cast(pid, {:send_message, {message, stream_id, forced_timestamp}})
   end
 
+  @spec send_stream_zero_begin(session_handler) :: :ok
+  @doc "Sends the client the initial RTMP messages allowing the client to send messages on stream id 0"
+  def send_stream_zero_begin(pid) do
+    GenServer.cast(pid, :begin_stream_zero)
+  end
+
   @spec accept_request(session_handler, request_id) :: :ok
   @doc "Attempts to accept a request with the specified id"
   def accept_request(pid, request_id) do
@@ -174,6 +180,23 @@ defmodule Rtmp.ServerSession.Handler do
     }
 
     :ok = state.protocol_handler_module.send_message(state.protocol_handler_pid, detailed_message)
+    {:noreply, state}
+  end
+
+  def handle_cast(:begin_stream_zero, state) do
+    messages = [
+      %Messages.SetPeerBandwidth{window_size: state.configuration.peer_bandwidth, limit_type: :dynamic},
+      %Messages.WindowAcknowledgementSize{size: state.configuration.window_ack_size},
+      %Messages.UserControl{type: :stream_begin, stream_id: 0},
+      %Messages.Amf0Command{
+        command_name: "onBWDone",
+        transaction_id: 0,
+        command_object: nil,
+        additional_values: [8192]
+      } # based on packet capture, not sure if 100% needed
+    ]
+
+    :ok = send_output_message(state, messages, 0, true)
     {:noreply, state}
   end
 
@@ -298,20 +321,6 @@ defmodule Rtmp.ServerSession.Handler do
     {state, request_id} = create_request(state, request)
 
     _ = Logger.debug("#{state.connection_id}: Connect command received on app #{app_name}")
-
-    messages = [
-      %Messages.SetPeerBandwidth{window_size: state.configuration.peer_bandwidth, limit_type: :dynamic},
-      %Messages.WindowAcknowledgementSize{size: state.configuration.window_ack_size},
-      %Messages.UserControl{type: :stream_begin, stream_id: 0},
-      %Messages.Amf0Command{
-        command_name: "onBWDone",
-        transaction_id: 0,
-        command_object: nil,
-        additional_values: [8192]
-      } # based on packet capture, not sure if 100% needed
-    ]
-
-    :ok = send_output_message(state, messages, 0, true)
 
     raise_event(state, %Events.ConnectionRequested{
       request_id: request_id,
