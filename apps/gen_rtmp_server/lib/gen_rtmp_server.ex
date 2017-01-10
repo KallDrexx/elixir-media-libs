@@ -10,7 +10,6 @@ defmodule GenRtmpServer do
   Each client that connects is placed in it's own process.
   """
 
-  alias RtmpSession.Events, as: RtmpEvents
   require Logger
                  
   @type session_id :: String.t
@@ -26,48 +25,48 @@ defmodule GenRtmpServer do
   @callback init(session_id, client_ip) :: {:ok, adopter_state}
 
   @doc "Called when the client is requesting a connection to the specified application name"
-  @callback connection_requested(RtmpEvents.ConnectionRequested.t, adopter_state)
+  @callback connection_requested(Rtmp.ServerSession.Events.ConnectionRequested.t, adopter_state)
     :: {request_result, adopter_state}
 
   @doc """
   Called when a client wants to publish a stream to the specified application name
   and stream key combination
   """
-  @callback publish_requested(RtmpEvents.PublishStreamRequested.t, adopter_state)
+  @callback publish_requested(Rtmp.ServerSession.Events.PublishStreamRequested.t, adopter_state)
     :: {request_result, adopter_state}
 
   @doc """
   Called when the client is no longer publishing to the specified application name
   and stream key
   """
-  @callback publish_finished(RtmpEvents.PublishingFinished.t, adopter_state)
+  @callback publish_finished(Rtmp.ServerSession.Events.PublishingFinished.t, adopter_state)
     :: {:ok, adopter_state}
 
   @doc """
   Called when the client is wanting to play a stream from the specified application
   name and stream key combination
   """
-  @callback play_requested(RtmpEvents.PlayStreamRequested.t, adopter_state)
+  @callback play_requested(Rtmp.ServerSession.Events.PlayStreamRequested.t, adopter_state)
     :: {request_result, adopter_state}
 
   @doc """
   Called when the client no longer wants to play the stream from the specified
   application name and stream key combination
   """
-  @callback play_finished(RtmpEvents.PlayStreamFinished.t, adopter_state)
+  @callback play_finished(Rtmp.ServerSession.Events.PlayStreamFinished.t, adopter_state)
     :: {:ok, adopter_state}
 
   @doc """
   Called when a client publishing a stream has changed the metadata information
   for that stream.
   """
-  @callback metadata_received(RtmpEvents.StreamMetaDataChanged.t, adopter_state)
+  @callback metadata_received(Rtmp.ServerSession.Events.StreamMetaDataChanged.t, adopter_state)
     :: {:ok, adopter_state}
 
   @doc """
   Called when audio or video data has been received on a published stream
   """
-  @callback audio_video_data_received(RtmpEvents.AudioVideoDataReceived.t, adopter_state)
+  @callback audio_video_data_received(Rtmp.ServerSession.Events.AudioVideoDataReceived.t, adopter_state)
     :: {:ok, adopter_state}
 
   @doc "Called when an code change is ocurring"

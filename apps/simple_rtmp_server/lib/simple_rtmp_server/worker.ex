@@ -7,7 +7,7 @@ defmodule SimpleRtmpServer.Worker do
   publishing on the same stream key, or trying to play content on a stream key not being published to.
   """
 
-  alias RtmpSession.Events, as: RtmpEvents
+  alias Rtmp.ServerSession.Events, as: RtmpEvents
   require Logger
 
   @behaviour GenRtmpServer
@@ -236,7 +236,7 @@ defmodule SimpleRtmpServer.Worker do
           _ -> false
         end
 
-        state = if should_send_message, do: send_message(state, event, activity, activity_key), else: state
+        if should_send_message, do: send_message(state, event, activity, activity_key), else: state
     end
 
     {:ok, state}

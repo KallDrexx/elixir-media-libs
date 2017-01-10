@@ -84,6 +84,12 @@ defmodule Rtmp.ServerSession.Handler do
     GenServer.cast(pid, {:rtmp_input, message})
   end
 
+  @spec send_rtmp_message(session_handler, Rtmp.deserialized_message, non_neg_integer, non_neg_integer | nil) :: :ok
+  @doc "Forms an RTMP detailed message with the specified message contents to be sent to the client"
+  def send_rtmp_message(pid, message, stream_id, forced_timestamp \\ nil) do
+    GenServer.cast(pid, {:send_message, {message, stream_id, forced_timestamp}})
+  end
+
   @spec accept_request(session_handler, request_id) :: :ok
   @doc "Attempts to accept a request with the specified id"
   def accept_request(pid, request_id) do
@@ -152,6 +158,22 @@ defmodule Rtmp.ServerSession.Handler do
       {:play, {sid, stream_key, is_reset}} -> accept_play_request(state, sid, stream_key, is_reset)
     end
 
+    {:noreply, state}
+  end
+
+  def handle_cast({:send_message, {message, stream_id, forced_timestamp}}, state) do
+    timestamp = case forced_timestamp do
+      nil -> :os.system_time(:milli_seconds) - state.self_epoch
+      x when x >= 0 -> x
+    end
+
+    detailed_message = %DetailedMessage{
+      timestamp: timestamp,
+      stream_id: stream_id,
+      content: message
+    }
+
+    :ok = state.protocol_handler_module.send_message(state.protocol_handler_pid, detailed_message)
     {:noreply, state}
   end
 

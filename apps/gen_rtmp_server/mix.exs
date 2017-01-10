@@ -2,18 +2,20 @@ defmodule GenRtmpServer.Mixfile do
   use Mix.Project
 
   def project do
-    [app: :gen_rtmp_server,
-     version: "0.1.0",
-     build_path: "../../_build",
-     config_path: "../../config/config.exs",
-     deps_path: "../../deps",
-     lockfile: "../../mix.lock",
-     elixir: "~> 1.3",
-     build_embedded: Mix.env == :prod,
-     start_permanent: Mix.env == :prod,
-     description: description,
-     package: package,
-     deps: deps]
+    [
+      app: :gen_rtmp_server,
+      version: "0.1.0",
+      build_path: "../../_build",
+      config_path: "../../config/config.exs",
+      deps_path: "../../deps",
+      lockfile: "../../mix.lock",
+      elixir: "~> 1.3",
+      build_embedded: Mix.env == :prod,
+      start_permanent: Mix.env == :prod,
+      description: description(),
+      package: package(),
+      deps: deps()
+     ]
   end
 
   def application do
@@ -31,15 +33,13 @@ defmodule GenRtmpServer.Mixfile do
 
   defp get_umbrella_dependencies(:umbrella) do
     [
-      {:rtmp_handshake, in_umbrella: true},
-      {:rtmp_session, in_umbrella: true},
+      {:rtmp, in_umbrella: true},
     ]
   end
 
   defp get_umbrella_dependencies(_) do
     [
-      {:rtmp_handshake, "~> 1.0", hex: :eml_rtmp_handshake},
-      {:rtmp_session, "~> 0.1.0", hex: :eml_rtmp_session},
+      {:rtmp, in_umbrella: true},
     ]
   end
 

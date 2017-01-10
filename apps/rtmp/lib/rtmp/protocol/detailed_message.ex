@@ -6,7 +6,7 @@ defmodule Rtmp.Protocol.DetailedMessage do
   @type t :: %__MODULE__{
     timestamp: non_neg_integer,
     stream_id: non_neg_integer,
-    content: any, # TODO: Find the proper place for the following spec: RtmpSession.deserialized_message,
+    content: Rtmp.deserialized_message,
     force_uncompressed: boolean,
     deserialization_system_time: pos_integer
   }
