@@ -260,7 +260,7 @@ defmodule GenRtmpServer.Protocol do
 
   defp handle_accepted_request(state, request_id, adopter_state) do
     :ok = Rtmp.ServerSession.Handler.accept_request(state.session_handler_pid, request_id)
-    %{state | adotper_state: adopter_state}
+    %{state | adopter_state: adopter_state}
   end
 
   defp handle_rejected_request(command, state, _request_id, new_adopter_state) do
