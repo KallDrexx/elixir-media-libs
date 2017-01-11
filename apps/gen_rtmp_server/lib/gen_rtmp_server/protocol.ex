@@ -130,7 +130,6 @@ defmodule GenRtmpServer.Protocol do
 
   def handle_info({:tcp, _, binary}, state = %State{}) do
     log_io_data(state, :input, binary)
-    Logger.debug("data received in protocol")
 
     :ok = Rtmp.Protocol.Handler.notify_input(state.protocol_handler_pid, binary)
     set_socket_options(state)
