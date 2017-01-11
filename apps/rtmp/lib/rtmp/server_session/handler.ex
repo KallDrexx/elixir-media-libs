@@ -169,7 +169,7 @@ defmodule Rtmp.ServerSession.Handler do
 
   def handle_cast({:send_message, {message, stream_id, forced_timestamp}}, state) do
     timestamp = case forced_timestamp do
-      nil -> :os.system_time(:milli_seconds) - state.self_epoch
+      nil -> :os.system_time(:milli_seconds) - state.start_time
       x when x >= 0 -> x
     end
 
