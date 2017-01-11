@@ -94,11 +94,15 @@ defmodule Rtmp.Protocol.Handler do
       raise ("Input received, but session process and notification functions are not set yet")
     end
 
+    _ = Logger.debug("data received")
+
     state = process_bytes(state, binary)
     {:noreply, state}
   end
 
   def handle_cast({:send_message, message}, state) do
+    _ = Logger.debug("#{state.connection_id}: sending message: #{inspect(message)}")
+
     raw_message = RawMessage.pack(message)
     csid = get_csid_for_message_type(raw_message)
 
@@ -142,6 +146,7 @@ defmodule Rtmp.Protocol.Handler do
         state
 
       {:ok, message = %DetailedMessage{}} ->
+        _ = Logger.debug("Deserialized: #{inspect(message)}")
         :ok = state.session_module.handle_rtmp_input(state.session_process, message)
         state
     end

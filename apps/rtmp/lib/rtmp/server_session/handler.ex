@@ -234,6 +234,11 @@ defmodule Rtmp.ServerSession.Handler do
     state
   end
 
+  defp do_handle(state, _message = %DetailedMessage{content: %Messages.SetChunkSize{}}) do
+    # Ignore, nothing to do.
+    state
+  end
+
   defp do_handle(state, message = %DetailedMessage{content: %Messages.VideoData{}}) do
     active_stream = Map.fetch!(state.active_streams, message.stream_id)
     if active_stream.current_state != :publishing do
@@ -460,8 +465,11 @@ defmodule Rtmp.ServerSession.Handler do
   end
 
   defp handle_command(state, stream_id, command_name, transaction_id, _command_obj, _args) do
-    _ = Logger.warn("#{state.connection_id}: Unable to handle command '#{command_name}' while in stage '#{state.current_stage}' " <>
-      "(stream id '#{stream_id}', transaction_id: #{transaction_id})")
+    unless is_ignorable_command(command_name) do
+      _ = Logger.warn("#{state.connection_id}: Unable to handle command '#{command_name}' while in stage '#{state.current_stage}' " <>
+        "(stream id '#{stream_id}', transaction_id: #{transaction_id})")
+    end
+
     state
   end
 
@@ -679,4 +687,7 @@ defmodule Rtmp.ServerSession.Handler do
   defp raise_event(state, event) do
     raise_event(state, [event])
   end
+
+  defp is_ignorable_command("_checkbw"), do: true
+  defp is_ignorable_command(_), do: false
 end

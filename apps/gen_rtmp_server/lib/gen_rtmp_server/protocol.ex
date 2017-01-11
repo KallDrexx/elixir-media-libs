@@ -23,7 +23,8 @@ defmodule GenRtmpServer.Protocol do
               session_handler_pid: nil,
               gen_rtmp_server_adopter: nil,
               adopter_state: nil,
-              session_config: nil
+              session_config: nil,
+              log_files: %{}
   end
 
   @doc "Starts the protocol for the accepted socket"
@@ -76,6 +77,7 @@ defmodule GenRtmpServer.Protocol do
 
   def handle_cast({:rtmp_output, binary}, state) do
     state.transport.send(state.socket, binary)
+    log_io_data(state, :output, binary)
     {:noreply, state}
   end
 
@@ -113,6 +115,8 @@ defmodule GenRtmpServer.Protocol do
           adopter_state: adopter_state
         }
 
+        state = prepare_log_files(state)
+
         set_socket_options(state)
         {:noreply, state}
 
@@ -125,8 +129,10 @@ defmodule GenRtmpServer.Protocol do
   end
 
   def handle_info({:tcp, _, binary}, state = %State{}) do
-    :ok = Rtmp.Protocol.Handler.notify_input(state.protocol_handler_pid, binary)
+    log_io_data(state, :input, binary)
+    Logger.debug("data received in protocol")
 
+    :ok = Rtmp.Protocol.Handler.notify_input(state.protocol_handler_pid, binary)
     set_socket_options(state)
     {:noreply, state}
   end
@@ -303,6 +309,40 @@ defmodule GenRtmpServer.Protocol do
 
   defp form_outbound_rtmp_message(data) do
     raise("No known way to form outbound rtmp message for data: #{inspect(data)}")
+  end
+
+  defp prepare_log_files(state = %State{session_config: %Rtmp.ServerSession.Configuration{io_log_mode: :none}}) do
+    state
+  end
+
+  defp prepare_log_files(state = %State{session_config: %Rtmp.ServerSession.Configuration{io_log_mode: :raw_io}}) do
+    path = "dumps"
+
+    :ok = File.mkdir_p!(path)
+    input = File.open!("#{path}/#{state.session_id}.input.rtmp", [:binary, :write, :exclusive])
+    output = File.open!("#{path}/#{state.session_id}.output.rtmp", [:binary, :write, :exclusive])
+
+    log_files = Map.put(state.log_files, :input_append, input)
+    log_files = Map.put(log_files, :output_append, output)
+    %{state | log_files: log_files}
+  end
+
+  defp log_io_data(%State{session_config: %Rtmp.ServerSession.Configuration{io_log_mode: :none}}, _input_or_output, _data) do
+    :ok
+  end
+
+  defp log_io_data(_, _, <<>>) do
+    :ok
+  end
+
+  defp log_io_data(state = %State{session_config: %Rtmp.ServerSession.Configuration{io_log_mode: :raw_io}}, :input, data) do
+    file = Map.fetch!(state.log_files, :input_append)
+    IO.binwrite(file, data)
+  end
+
+  defp log_io_data(state = %State{session_config: %Rtmp.ServerSession.Configuration{io_log_mode: :raw_io}}, :output, data) do
+    file = Map.fetch!(state.log_files, :output_append)
+    IO.binwrite(file, data)
   end
 
 end
