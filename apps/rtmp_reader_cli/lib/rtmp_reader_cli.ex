@@ -1,8 +1,8 @@
 defmodule RtmpReaderCli do
 
-  alias RtmpSession.ChunkIo, as: ChunkIo
-  alias RtmpSession.RawMessage, as: RawMessage
-  alias RtmpSession.DetailedMessage, as: DetailedMessage
+  alias Rtmp.Protocol.ChunkIo, as: ChunkIo
+  alias Rtmp.Protocol.RawMessage, as: RawMessage
+  alias Rtmp.Protocol.DetailedMessage, as: DetailedMessage
 
   require Logger
 
@@ -56,7 +56,7 @@ defmodule RtmpReaderCli do
             IO.puts("Found message of type #{raw_message.message_type_id} but we have no known way to unpack it!")
             chunk_io
 
-          {:ok, message = %DetailedMessage{content: %RtmpSession.Messages.SetChunkSize{}}} ->
+          {:ok, message = %DetailedMessage{content: %Rtmp.Protocol.Messages.SetChunkSize{}}} ->
             display_message_details(message, display_options)
             ChunkIo.set_receiving_max_chunk_size(chunk_io, message.content.size)
 
@@ -71,7 +71,7 @@ defmodule RtmpReaderCli do
     end
   end
 
-  defp display_message_details(message = %DetailedMessage{content: %RtmpSession.Messages.AudioData{}}, display_options) do
+  defp display_message_details(message = %DetailedMessage{content: %Rtmp.Protocol.Messages.AudioData{}}, display_options) do
     IO.puts("Found message of type '#{message.content.__struct__}'")
     IO.puts("Timestamp: #{message.timestamp}")
     IO.puts("Stream Id: #{message.stream_id}")
@@ -85,7 +85,7 @@ defmodule RtmpReaderCli do
     IO.puts("Content: #{Base.encode16(shown_bytes)}#{suffix}")
   end
 
-  defp display_message_details(message = %DetailedMessage{content: %RtmpSession.Messages.VideoData{}}, display_options) do
+  defp display_message_details(message = %DetailedMessage{content: %Rtmp.Protocol.Messages.VideoData{}}, display_options) do
     IO.puts("Found message of type '#{message.content.__struct__}'")
     IO.puts("Timestamp: #{message.timestamp}")
     IO.puts("Stream Id: #{message.stream_id}")
