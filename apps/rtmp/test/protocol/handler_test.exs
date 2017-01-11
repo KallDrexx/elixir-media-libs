@@ -159,4 +159,29 @@ defmodule Rtmp.Protocol.HandlerTest do
     assert_receive {:binary, ^expected_binary2}
   end
 
+  test "Can read multiple chunks in a single packet" do
+    input1 = <<0::2, 50::6, 72::size(3)-unit(8), 12::size(3)-unit(8), 9::8, 55::size(4)-unit(8)-little, 152::size(12)-unit(8)>>
+    input2 = <<1::2, 50::6, 10::size(3)-unit(8), 12::size(3)-unit(8), 9::8, 122::size(12)-unit(8)>>
+
+    assert {:ok, handler} = ProtocolHandler.start_link("id", self(), __MODULE__)
+    assert :ok = ProtocolHandler.set_session(handler, self(), __MODULE__)
+    assert :ok = ProtocolHandler.notify_input(handler, input1 <> input2)
+
+    assert_receive {:message, %DetailedMessage{
+      timestamp: 72,
+      stream_id: 55,
+      content: %VideoData{
+        data: <<152::12 * 8>>
+      }
+    }}
+
+    assert_receive {:message, %DetailedMessage{
+      timestamp: 82,
+      stream_id: 55,
+      content: %VideoData{
+        data: <<122::12 * 8>>
+      }
+    }}
+  end
+
 end

@@ -143,12 +143,12 @@ defmodule Rtmp.Protocol.Handler do
         state = %{state | chunk_io_state: chunk_io_state}
 
         :ok = state.session_module.handle_rtmp_input(state.session_process, message)
-        state
+        process_bytes(state, <<>>)
 
       {:ok, message = %DetailedMessage{}} ->
         _ = Logger.debug("Deserialized: #{inspect(message)}")
         :ok = state.session_module.handle_rtmp_input(state.session_process, message)
-        state
+        process_bytes(state, <<>>)
     end
   end
 
