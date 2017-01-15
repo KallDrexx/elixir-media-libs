@@ -27,7 +27,7 @@ defmodule GenRtmpServer.Mixfile do
     [
       get_ranch_dependency(Mix.env),
       {:uuid, "~> 1.1"},
-      {:ex_doc, "~> 0.14", only: :dev}
+      {:ex_doc, "~> 0.14", only: [:dev, :publish]}
     ]
   end
 
