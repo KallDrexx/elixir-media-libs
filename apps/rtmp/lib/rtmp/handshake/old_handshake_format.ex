@@ -43,7 +43,7 @@ defmodule Rtmp.Handshake.OldHandshakeFormat do
 
   @doc "Returns packets 0 and 1 to send to the peer"
   def create_p0_and_p1_to_send(state = %State{}) do
-    state = %{state | random_data: generate_random_binary(1528, <<>>)}
+    state = %{state | random_data: :crypto.strong_rand_bytes(1528)}
     p0 = <<3::8>>
     p1 = <<0::4 * 8, 0::4 * 8>> <> state.random_data # local start time is alawys zero
     {state, p0 <> p1}
@@ -113,9 +113,5 @@ defmodule Rtmp.Handshake.OldHandshakeFormat do
     bytes_to_send = state.bytes_to_send
     state = %{state | bytes_to_send: <<>>}
     {state, {:incomplete, bytes_to_send}}
-  end
-
-  defp generate_random_binary(0, accumulator),     do: accumulator
-  defp generate_random_binary(count, accumulator), do: generate_random_binary(count - 1,  accumulator <> <<:random.uniform(254)>> )
-  
+  end  
 end

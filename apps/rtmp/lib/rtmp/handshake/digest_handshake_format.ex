@@ -61,7 +61,7 @@ defmodule Rtmp.Handshake.DigestHandshakeFormat do
 
   @doc "Returns packets 0 and 1 to send to the peer"
   def create_p0_and_p1_to_send(state = %State{}) do
-    random_binary = :crypto.rand_bytes(1528)
+    random_binary = :crypto.strong_rand_bytes(1528)
     handshake = <<0::4 * 8>> <> @adobe_version <> random_binary
 
     {state, digest_offset, constant_key} = case state.is_server do
@@ -162,7 +162,7 @@ defmodule Rtmp.Handshake.DigestHandshakeFormat do
   end
 
   defp generate_p2(is_server, challenge_key) do
-    random_binary = :crypto.rand_bytes(1536 - @sha_256_digest_length)
+    random_binary = :crypto.strong_rand_bytes(1536 - @sha_256_digest_length)
     string = case is_server do
       true -> @genuine_fms_with_crud
       false -> @genuine_player_with_crud
