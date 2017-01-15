@@ -30,6 +30,8 @@ defmodule Rtmp.Protocol.Handler do
   @type session_handler_module :: module
 
   defmodule State do
+    @moduledoc false
+
     defstruct connection_id: nil,
               socket: nil,
               socket_module: nil,
@@ -61,7 +63,7 @@ defmodule Rtmp.Protocol.Handler do
     GenServer.cast(pid, {:socket_input, binary})
   end
 
-  @spec send_message(protocol_handler, %DetailedMessage{}) :: :ok
+  @spec send_message(protocol_handler, DetailedMessage.t) :: :ok
   @doc """
   Notifies the protocol handler of an rtmp message that should be serialized
   and sent to the peer.

@@ -1,8 +1,7 @@
 defmodule Rtmp.Protocol.ChunkIo do
   @moduledoc """
-  This module provider an API for processing the raw binary that makes up
-  RTMP chunks (and unpacking the enclosed RTMP message within) and allows
-  serializing RTMP messages into binary RTMP chunks  
+  This module provides an API for performing the conversion between
+  raw binary and RTMP messages based on the RTMP chunk specifications.
   """
 
   alias Rtmp.Protocol.RawMessage, as: RawMessage
@@ -10,7 +9,11 @@ defmodule Rtmp.Protocol.ChunkIo do
 
   require Logger
 
+  @type state :: %__MODULE__.State{}
+
   defmodule State do
+    @moduledoc false
+
     defstruct receiving_max_chunk_size: 128,
               sending_max_chunk_size: 128,
               received_headers: %{},
@@ -21,6 +24,8 @@ defmodule Rtmp.Protocol.ChunkIo do
   end
 
   defmodule Header do
+    @moduledoc false
+
     defstruct type: 0,
               csid: nil,
               timestamp: nil,
@@ -30,27 +35,32 @@ defmodule Rtmp.Protocol.ChunkIo do
               message_stream_id: nil
   end
 
-  @spec new() :: %State{}
+  @spec new() :: state
+  @doc "Starts a new RTMP chunk I/O processor"
   def new() do
     %State{}
   end
 
-  @spec set_receiving_max_chunk_size(%State{}, pos_integer()) :: %State{}
+  @spec set_receiving_max_chunk_size(state, pos_integer) :: state
+  @doc "Changes the maximum size for incoming RTMP chunks"
   def set_receiving_max_chunk_size(state = %State{}, size) do
     %{state | receiving_max_chunk_size: size}
   end
 
-  @spec set_sending_max_chunk_size(%State{}, pos_integer()) :: %State{}
+  @spec set_sending_max_chunk_size(state, pos_integer) :: state
+  @doc "Changes the maximum size for outgoing RTMP chunks"
   def set_sending_max_chunk_size(state = %State{}, size) do
     %{state | sending_max_chunk_size: size}
   end
 
-  @spec deserialize(%State{}, <<>>) :: {%State{}, :incomplete} | {%State{}, :split_message} | {%State{}, %RawMessage{}} 
+  @spec deserialize(state, binary) :: {state, :incomplete} | {state, :split_message} | {state, RawMessage.t} 
+  @doc "Deserializes the specified binary into raw RTMP messages"
   def deserialize(state = %State{}, binary) when is_binary(binary) do
     do_deserialize(%{state | unparsed_binary: state.unparsed_binary <> binary})
   end
 
-  @spec serialize(%State{}, %RawMessage{}, non_neg_integer()) :: {%State{}, iodata()}
+  @spec serialize(state, RawMessage.t, non_neg_integer()) :: {state, iodata()}
+  @doc "Serializes the specified raw RTMP message into iodata"
   def serialize(state = %State{}, message = %RawMessage{}, csid) do
     do_serialize(state, message, csid, message.force_uncompressed)
   end

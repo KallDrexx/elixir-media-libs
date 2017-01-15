@@ -32,6 +32,7 @@ defmodule Rtmp.Handshake do
   alias Rtmp.Handshake.HandshakeResult, as: HandshakeResult
   alias Rtmp.Handshake.DigestHandshakeFormat, as: DigestHandshakeFormat
 
+  @type handshake_state :: %__MODULE__.State{}
   @type handshake_type :: :unknown | :old | :digest
   @type is_valid_format_result :: :yes | :no | :unknown
   @type start_time :: non_neg_integer
@@ -44,9 +45,11 @@ defmodule Rtmp.Handshake do
 
   @callback is_valid_format(<<>>) :: is_valid_format_result
   @callback process_bytes(behaviour_state, <<>>) :: {behaviour_state, process_result}
-  @callback create_p0_and_p1_to_send(behaviour_state) :: {behaviour_state, <<>>}
+  @callback create_p0_and_p1_to_send(behaviour_state) :: {behaviour_state, binary}
 
   defmodule State do
+    @moduledoc false
+
     defstruct status: :pending,
               handshake_state: nil,
               handshake_type: :unknown,
@@ -62,7 +65,7 @@ defmodule Rtmp.Handshake do
   (since a server won't know what type of handshake to use until it
   receives packets c0 and c1).
   """
-  @spec new(handshake_type) :: {%State{}, ParseResult.t}
+  @spec new(handshake_type) :: {handshake_state, ParseResult.t}
   def new(:old) do
     {handshake_state, bytes_to_send} =
       OldHandshakeFormat.new()
@@ -89,7 +92,7 @@ defmodule Rtmp.Handshake do
   end
 
   @doc "Reads the passed in binary to proceed with the handshaking process"
-  @spec process_bytes(%State{}, <<>>) :: {%State{}, ParseResult.t}
+  @spec process_bytes(handshake_state, <<>>) :: {handshake_state, ParseResult.t}
   def process_bytes(state = %State{handshake_type: :unknown}, binary) when is_binary(binary) do
     state = %{state | remaining_binary: state.remaining_binary <> binary}
     is_old_format = OldHandshakeFormat.is_valid_format(state.remaining_binary)
@@ -188,7 +191,7 @@ defmodule Rtmp.Handshake do
   may need to be parsed later (not part of the handshake but instead
   the beginning of the rtmp protocol).
   """
-  @spec get_handshake_result(%State{}) :: {%State{}, HandshakeResult.t}
+  @spec get_handshake_result(handshake_state) :: {handshake_state, HandshakeResult.t}
   def get_handshake_result(state = %State{status: :complete}) do
     unparsed_binary = state.remaining_binary
     

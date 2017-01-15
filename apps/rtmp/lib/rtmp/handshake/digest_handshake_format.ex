@@ -23,7 +23,11 @@ defmodule Rtmp.Handshake.DigestHandshakeFormat do
 
   @adobe_version <<128, 0, 7, 2>> # copied from jwplayer handshake
 
+  @type state :: %__MODULE__.State{}
+
   defmodule State do
+    @moduledoc false
+
     defstruct current_stage: :p0,
               unparsed_binary: <<>>,
               bytes_to_send: <<>>,
@@ -31,11 +35,13 @@ defmodule Rtmp.Handshake.DigestHandshakeFormat do
               is_server: nil
   end
 
+  @spec new() :: state
   @doc "Creates a new digest handshake format instance"
   def new() do
     %State{}
   end
 
+  @spec is_valid_format(binary) :: :unknown | :yes | :no
   @doc "Validates if the passed in binary can be parsed using the digest handshake."
   def is_valid_format(binary) do
     cond do
@@ -53,12 +59,14 @@ defmodule Rtmp.Handshake.DigestHandshakeFormat do
     end
   end
 
+  @spec process_bytes(state, binary) :: {state, Rtmp.Handshake.process_result}
   @doc "Attempts to proceed with the handshake process with the passed in bytes"
   def process_bytes(state = %State{}, binary) do
     state = %{state | unparsed_binary: state.unparsed_binary <> binary}
     do_process_bytes(state)
   end
 
+  @spec create_p0_and_p1_to_send(state) :: {state, binary}
   @doc "Returns packets 0 and 1 to send to the peer"
   def create_p0_and_p1_to_send(state = %State{}) do
     random_binary = :crypto.strong_rand_bytes(1528)

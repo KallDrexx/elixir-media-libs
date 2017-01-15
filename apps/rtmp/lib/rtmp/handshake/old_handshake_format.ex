@@ -10,7 +10,11 @@ defmodule Rtmp.Handshake.OldHandshakeFormat do
 
   require Logger
 
+  @type state :: %__MODULE__.State{}
+
   defmodule State do
+    @moduledoc false
+
     defstruct random_data: <<>>,
               current_stage: :p0,
               unparsed_binary: <<>>,
@@ -18,11 +22,13 @@ defmodule Rtmp.Handshake.OldHandshakeFormat do
               received_start_time: 0
   end
 
+  @spec new() :: state
   @doc "Creates a new old handshake format instance"
   def new() do
     %State{}
   end
 
+  @spec is_valid_format(binary) :: :unknown | :yes | :no
   @doc "Validates if the passed in binary can be parsed using the old style handshake."
   def is_valid_format(binary) do
     case byte_size(binary) >= 16 do
@@ -35,12 +41,14 @@ defmodule Rtmp.Handshake.OldHandshakeFormat do
     end
   end
 
+  @spec process_bytes(state, binary) :: {state, Rtmp.Handshake.process_result}
   @doc "Attempts to proceed with the handshake process with the passed in bytes"
   def process_bytes(state = %State{}, binary) do
     state = %{state | unparsed_binary: state.unparsed_binary <> binary}
     do_process_bytes(state)
   end
 
+  @spec create_p0_and_p1_to_send(state) :: {state, binary}
   @doc "Returns packets 0 and 1 to send to the peer"
   def create_p0_and_p1_to_send(state = %State{}) do
     state = %{state | random_data: :crypto.strong_rand_bytes(1528)}

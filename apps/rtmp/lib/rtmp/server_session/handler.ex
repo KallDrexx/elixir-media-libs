@@ -29,6 +29,8 @@ defmodule Rtmp.ServerSession.Handler do
   @type request_id :: non_neg_integer
 
   defmodule State do
+    @moduledoc false
+
     defstruct connection_id: nil,
               configuration: nil,
               start_time: nil,
@@ -46,6 +48,8 @@ defmodule Rtmp.ServerSession.Handler do
   end
 
   defmodule ActiveStream do
+    @moduledoc false
+
     defstruct stream_id: nil,
               current_state: :created,
               stream_key: nil,
@@ -53,6 +57,8 @@ defmodule Rtmp.ServerSession.Handler do
   end
 
   defmodule PlayArguments do
+    @moduledoc false
+
     defstruct start_at: -2, # default to live or recorded
               duration: -1, # full duration
               is_reset: true
@@ -78,7 +84,7 @@ defmodule Rtmp.ServerSession.Handler do
     GenServer.call(session_pid, {:set_output_handler, {protocol_handler_pid, protocol_handler_module}})
   end
 
-  @spec handle_rtmp_input(session_handler, %DetailedMessage{}) :: :ok
+  @spec handle_rtmp_input(session_handler, DetailedMessage.t) :: :ok
   @doc "Passes an incoming RTMP message to the session handler"
   def handle_rtmp_input(pid, message = %DetailedMessage{}) do
     GenServer.cast(pid, {:rtmp_input, message})
