@@ -1,7 +1,7 @@
 defmodule Rtmp.ServerSession.Events do
+  @moduledoc false
 
   @type t :: Rtmp.ServerSession.Events.PeerChunkSizeChanged.t |
-    Rtmp.ServerSession.Events.SelfChunkSizeChanged.t |
     Rtmp.ServerSession.Events.ConnectionRequested.t |
     Rtmp.ServerSession.Events.ReleaseStreamRequested.t |
     Rtmp.ServerSession.Events.PublishStreamRequested.t |
@@ -13,24 +13,26 @@ defmodule Rtmp.ServerSession.Events do
     Rtmp.ServerSession.Events.PlayStreamFinished.t
 
   defmodule PeerChunkSizeChanged do
-    @type t :: %__MODULE__{
-      new_chunk_size: pos_integer()
-    }
+    @moduledoc """
+    Event indicating that the peer is changing the maximum size of the 
+    RTMP chunks they will be sending
+    """
 
-    defstruct new_chunk_size: nil
-  end
-
-  defmodule SelfChunkSizeChanged do
     @type t :: %__MODULE__{
-      new_chunk_size: pos_integer()
+      new_chunk_size: pos_integer
     }
 
     defstruct new_chunk_size: nil
   end
 
   defmodule ConnectionRequested do
+    @moduledoc """
+    Event indicating that the peer is requesting a ConnectionRequested
+    on the specified application name
+    """
+
     @type t :: %__MODULE__{
-      request_id: integer(),
+      request_id: integer,
       app_name: Rtmp.app_name
     }
 
@@ -39,8 +41,13 @@ defmodule Rtmp.ServerSession.Events do
   end
 
   defmodule ReleaseStreamRequested do
+    @moduledoc """
+    Event indicating that the peer is requesting a stream key
+    be released for use.
+    """
+
     @type t :: %__MODULE__{
-      request_id: integer(),
+      request_id: integer,
       app_name: Rtmp.app_name,
       stream_key: Rtmp.stream_key
     }
@@ -51,8 +58,13 @@ defmodule Rtmp.ServerSession.Events do
   end
 
   defmodule PublishStreamRequested do
+    @moduledoc """
+    Event indicating that the peer is requesting the ability to 
+    publish on the specified stream key.
+    """
+
     @type t :: %__MODULE__{
-      request_id: integer(),
+      request_id: integer,
       app_name: Rtmp.app_name,
       stream_key: Rtmp.stream_key,
       stream_id: non_neg_integer
@@ -65,6 +77,11 @@ defmodule Rtmp.ServerSession.Events do
   end
 
   defmodule PublishingFinished do
+    @moduledoc """
+    Event indicating that the peer is finished publishing on the
+    specified stream key.
+    """
+
     @type t :: %__MODULE__{
       app_name: Rtmp.app_name,
       stream_key: Rtmp.stream_key
@@ -75,6 +92,11 @@ defmodule Rtmp.ServerSession.Events do
   end
 
   defmodule StreamMetaDataChanged do
+    @moduledoc """
+    Event indicating that the peer is changing metadata properties 
+    of the stream being published.
+    """
+
     @type t :: %__MODULE__{
       app_name: Rtmp.app_name,
       stream_key: Rtmp.stream_key,
@@ -87,11 +109,15 @@ defmodule Rtmp.ServerSession.Events do
   end
 
   defmodule AudioVideoDataReceived do
+    @moduledoc """
+    Event indicating that audio or video data was received.
+    """
+
     @type t :: %__MODULE__{
       app_name: Rtmp.app_name,
       stream_key: Rtmp.stream_key,
       data_type: :audio | :video,
-      data: <<>>,
+      data: binary,
       timestamp: non_neg_integer,
       received_at_timestamp: pos_integer
     }
@@ -105,6 +131,11 @@ defmodule Rtmp.ServerSession.Events do
   end
 
   defmodule UnhandleableAmf0Command do
+    @moduledoc """
+    Event indicating that an Amf0 command was received that was not able
+    to be handled.
+    """
+
     @type t :: %__MODULE__{
       command: %Rtmp.Protocol.Messages.Amf0Command{}
     }
@@ -113,6 +144,10 @@ defmodule Rtmp.ServerSession.Events do
   end
 
   defmodule PlayStreamRequested do
+    @moduledoc """
+    Event indicating that the peer is requesting playback of the specified stream.
+    """
+
     @type video_type :: :live | :recorded | :any
 
     @type t :: %__MODULE__{
@@ -137,6 +172,10 @@ defmodule Rtmp.ServerSession.Events do
   end
 
   defmodule PlayStreamFinished do
+    @moduledoc """
+    Event indicating that they are finished with playback of the specified stream.
+    """
+
     @type t :: %__MODULE__{
       app_name: Rtmp.app_name,
       stream_key: Rtmp.stream_key
