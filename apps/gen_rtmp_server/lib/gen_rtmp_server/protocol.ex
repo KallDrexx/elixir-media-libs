@@ -4,6 +4,7 @@ defmodule GenRtmpServer.Protocol do
   """
 
   @behaviour :ranch_protocol
+  @behaviour Rtmp.Behaviours.EventReceiver
 
   alias Rtmp.ServerSession.Events, as: RtmpEvents
   alias Rtmp.Protocol.Messages, as: RtmpMessages

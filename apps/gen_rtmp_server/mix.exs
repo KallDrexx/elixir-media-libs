@@ -4,7 +4,7 @@ defmodule GenRtmpServer.Mixfile do
   def project do
     [
       app: :gen_rtmp_server,
-      version: "0.1.1",
+      version: "0.1.2",
       build_path: "../../_build",
       config_path: "../../config/config.exs",
       deps_path: "../../deps",
@@ -27,7 +27,7 @@ defmodule GenRtmpServer.Mixfile do
     [
       get_ranch_dependency(Mix.env),
       {:uuid, "~> 1.1"},
-      {:ex_doc, "~> 0.14", only: [:dev, :publish]}
+      {:ex_doc, "~> 0.14", only: [:dev, :publish, :umbrella]}
     ]
   end
 

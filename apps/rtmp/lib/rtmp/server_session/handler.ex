@@ -28,6 +28,8 @@ defmodule Rtmp.ServerSession.Handler do
   @type event_receiver_module ::  module
   @type request_id :: non_neg_integer
 
+  @behaviour Rtmp.Behaviours.SessionHandler
+
   defmodule State do
     @moduledoc false
 
@@ -72,14 +74,22 @@ defmodule Rtmp.ServerSession.Handler do
 
   @spec set_event_handler(session_handler, event_notification_process, event_receiver_module)
     :: :ok | :event_handler_already_set
-  @doc "Specifies the process id and function to use to raise event notifications"
+  @doc """
+  Specifies the process id and function to use to raise event notifications.
+
+  It is expected that the module passed in implements the `Rtmp.Behaviours.EventReceiver` behaviour.
+  """
   def set_event_handler(session_pid, event_pid, event_receiver_module) do
     GenServer.call(session_pid, {:set_event_handler, {event_pid, event_receiver_module}})
   end
 
   @spec set_rtmp_output_handler(session_handler, rtmp_output_handler, protocol_handler_module)
     :: :ok | :output_handler_already_set
-  @doc "Specifies the process id and function to send outbound RTMP messages"
+  @doc """
+  Specifies the process id and function to send outbound RTMP messages
+
+  It is expected that the module passed in implements the `Rtmp.Behaviours.ProtocolHandler` behaviour.
+  """
   def set_rtmp_output_handler(session_pid, protocol_handler_pid, protocol_handler_module) do
     GenServer.call(session_pid, {:set_output_handler, {protocol_handler_pid, protocol_handler_module}})
   end

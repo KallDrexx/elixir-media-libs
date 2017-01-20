@@ -4,7 +4,7 @@ defmodule Rtmp.Mixfile do
   def project do
     [
       app: :rtmp,
-      version: "0.1.1",
+      version: "0.1.2",
       build_path: "../../_build",
       config_path: "../../config/config.exs",
       deps_path: "../../deps",
@@ -24,7 +24,7 @@ defmodule Rtmp.Mixfile do
 
   defp deps do
     environment_specific_deps(Mix.env) ++ [
-      {:ex_doc, ">= 0.0.0", only: :dev}
+      {:ex_doc, ">= 0.0.0", only: [:dev, :umbrella]}
     ]
   end
 

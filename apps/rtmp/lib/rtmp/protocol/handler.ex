@@ -29,6 +29,8 @@ defmodule Rtmp.Protocol.Handler do
   @type session_process :: pid
   @type session_handler_module :: module
 
+  @behaviour Rtmp.Behaviours.ProtocolHandler
+
   defmodule State do
     @moduledoc false
 
@@ -49,7 +51,10 @@ defmodule Rtmp.Protocol.Handler do
   @spec set_session(protocol_handler, session_process, session_handler_module) :: :ok | :session_already_set
   @doc """
   Specifies the session handler process and function to use to send deserialized
-  RTMP messages to for the session handler
+  RTMP messages to for the session handler.
+
+  It is expected that the module that is passed in implements the
+  `Rtmp.Behaviours.SessionHandler` behaviour.
   """
   def set_session(pid, session_process, session_module) do
     GenServer.call(pid, {:set_session, {session_process, session_module}})
