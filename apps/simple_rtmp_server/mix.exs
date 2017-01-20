@@ -22,7 +22,6 @@ defmodule SimpleRtmpServer.Mixfile do
   defp deps do
     [
       {:gen_rtmp_server, in_umbrella: true},
-      {:dialyxir, "~> 0.3.5", only: [:dev]}
     ]
   end
 end
