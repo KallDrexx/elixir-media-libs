@@ -11,7 +11,7 @@ defmodule Rtmp.Protocol.RawMessage do
     message_type_id: non_neg_integer(),
     stream_id: non_neg_integer(),
     force_uncompressed: false,
-    deserialization_system_time: pos_integer(),
+    deserialization_system_time: pos_integer() | nil,
     payload: <<>>
   }
 

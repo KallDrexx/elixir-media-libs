@@ -79,15 +79,12 @@ defmodule Flv.AudioData do
   defp get_rate(1), do: 11
   defp get_rate(2), do: 22
   defp get_rate(3), do: 44
-  defp get_rate(_), do: :error
 
   defp get_size(0), do: 8
   defp get_size(1), do: 16
-  defp get_size(_), do: :error
 
   defp get_channel_type(0), do: :mono
   defp get_channel_type(1), do: :stereo
-  defp get_channel_type(_), do: :error
 
   defp apply_data(<<0x00, rest::binary>>, audio_data = %__MODULE__{format: :aac}) do
     %{audio_data |

@@ -17,7 +17,7 @@ defmodule GenRtmpServer do
   @type adopter_state :: any
   @type command :: :ignore | :disconnect
   @type request_result :: :accepted | {:rejected, command, String.t}
-  @type outbound_data :: GenRtmpServer.AudioVideoData.t
+  @type outbound_data :: GenRtmpServer.AudioVideoData.t | GenRtmpServer.MetaData.t
   @type stream_id :: non_neg_integer
   @type forced_timestamp :: non_neg_integer | nil
 

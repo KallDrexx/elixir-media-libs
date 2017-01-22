@@ -112,7 +112,7 @@ defmodule Rtmp.ServerSession.Handler do
     GenServer.cast(pid, :begin_stream_zero)
   end
 
-  @spec notify_byte_count(Rtmp.SessionHandler.session_handler_pid, Rtmp.SessionHandler.byte_count_message) :: :ok
+  @spec notify_byte_count(Rtmp.Behaviours.SessionHandler.session_handler_pid, Rtmp.Behaviours.SessionHandler.byte_count_message) :: :ok
   @doc "Notifies the session handler of new input or output byte totals"
   def notify_byte_count(_pid, _message) do
     :ok

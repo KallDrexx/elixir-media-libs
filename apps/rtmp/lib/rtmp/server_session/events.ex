@@ -100,7 +100,7 @@ defmodule Rtmp.ServerSession.Events do
     @type t :: %__MODULE__{
       app_name: Rtmp.app_name,
       stream_key: Rtmp.stream_key,
-      meta_data: Rtmp.ServerSession.StreamMetadata.t
+      meta_data: Rtmp.StreamMetadata.t
     }
 
     defstruct app_name: nil,

@@ -37,7 +37,7 @@ defmodule Rtmp.Protocol.Handler do
     defstruct connection_id: nil,
               socket: nil,
               socket_module: nil,
-              chunk_io_state: nil,
+              chunk_io_state: ChunkIo.new(), # nil,
               session_process: nil,
               session_module: nil,
               bytes_received: 0,

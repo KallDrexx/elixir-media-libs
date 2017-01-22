@@ -250,7 +250,7 @@ defmodule SimpleRtmpServer.Worker do
       details: event.meta_data
     }
 
-    GenRtmpServer.send_message(self(), outbound_message, activity.stream_id)
+    GenRtmpServer.send_message(self(), outbound_message, activity.stream_id, nil)
     {:ok, state}
   end
 
