@@ -34,9 +34,12 @@ defmodule Rtmp do
       @type session_handler_pid :: pid
       @type stream_id :: non_neg_integer
       @type forced_timestamp :: non_neg_integer | nil
+      @type io_count_direction :: :bytes_received | :bytes_sent
+      @type byte_count_message :: {io_count_direction, non_neg_integer}
 
       @callback handle_rtmp_input(session_handler_pid, Rtmp.Protocol.DetailedMessage.t) :: :ok
       @callback send_rtmp_message(session_handler_pid, Rtmp.deserialized_message, stream_id, forced_timestamp) :: :ok
+      @callback notify_byte_count(session_handler_pid, byte_count_message) :: :ok
     end
 
     defmodule EventReceiver do

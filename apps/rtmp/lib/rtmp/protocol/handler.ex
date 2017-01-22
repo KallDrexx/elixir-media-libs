@@ -39,7 +39,12 @@ defmodule Rtmp.Protocol.Handler do
               socket_module: nil,
               chunk_io_state: nil,
               session_process: nil,
-              session_module: nil
+              session_module: nil,
+              bytes_received: 0,
+              bytes_sent: 0,
+              last_bytes_sent_notification_at: 0,
+              last_bytes_received_notification_at: 0,
+              io_notification_timer: nil
   end
 
   @spec start_link(Rtmp.connection_id, socket, socket_transport_module) :: {:ok, protocol_handler}
@@ -102,6 +107,9 @@ defmodule Rtmp.Protocol.Handler do
     end
 
     state = process_bytes(state, binary)
+    state = %{state | bytes_received: state.bytes_received + byte_size(binary)}
+    trigger_io_notification_timer(state)
+
     {:noreply, state}
   end
 
@@ -121,6 +129,27 @@ defmodule Rtmp.Protocol.Handler do
     end
 
     :ok = state.socket_module.send_data(state.socket, data)
+    state = %{state | bytes_sent: state.bytes_sent + byte_size(data)}
+    trigger_io_notification_timer(state)
+
+    {:noreply, state}
+  end
+
+  def handle_info(:send_io_notifications, state) do
+    if state.bytes_sent > state.last_bytes_sent_notification_at do
+      :ok = state.session_module.notify_byte_count(state.session_process, {:bytes_sent, state.bytes_sent})
+    end
+
+    if state.bytes_received > state.last_bytes_received_notification_at do
+      :ok = state.session_module.notify_byte_count(state.session_process, {:bytes_received, state.bytes_received})
+    end
+
+    state = %{state | 
+      io_notification_timer: nil,
+      last_bytes_received_notification_at: state.bytes_received,
+      last_bytes_sent_notification_at: state.bytes_sent
+    }
+
     {:noreply, state}
   end
 
@@ -151,6 +180,12 @@ defmodule Rtmp.Protocol.Handler do
       {:ok, message = %DetailedMessage{}} ->
         :ok = state.session_module.handle_rtmp_input(state.session_process, message)
         process_bytes(state, <<>>)
+    end
+  end
+
+  defp trigger_io_notification_timer(state) do
+    if state.io_notification_timer == nil do
+      :erlang.send_after(500, self(), :send_io_notifications)
     end
   end
 
