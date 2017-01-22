@@ -200,8 +200,7 @@ defmodule Rtmp.Protocol.Handler do
   defp get_csid_for_message_type(%RawMessage{message_type_id: 5}), do: 2
   defp get_csid_for_message_type(%RawMessage{message_type_id: 6}), do: 2
   defp get_csid_for_message_type(%RawMessage{message_type_id: 18}), do: 3
-  defp get_csid_for_message_type(%RawMessage{message_type_id: 19}), do: 3
+  defp get_csid_for_message_type(%RawMessage{message_type_id: 20}), do: 3
   defp get_csid_for_message_type(%RawMessage{message_type_id: 9}), do: 21
   defp get_csid_for_message_type(%RawMessage{message_type_id: 8}), do: 20
-  defp get_csid_for_message_type(%RawMessage{message_type_id: _}), do: 6
 end

@@ -10,9 +10,9 @@ defmodule Rtmp.Protocol.RawMessage do
     timestamp: non_neg_integer(),
     message_type_id: non_neg_integer(),
     stream_id: non_neg_integer(),
-    force_uncompressed: false,
+    force_uncompressed: boolean(),
     deserialization_system_time: pos_integer() | nil,
-    payload: <<>>
+    payload: binary()
   }
 
   defstruct timestamp: nil,
