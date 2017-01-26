@@ -15,7 +15,9 @@ defmodule SimpleRtmpServer.Worker do
   defmodule State do
     defstruct session_id: nil,
               client_ip: nil,
-              activities: %{}
+              activities: %{},
+              bytes_received: 0,
+              bytes_sent: 0
   end
 
   defmodule Activity do
@@ -217,6 +219,15 @@ defmodule SimpleRtmpServer.Worker do
     :pg2.create(activity_key)
     player_processes = :pg2.get_members(activity_key)
     :ok = send_to_processes(player_processes, {:av_data, event})
+
+    {:ok, state}
+  end
+
+  def byte_io_totals_updated(event = %RtmpEvents.NewByteIOTotals{}, state = %State{}) do
+    state = %{state |
+      bytes_sent: event.bytes_sent,
+      bytes_received: event.bytes_received
+    }
 
     {:ok, state}
   end

@@ -259,6 +259,11 @@ defmodule GenRtmpServer.Protocol do
     %{state | adopter_state: adopter_state}
   end
 
+  defp handle_event(event = %RtmpEvents.NewByteIOTotals{}, state) do
+    {:ok, adopter_state} = state.gen_rtmp_server_adopter.byte_io_totals_updated(event, state.adopter_state)
+    %{state | adopter_state: adopter_state}
+  end
+
   defp handle_event(event, state) do
     _ = Logger.warn("#{state.session_id}: No code to handle RTMP session event of type #{inspect(event)}")
     state

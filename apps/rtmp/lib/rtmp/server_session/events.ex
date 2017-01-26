@@ -10,7 +10,8 @@ defmodule Rtmp.ServerSession.Events do
     Rtmp.ServerSession.Events.UnhandleableAmf0Command.t |
     Rtmp.ServerSession.Events.PublishingFinished.t |
     Rtmp.ServerSession.Events.PlayStreamRequested.t |
-    Rtmp.ServerSession.Events.PlayStreamFinished.t
+    Rtmp.ServerSession.Events.PlayStreamFinished.t |
+    Rtmp.ServerSession.Events.NewByteIOTotals.t
 
   defmodule PeerChunkSizeChanged do
     @moduledoc """
