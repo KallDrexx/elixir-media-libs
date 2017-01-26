@@ -185,4 +185,19 @@ defmodule Rtmp.ServerSession.Events do
               stream_key: nil
   end
 
+  defmodule NewByteIOTotals do
+    @moduledoc """
+    Event indicating the total number of bytes sent or received from the client has
+    changed in value
+    """
+
+    @type t :: %__MODULE__{
+      bytes_sent: non_neg_integer,
+      bytes_received: non_neg_integer
+    }
+
+    defstruct bytes_received: 0,
+              bytes_sent: 0
+  end
+
 end

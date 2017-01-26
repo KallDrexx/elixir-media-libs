@@ -108,7 +108,7 @@ defmodule Rtmp.Protocol.Handler do
 
     state = process_bytes(state, binary)
     state = %{state | bytes_received: state.bytes_received + byte_size(binary)}
-    trigger_io_notification_timer(state)
+    state = trigger_io_notification_timer(state)
 
     {:noreply, state}
   end
@@ -130,18 +130,18 @@ defmodule Rtmp.Protocol.Handler do
 
     :ok = state.socket_module.send_data(state.socket, data)
     state = %{state | bytes_sent: state.bytes_sent + byte_size(data)}
-    trigger_io_notification_timer(state)
+    state = trigger_io_notification_timer(state)
 
     {:noreply, state}
   end
 
   def handle_info(:send_io_notifications, state) do
     if state.bytes_sent > state.last_bytes_sent_notification_at do
-      :ok = state.session_module.notify_byte_count(state.session_process, {:bytes_sent, state.bytes_sent})
+      :ok = state.session_module.notify_byte_count(state.session_process, :bytes_sent, state.bytes_sent)
     end
 
     if state.bytes_received > state.last_bytes_received_notification_at do
-      :ok = state.session_module.notify_byte_count(state.session_process, {:bytes_received, state.bytes_received})
+      :ok = state.session_module.notify_byte_count(state.session_process, :bytes_received, state.bytes_received)
     end
 
     state = %{state | 
@@ -184,8 +184,12 @@ defmodule Rtmp.Protocol.Handler do
   end
 
   defp trigger_io_notification_timer(state) do
-    if state.io_notification_timer == nil do
-      :erlang.send_after(500, self(), :send_io_notifications)
+    case state.io_notification_timer do
+      nil -> 
+        :erlang.send_after(500, self(), :send_io_notifications)
+        %{state | io_notification_timer: :active}
+
+      _ -> state
     end
   end
 

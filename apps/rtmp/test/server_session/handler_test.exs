@@ -698,6 +698,31 @@ defmodule Rtmp.ServerSession.HandlerTest do
 
   end
 
+  test "Raises NewByteIOTotals event when notification of sent byte count changes occur", context do
+    session = context[:session]
+
+    assert :ok = Handler.notify_byte_count(session, :bytes_sent, 1000)
+    assert_receive {:event, %Events.NewByteIOTotals{bytes_sent: 1000}}, 1000
+  end
+
+  test "Raises NewByteIOTotals event when notification of received byte count changes occur", context do
+    session = context[:session]
+
+    assert :ok = Handler.notify_byte_count(session, :bytes_received, 1000)
+    assert_receive {:event, %Events.NewByteIOTotals{bytes_received: 1000}}, 1000
+  end
+
+  test "Raises single NewByteIOTotals if sent and received notifications are received quick enough", context do
+    session = context[:session]
+
+    assert :ok = Handler.notify_byte_count(session, :bytes_received, 1001)
+    assert :ok = Handler.notify_byte_count(session, :bytes_sent, 1005)
+    assert_receive {:event, %Events.NewByteIOTotals{
+      bytes_received: 1001,
+      bytes_sent: 1005
+    }}, 1000
+  end
+
   defp get_connected_session(context) do
     # Make sure some time has passed since creating the processor
     #   to allow for non-zero timestamp checking

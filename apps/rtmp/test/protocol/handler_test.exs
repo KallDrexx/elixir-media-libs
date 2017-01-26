@@ -17,7 +17,7 @@ defmodule Rtmp.Protocol.HandlerTest do
     :ok
   end
 
-  def notify_byte_count(pid, {in_or_out, count}) do
+  def notify_byte_count(pid, in_or_out, count) do
     _ = send(pid, {in_or_out, count})
     :ok
   end

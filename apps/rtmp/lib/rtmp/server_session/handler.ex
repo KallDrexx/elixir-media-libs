@@ -46,7 +46,10 @@ defmodule Rtmp.ServerSession.Handler do
               active_requests: %{},
               connected_app_name: nil,
               last_created_stream_id: 0,
-              active_streams: %{}
+              active_streams: %{},
+              bytes_sent: 0,
+              bytes_received: 0,
+              byte_count_changed_timer: nil
   end
 
   defmodule ActiveStream do
@@ -112,11 +115,10 @@ defmodule Rtmp.ServerSession.Handler do
     GenServer.cast(pid, :begin_stream_zero)
   end
 
-  @spec notify_byte_count(Rtmp.Behaviours.SessionHandler.session_handler_pid, Rtmp.Behaviours.SessionHandler.byte_count_message) :: :ok
+  @spec notify_byte_count(Rtmp.Behaviours.SessionHandler.session_handler_pid, Rtmp.Behaviours.SessionHandler.io_count_direction, non_neg_integer) :: :ok
   @doc "Notifies the session handler of new input or output byte totals"
-  def notify_byte_count(_pid, _message) do
-    :ok
-  end
+  def notify_byte_count(pid, :bytes_received, total), do: GenServer.cast(pid, {:byte_count_update, :bytes_received, total})
+  def notify_byte_count(pid, :bytes_sent, total),     do: GenServer.cast(pid, {:byte_count_update, :bytes_sent, total})
 
   @spec accept_request(session_handler, request_id) :: :ok
   @doc "Attempts to accept a request with the specified id"
@@ -219,6 +221,34 @@ defmodule Rtmp.ServerSession.Handler do
     ]
 
     :ok = send_output_message(state, messages, 0, true)
+    {:noreply, state}
+  end
+
+  def handle_cast({:byte_count_update, in_or_out, total}, state) do
+    state = case in_or_out do
+      :bytes_sent -> %{state | bytes_sent: total}
+      :bytes_received -> %{state | bytes_received: total}
+    end
+
+    state = case state.byte_count_changed_timer do
+      nil -> 
+        :erlang.send_after(500, self(), :send_io_notifications)
+        %{state | byte_count_changed_timer: :active}
+
+      _ -> state
+    end
+
+    {:noreply, state}
+  end
+
+  def handle_info(:send_io_notifications, state) do
+    event = %Events.NewByteIOTotals{
+      bytes_sent: state.bytes_sent,
+      bytes_received: state.bytes_received
+    }
+
+    state = %{state | byte_count_changed_timer: nil}
+    raise_event(state, event)
     {:noreply, state}
   end
 
