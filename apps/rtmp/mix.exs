@@ -4,7 +4,7 @@ defmodule Rtmp.Mixfile do
   def project do
     [
       app: :rtmp,
-      version: "0.1.2",
+      version: "0.1.3",
       build_path: "../../_build",
       config_path: "../../config/config.exs",
       deps_path: "../../deps",
@@ -29,7 +29,7 @@ defmodule Rtmp.Mixfile do
   end
 
   defp environment_specific_deps(:umbrella), do: [{:amf0, in_umbrella: true}]
-  defp environment_specific_deps(_), do: [{:amf0, "~> 1.0", hex: :eml_amf0}]
+  defp environment_specific_deps(_), do: [{:amf0, "~> 1.0.1", hex: :eml_amf0}]
 
   defp package do
     [

@@ -75,6 +75,12 @@ defmodule GenRtmpServer do
   @callback byte_io_totals_updated(Rtmp.ServerSession.Events.NewByteIOTotals.t, adopter_state)
     :: {:ok, adopter_state}
 
+  @doc """
+  Called when the client sends an acknowledgement of bytes received
+  """
+  @callback acknowledgement_received(Rtmp.ServerSession.Events.AcknowledgementReceived.t, adopter_state)
+    :: {:ok, adopter_state}
+
   @doc "Called when an code change is ocurring"
   @callback code_change(any, adopter_state) :: {:ok, adopter_state} | {:error, String.t}
 

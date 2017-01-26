@@ -223,6 +223,13 @@ defmodule SimpleRtmpServer.Worker do
     {:ok, state}
   end
 
+  def acknowledgement_received(event = %RtmpEvents.AcknowledgementReceived{}, state) do
+    # More complicated rtmp servers should track these and make sure the client doesn't
+    # go too long without sending an ack.  For the simple server we don't really care.
+    Logger.debug("Acknowledgement received: #{event.bytes_received}")
+    {:ok, state}
+  end
+
   def byte_io_totals_updated(event = %RtmpEvents.NewByteIOTotals{}, state = %State{}) do
     state = %{state |
       bytes_sent: event.bytes_sent,

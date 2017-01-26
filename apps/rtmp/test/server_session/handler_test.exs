@@ -723,6 +723,18 @@ defmodule Rtmp.ServerSession.HandlerTest do
     }}, 1000
   end
 
+  test "Raises acknowlegement received event when client sends an acknowledgement RTMP message", context do
+    sent_ack = %DetailedMessage{
+      timestamp: 0,
+      stream_id: 0,
+      content: %Messages.Acknowledgement{sequence_number: 501}
+    }
+
+    session = context[:session]
+    assert :ok = Handler.handle_rtmp_input(session, sent_ack)
+    assert_receive {:event, %Events.AcknowledgementReceived{bytes_received: 501}}
+  end
+
   defp get_connected_session(context) do
     # Make sure some time has passed since creating the processor
     #   to allow for non-zero timestamp checking

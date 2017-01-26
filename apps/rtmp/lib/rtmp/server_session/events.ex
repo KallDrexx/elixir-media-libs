@@ -11,7 +11,8 @@ defmodule Rtmp.ServerSession.Events do
     Rtmp.ServerSession.Events.PublishingFinished.t |
     Rtmp.ServerSession.Events.PlayStreamRequested.t |
     Rtmp.ServerSession.Events.PlayStreamFinished.t |
-    Rtmp.ServerSession.Events.NewByteIOTotals.t
+    Rtmp.ServerSession.Events.NewByteIOTotals.t |
+    Rtmp.ServerSession.Events.AcknowledgementReceived.t
 
   defmodule PeerChunkSizeChanged do
     @moduledoc """
@@ -199,6 +200,19 @@ defmodule Rtmp.ServerSession.Events do
 
     defstruct bytes_received: 0,
               bytes_sent: 0
+  end
+
+  defmodule AcknowledgementReceived do
+    @moduledoc """
+    Event indicating that the client has sent an acknowledgement that they have received
+    the specified number of bytes
+    """
+
+    @type t :: %__MODULE__{
+      bytes_received: non_neg_integer
+    }
+
+    defstruct bytes_received: 0
   end
 
 end

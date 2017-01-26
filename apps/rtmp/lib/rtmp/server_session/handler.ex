@@ -252,6 +252,12 @@ defmodule Rtmp.ServerSession.Handler do
     {:noreply, state}
   end
 
+  defp do_handle(state, message = %DetailedMessage{content: %Messages.Acknowledgement{}}) do
+    event = %Events.AcknowledgementReceived{bytes_received: message.content.sequence_number}
+    raise_event(state, event)
+    state
+  end
+
   defp do_handle(state, message = %DetailedMessage{content: %Messages.Amf0Command{}}) do
     handle_command(state,
                    message.stream_id,
