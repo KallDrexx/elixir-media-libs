@@ -17,7 +17,8 @@ defmodule SimpleRtmpServer.Worker do
               client_ip: nil,
               activities: %{},
               bytes_received: 0,
-              bytes_sent: 0
+              bytes_sent: 0,
+              last_ping_request_timestamp: 0
   end
 
   defmodule Activity do
@@ -43,8 +44,9 @@ defmodule SimpleRtmpServer.Worker do
     state = %State{
       session_id: session_id,
       client_ip: client_ip
-    } 
+    }
 
+    :erlang.send_after(1000 * 60, self(), :trigger_rtmp_request)
     {:ok, state}
   end
 
@@ -226,7 +228,7 @@ defmodule SimpleRtmpServer.Worker do
   def acknowledgement_received(event = %RtmpEvents.AcknowledgementReceived{}, state) do
     # More complicated rtmp servers should track these and make sure the client doesn't
     # go too long without sending an ack.  For the simple server we don't really care.
-    Logger.debug("Acknowledgement received: #{event.bytes_received}")
+    Logger.debug("#{state.session_id}: Acknowledgement received: #{event.bytes_received}")
     {:ok, state}
   end
 
@@ -235,6 +237,18 @@ defmodule SimpleRtmpServer.Worker do
       bytes_sent: event.bytes_sent,
       bytes_received: event.bytes_received
     }
+
+    {:ok, state}
+  end
+
+  def ping_request_sent(%RtmpEvents.PingRequestSent{}, state = %State{}) do
+    state = %{state | last_ping_request_timestamp: :os.system_time(:milli_seconds)}
+    {:ok, state}
+  end
+
+  def ping_response_received(%RtmpEvents.PingResponseReceived{}, state) do
+    latency = :os.system_time(:milli_seconds) - state.last_ping_request_timestamp
+    _ = Logger.debug("#{state.session_id}: Ping response received (latency #{latency}ms)")
 
     {:ok, state}
   end
@@ -325,6 +339,12 @@ defmodule SimpleRtmpServer.Worker do
     end
   end
 
+  def handle_message(:trigger_rtmp_request, state = %State{}) do
+    GenRtmpServer.send_ping_request(self())
+    :erlang.send_after(1000 * 60, self(), :trigger_rtmp_request)
+    {:ok, state}
+  end
+
   def handle_message(message, state = %State{}) do
     _ = Logger.debug("#{state.session_id}: Unknown message received: #{inspect(message)}")
     {:ok, state}
@@ -360,18 +380,18 @@ defmodule SimpleRtmpServer.Worker do
   defp is_audio_sequence_header(<<0xaf, 0x00, _::binary>>), do: true
   defp is_audio_sequence_header(_), do: false
 
-  defp send_sequence_header(nil, _, _) do
+  defp send_sequence_header(nil, _, _, _) do
     :ok
   end
 
-  defp send_sequence_header(event = %RtmpEvents.AudioVideoDataReceived{}, forced_timestamp, stream_id) do
+  defp send_sequence_header(event = %RtmpEvents.AudioVideoDataReceived{}, forced_timestamp, stream_id, state) do
     outbound_message = %GenRtmpServer.AudioVideoData{
       data_type: event.data_type,
       data: event.data,
       received_at_timestamp: forced_timestamp
     }
 
-    _ = Logger.debug("Sending #{event.data_type} sequence header")
+    _ = Logger.debug("#{state.session_id}: Sending #{event.data_type} sequence header")
     GenRtmpServer.send_message(self(), outbound_message, stream_id)
   end
 
@@ -387,7 +407,7 @@ defmodule SimpleRtmpServer.Worker do
     state = case activity.has_sent_keyframe do
       true -> state
       false ->
-        send_sequence_header(activity.video_sequence_header_event, event.received_at_timestamp, activity.stream_id)
+        send_sequence_header(activity.video_sequence_header_event, event.received_at_timestamp, activity.stream_id, state)
         activity = %{activity | has_sent_keyframe: true}
         activities = Map.put(state.activities, activity_key, activity)
         %{state | activities: activities}
@@ -408,7 +428,7 @@ defmodule SimpleRtmpServer.Worker do
     state = case activity.has_sent_audio_header do
       true -> state
       false ->
-        send_sequence_header(activity.audio_sequence_header_event, event.received_at_timestamp, activity.stream_id)
+        send_sequence_header(activity.audio_sequence_header_event, event.received_at_timestamp, activity.stream_id, state)
         activity = %{activity | has_sent_audio_header: true}
         activities = Map.put(state.activities, activity_key, activity)
         %{state | activities: activities}

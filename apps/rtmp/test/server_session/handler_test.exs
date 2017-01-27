@@ -159,7 +159,7 @@ defmodule Rtmp.ServerSession.HandlerTest do
 
     assert :ok = Handler.accept_request(session, request_id)
 
-    assert_receive{:message, %DetailedMessage{
+    assert_receive {:message, %DetailedMessage{
       stream_id: 0,
       timestamp: timestamp,
       content: %Messages.Amf0Command{
@@ -733,6 +733,38 @@ defmodule Rtmp.ServerSession.HandlerTest do
     session = context[:session]
     assert :ok = Handler.handle_rtmp_input(session, sent_ack)
     assert_receive {:event, %Events.AcknowledgementReceived{bytes_received: 501}}
+  end
+
+  test "Raises ping response received event when client sends a ping response user control message", context do
+    message = %DetailedMessage{
+      timestamp: 0,
+      stream_id: 0,
+      content: %Messages.UserControl{
+        type: :ping_response,
+        timestamp: 54321
+      }
+    }
+
+    session = context[:session]
+    assert :ok = Handler.handle_rtmp_input(session, message)
+    assert_receive {:event, %Events.PingResponseReceived{timestamp: 54321}}
+  end
+
+  test "Raises ping request sent event when a ping request is dispatched to the protocol handler", context do
+    # To verify non_zero timestamps
+    :timer.sleep(100)
+
+    session = context[:session]
+    assert :ok = Handler.send_ping_request(session)
+    assert_receive {:event, %Events.PingRequestSent{timestamp: ping_timestamp}}
+    assert_receive {:message, %DetailedMessage{
+      stream_id: 0,
+      timestamp: message_timestamp,
+      content: %Messages.UserControl{
+        type: :ping_request,
+        timestamp: ^ping_timestamp
+      }
+    }} when message_timestamp > 0
   end
 
   defp get_connected_session(context) do

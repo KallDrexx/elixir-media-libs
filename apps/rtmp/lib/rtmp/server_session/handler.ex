@@ -126,6 +126,12 @@ defmodule Rtmp.ServerSession.Handler do
     GenServer.cast(pid, {:accept_request, request_id})
   end
 
+  @spec send_ping_request(session_handler) :: :ok
+  @doc "Sends a ping request to the connected client"
+  def send_ping_request(pid) do
+    GenServer.cast(pid, :send_ping_request)
+  end
+
   def init([connection_id, configuration]) do
     state = %State{
       connection_id: connection_id,
@@ -241,6 +247,22 @@ defmodule Rtmp.ServerSession.Handler do
     {:noreply, state}
   end
 
+  def handle_cast(:send_ping_request, state) do
+    timestamp = :os.system_time(:milli_seconds) - state.start_time
+    message = %DetailedMessage{
+      stream_id: 0,
+      timestamp: timestamp,
+      content: %Messages.UserControl{
+        type: :ping_request,
+        timestamp: timestamp
+      }
+    }
+
+    :ok = state.protocol_handler_module.send_message(state.protocol_handler_pid, message)
+    raise_event(state, %Events.PingRequestSent{timestamp: timestamp})
+    {:noreply, state}
+  end
+
   def handle_info(:send_io_notifications, state) do
     event = %Events.NewByteIOTotals{
       bytes_sent: state.bytes_sent,
@@ -294,6 +316,16 @@ defmodule Rtmp.ServerSession.Handler do
 
   defp do_handle(state, _message = %DetailedMessage{content: %Messages.SetChunkSize{}}) do
     # Ignore, nothing to do.
+    state
+  end
+
+  defp do_handle(state, message = %DetailedMessage{content: %Messages.UserControl{type: :ping_response}}) do
+    raise_event(state, %Events.PingResponseReceived{timestamp: message.content.timestamp})
+    state
+  end
+
+  defp do_handle(state, message = %DetailedMessage{content: %Messages.UserControl{}}) do
+    _ = Logger.warn("#{state.connection_id}: Unable to handle user control message with type #{message.content.type}")
     state
   end
 

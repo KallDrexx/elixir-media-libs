@@ -12,7 +12,9 @@ defmodule Rtmp.ServerSession.Events do
     Rtmp.ServerSession.Events.PlayStreamRequested.t |
     Rtmp.ServerSession.Events.PlayStreamFinished.t |
     Rtmp.ServerSession.Events.NewByteIOTotals.t |
-    Rtmp.ServerSession.Events.AcknowledgementReceived.t
+    Rtmp.ServerSession.Events.AcknowledgementReceived.t |
+    Rtmp.ServerSession.Events.PingResponseReceived.t |
+    Rtmp.ServerSession.Events.PingRequestSent.t
 
   defmodule PeerChunkSizeChanged do
     @moduledoc """
@@ -213,6 +215,30 @@ defmodule Rtmp.ServerSession.Events do
     }
 
     defstruct bytes_received: 0
+  end
+
+  defmodule PingRequestSent do
+    @moduledoc """
+    Event indicating that the server has sent a ping request to the client
+    """
+
+    @type t :: %__MODULE__{
+      timestamp: non_neg_integer
+    }
+
+    defstruct timestamp: nil
+  end
+
+  defmodule PingResponseReceived do
+    @moduledoc """
+    Event indicating that the client has responded to a ping request
+    """
+
+    @type t :: %__MODULE__{
+      timestamp: non_neg_integer
+    }
+
+    defstruct timestamp: nil
   end
 
 end

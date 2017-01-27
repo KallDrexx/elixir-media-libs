@@ -81,6 +81,22 @@ defmodule GenRtmpServer do
   @callback acknowledgement_received(Rtmp.ServerSession.Events.AcknowledgementReceived.t, adopter_state)
     :: {:ok, adopter_state}
 
+  @doc """
+  Called when the server has successfully sent a ping request.  This is needed to be handled
+  if the server implementation wants track how long it's been since a ping request has gone
+  unresponded to, or if the server wants to get an idea of latency
+  """
+  @callback ping_request_sent(Rtmp.ServerSession.Events.PingRequestSent.t, adopter_state)
+    :: {:ok, adopter_state}
+
+  @doc """
+  Called when the server has received a response to a ping request.  Note that unsolicited
+  ping responses may come through, and it's up to the behavior implementor to decide how to
+  react to it.
+  """
+  @callback ping_response_received(Rtmp.ServerSession.Events.PingResponseReceived.t, adopter_state)
+    :: {:ok, adopter_state}
+
   @doc "Called when an code change is ocurring"
   @callback code_change(any, adopter_state) :: {:ok, adopter_state} | {:error, String.t}
 
@@ -115,6 +131,14 @@ defmodule GenRtmpServer do
   """
   def send_message(pid, outbound_data, stream_id, forced_timestamp \\ nil) do
     send(pid, {:rtmp_send, outbound_data, stream_id, forced_timestamp})
+  end
+
+  @spec send_ping_request(pid) :: :ok
+  @doc """
+  Sends a ping request to the client
+  """
+  def send_ping_request(pid) do
+    send(pid, :send_ping_request)
   end
 
 end

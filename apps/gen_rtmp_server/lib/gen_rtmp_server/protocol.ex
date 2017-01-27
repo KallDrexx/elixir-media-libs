@@ -146,6 +146,11 @@ defmodule GenRtmpServer.Protocol do
     rtmp_send(data, send_to_stream_id, state, forced_timestamp)
     {:noreply, state}
   end
+
+  def handle_info(:send_ping_request, state = %State{}) do
+    :ok = Rtmp.ServerSession.Handler.send_ping_request(state.session_handler_pid)
+    {:noreply, state}
+  end
   
   def handle_info(message, state = %State{}) do
     {:ok, adopter_state} = state.gen_rtmp_server_adopter.handle_message(message, state.adopter_state)
@@ -266,6 +271,16 @@ defmodule GenRtmpServer.Protocol do
 
   defp handle_event(event = %RtmpEvents.AcknowledgementReceived{}, state) do
     {:ok, adopter_state} = state.gen_rtmp_server_adopter.acknowledgement_received(event, state.adopter_state)
+    %{state | adopter_state: adopter_state}
+  end
+
+  defp handle_event(event = %RtmpEvents.PingRequestSent{}, state) do
+    {:ok, adopter_state} = state.gen_rtmp_server_adopter.ping_request_sent(event, state.adopter_state)
+    %{state | adopter_state: adopter_state}
+  end
+
+  defp handle_event(event = %RtmpEvents.PingResponseReceived{}, state) do
+    {:ok, adopter_state} = state.gen_rtmp_server_adopter.ping_response_received(event, state.adopter_state)
     %{state | adopter_state: adopter_state}
   end
 
