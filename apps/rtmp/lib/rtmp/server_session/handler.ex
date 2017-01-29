@@ -1,6 +1,6 @@
 defmodule Rtmp.ServerSession.Handler do
   @moduledoc """
-  This module controls the process that controls the business logic
+  This module controls the process that processes the business logic
   of a server in an RTMP connection.
 
   The session handler can react to incoming RTMP input messages from
