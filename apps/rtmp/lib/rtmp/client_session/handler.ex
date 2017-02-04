@@ -13,8 +13,8 @@ defmodule Rtmp.ClientSession.Handler do
   use GenServer
 
   alias Rtmp.Protocol.DetailedMessage, as: DetailedMessage
-  #alias Rtmp.Protocol.Messages, as: Messages
-  #alias Rtmp.ClientSession.Events, as: Events
+  alias Rtmp.Protocol.Messages, as: Messages
+  alias Rtmp.ClientSession.Events, as: Events
   alias Rtmp.ClientSession.Configuration, as: Configuration
 
   @type session_handler_process :: pid
@@ -30,7 +30,25 @@ defmodule Rtmp.ClientSession.Handler do
   defmodule State do
     @moduledoc false
 
-    defstruct connection_id: nil
+    defstruct connection_id: nil,
+              configuration: nil,
+              start_time: nil,
+              protocol_handler_pid: nil,
+              protocol_handler_module: nil,
+              event_receiver_pid: nil,
+              event_receiver_module: nil,
+              current_status: :started,
+              connected_app_name: nil,
+              last_transaction_id: 0,
+              open_transactions: %{}
+  end
+
+  defmodule Transaction do
+    @moduledoc false
+
+    defstruct id: nil,
+              type: nil,
+              data: nil
   end
 
   @spec start_link(Rtmp.connection_id, Configuration.t) :: {:ok, session_handler_process}
@@ -133,6 +151,196 @@ defmodule Rtmp.ClientSession.Handler do
   """
   def stop_publish(pid, stream_key) do
     GenServer.cast(pid, {:stop_publish, stream_key})
+  end
+
+  def init([connection_id, configuration]) do
+    state = %State{
+      connection_id: connection_id,
+      configuration: configuration,
+      start_time: :os.system_time(:milli_seconds)
+    }
+
+    {:ok, state}
+  end
+
+  def handle_call({:set_event_handler, {event_pid, event_receiver_module}}, _from, state) do
+    handler_set = state.event_receiver_pid != nil
+    function_set = state.event_receiver_module != nil
+    case handler_set && function_set do
+      true ->
+        {:reply, :event_handler_already_set, state}
+
+      false ->
+        state = %{state | event_receiver_pid: event_pid, event_receiver_module: event_receiver_module}
+        {:reply, :ok, state}
+    end
+  end
+
+  def handle_call({:set_protocol_handler, {protocol_handler_pid, protocol_handler_module}}, _from, state) do
+    handler_set = state.protocol_handler_pid != nil
+    function_set = state.protocol_handler_module != nil
+    case handler_set && function_set do
+      true ->
+        {:reply, :event_handler_already_set, state}
+
+      false ->
+        state = %{state |
+          protocol_handler_pid: protocol_handler_pid,
+          protocol_handler_module: protocol_handler_module
+        }
+
+        {:reply, :ok, state}
+    end
+  end
+
+  def handle_cast({:rtmp_input, message}, state) do
+    cond do
+      state.event_receiver_pid == nil -> raise("No event handler set")
+      state.event_receiver_module == nil -> raise("No event handler set")
+      state.protocol_handler_pid == nil -> raise("No protocol handler set")
+      state.protocol_handler_module == nil -> raise("No protocol handler set")
+      true ->
+        state = do_handle(state, message)
+        {:noreply, state}
+    end
+  end
+
+  def handle_cast({:connect, app_name}, state) do
+    case state.current_status do
+      :started ->
+        state = send_connect_command(state, app_name)
+        {:noreply, state}
+
+      _ ->
+        _ = Logger.warn("#{state.connection_id}: Attempted connection while in #{state.current_status} state, ignoring...")
+        {:noreply, state}
+    end
+  end
+
+  def handle_info(message, state) do
+    _ = Logger.info("#{state.connection_id}: Session handler process received unknown erlang message: #{inspect(message)}")
+    {:noreply, state}
+  end
+
+  defp do_handle(state, message = %DetailedMessage{content: %Messages.Amf0Command{}}) do
+    handle_command(state,
+                   message.stream_id,
+                   message.content.command_name,
+                   message.content.transaction_id,
+                   message.content.command_object,
+                   message.content.additional_values)
+  end
+
+  defp do_handle(state, message = %DetailedMessage{content: %{__struct__: message_type}}) do
+    simple_name = String.replace(to_string(message_type), "Elixir.Rtmp.Protocol.Messages.", "")
+
+    _ = Logger.warn("#{state.connection_id}: Unable to handle #{simple_name} message on stream id #{message.stream_id}")
+    state
+  end
+
+  defp handle_command(state, _stream_id, "_result", transaction_id, command_object, additional_values) do
+    case Map.get(state.open_transactions, transaction_id) do
+      nil ->
+        _ = Logger.warn("#{state.connection_id}: Received result for unknown transaction id #{transaction_id}")
+        state
+
+      transaction ->
+        state = %{state | open_transactions: Map.delete(state.open_transactions, transaction_id)}
+        case transaction.type do
+          :connect -> handle_connect_result(state, transaction, command_object, additional_values)
+        end
+    end
+  end
+
+  defp handle_connect_result(state, transaction, _command_object, [arguments = %{}]) do
+    case arguments["code"] do
+      "NetConnection.Connect.Success" ->
+        state = %{state | 
+          current_status: :connected,
+          connected_app_name: transaction.data
+        }
+
+        event = %Events.ConnectionResponseReceived {
+          was_accepted: true,
+          response_text: arguments["description"]
+        }
+
+        :ok = raise_event(state, event)
+        state
+    end
+  end
+
+  defp send_connect_command(state, app_name) do
+    {transaction, state} = form_transaction(state, :connect, app_name)
+    command =  %Messages.Amf0Command{
+      command_name: "connect",
+      transaction_id: transaction.id,
+      command_object: %{
+        "app" => app_name,
+        "flashVer" => state.configuration.flash_version,
+        "objectEncoding" => 0
+      },
+      additional_values: []
+    }
+
+    :ok = send_output_message(state, command, 0, false)
+
+    %{state | 
+      current_status: :connecting,
+      open_transactions: Map.put(state.open_transactions, transaction.id, transaction)
+    }
+  end
+
+  defp form_transaction(state, type, data) do
+    transaction = %Transaction{
+      id: state.last_transaction_id + 1,
+      type: type,
+      data: data
+    }
+
+    state = %{state | last_transaction_id: transaction.id}
+    {transaction, state}
+  end
+
+  defp form_output_message(state, message_content, stream_id, force_uncompressed) do
+    %DetailedMessage{
+      timestamp: get_current_rtmp_epoch(state),
+      stream_id: stream_id,
+      content: message_content,
+      force_uncompressed: force_uncompressed
+    }
+  end
+
+  defp get_current_rtmp_epoch(state) do
+    time_since_start = :os.system_time(:milli_seconds) - state.start_time
+    Rtmp.Protocol.RtmpTime.to_rtmp_timestamp(time_since_start)
+  end
+
+  defp send_output_message(_, [], _, _) do
+    :ok
+  end
+
+  defp send_output_message(state, [message | rest], stream_id, force_uncompressed) do
+    response = form_output_message(state, message, stream_id, force_uncompressed)
+    :ok = state.protocol_handler_module.send_message(state.protocol_handler_pid, response)
+    send_output_message(state, rest, stream_id, force_uncompressed)
+  end
+
+  defp send_output_message(state, message, stream_id, force_uncompressed) do
+    send_output_message(state, [message], stream_id, force_uncompressed)
+  end
+
+  defp raise_event(_, []) do
+    :ok
+  end
+
+  defp raise_event(state, [event | rest]) do
+    :ok = state.event_receiver_module.send_event(state.event_receiver_pid, event)
+    raise_event(state, rest)
+  end
+
+  defp raise_event(state, event) do
+    raise_event(state, [event])
   end
   
 end
