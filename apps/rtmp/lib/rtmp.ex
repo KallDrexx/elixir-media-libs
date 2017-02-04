@@ -37,7 +37,6 @@ defmodule Rtmp do
       @type io_count_direction :: :bytes_received | :bytes_sent
 
       @callback handle_rtmp_input(session_handler_pid, Rtmp.Protocol.DetailedMessage.t) :: :ok
-      @callback send_rtmp_message(session_handler_pid, Rtmp.deserialized_message, stream_id, forced_timestamp) :: :ok
       @callback notify_byte_count(session_handler_pid, io_count_direction, non_neg_integer) :: :ok
     end
 

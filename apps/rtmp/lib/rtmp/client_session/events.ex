@@ -1,7 +1,11 @@
 defmodule Rtmp.ClientSession.Events do
   @moduledoc false
 
-  
+  @type t :: Rtmp.ClientSession.Events.ConnectionResponseReceived.t |
+    Rtmp.ClientSession.Events.PublishResponseReceived.t |
+    Rtmp.ClientSession.Events.PlayResponseReceived.t |
+    Rtmp.ClientSession.Events.StreamMetaDataReceived.t |
+    Rtmp.ClientSession.Events.AudioVideoDataReceived.t  
 
   defmodule ConnectionResponseReceived do
     @moduledoc """
@@ -44,7 +48,7 @@ defmodule Rtmp.ClientSession.Events do
     }
 
     defstruct was_accepted: nil,
-              response_text: String.t
+              response_text: nil
   end
 
   defmodule StreamMetaDataReceived do

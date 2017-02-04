@@ -22,7 +22,6 @@ defmodule Rtmp.ServerSession.Handler do
 
   @type rtmp_output_handler :: pid
   @type session_handler :: pid
-  @type event_notification_process :: pid
   @type protocol_handler_module :: module
   @type event_receiver_process :: pid
   @type event_receiver_module ::  module
@@ -75,7 +74,7 @@ defmodule Rtmp.ServerSession.Handler do
     GenServer.start_link(__MODULE__, [connection_id, configuration])
   end
 
-  @spec set_event_handler(session_handler, event_notification_process, event_receiver_module)
+  @spec set_event_handler(session_handler, event_receiver_process, event_receiver_module)
     :: :ok | :event_handler_already_set
   @doc """
   Specifies the process id and function to use to raise event notifications.
