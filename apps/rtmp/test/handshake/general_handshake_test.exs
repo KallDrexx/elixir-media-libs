@@ -62,9 +62,6 @@ defmodule Rtmp.Handshake.GeneralHandshakeTest do
     assert {handshake2, %Rtmp.Handshake.ParseResult{current_state: :waiting_for_data, bytes_to_send: bytes2_2}}
       = Rtmp.Handshake.process_bytes(handshake2, bytes1_1)
 
-    Logger.debug "bytes1_2: #{inspect(bytes1_2)}"
-    Logger.debug "bytes2_2: #{inspect(bytes2_2)}"
-
     # packet 2
     assert {_, %Rtmp.Handshake.ParseResult{current_state: :success}}
       = Rtmp.Handshake.process_bytes(handshake1, bytes2_2)
