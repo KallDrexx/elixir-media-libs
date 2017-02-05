@@ -46,7 +46,7 @@ defmodule Rtmp.ServerSession.HandlerTest do
     expected_peer_bandwidth = context[:options].peer_bandwidth
 
     # To verify non_zero timestamps in responses
-    :timer.sleep(100)
+    :timer.sleep(10)
 
     session = context[:session]
     assert :ok = Handler.send_stream_zero_begin(session)
@@ -99,7 +99,7 @@ defmodule Rtmp.ServerSession.HandlerTest do
     expected_fms_version = context[:options].fms_version
 
     # To verify non_zero timestamps in responses
-    :timer.sleep(100)
+    :timer.sleep(10)
 
     session = context[:session]
     assert :ok = Handler.handle_rtmp_input(session, command)
@@ -147,7 +147,7 @@ defmodule Rtmp.ServerSession.HandlerTest do
     expected_fms_version = context[:options].fms_version
 
     # To verify non_zero timestamps in responses
-    :timer.sleep(100)
+    :timer.sleep(10)
 
     session = context[:session]
     assert :ok = Handler.handle_rtmp_input(session, command)
@@ -752,7 +752,7 @@ defmodule Rtmp.ServerSession.HandlerTest do
 
   test "Raises ping request sent event when a ping request is dispatched to the protocol handler", context do
     # To verify non_zero timestamps
-    :timer.sleep(100)
+    :timer.sleep(10)
 
     session = context[:session]
     assert :ok = Handler.send_ping_request(session)
@@ -770,7 +770,7 @@ defmodule Rtmp.ServerSession.HandlerTest do
   defp get_connected_session(context) do
     # Make sure some time has passed since creating the processor
     #   to allow for non-zero timestamp checking
-    :timer.sleep(100)
+    :timer.sleep(10)
 
     test_context = %TestContext{
       session: context[:session],
