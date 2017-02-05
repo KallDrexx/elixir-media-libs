@@ -265,7 +265,10 @@ defmodule Rtmp.ClientSession.Handler do
           response_text: arguments["description"]
         }
 
+        message = %Messages.WindowAcknowledgementSize{size: state.configuration.window_ack_size}
+        
         :ok = raise_event(state, event)
+        :ok = send_output_message(state, message, 0, false) 
         state
     end
   end

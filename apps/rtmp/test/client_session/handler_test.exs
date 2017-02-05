@@ -9,9 +9,6 @@ defmodule Rtmp.ClientSession.HandlerTest do
 
   defmodule TestContext do
     defstruct session: nil,
-              app_name: nil,
-              active_stream_id: nil,
-              stream_key: nil,
               options: nil
   end
 
@@ -64,6 +61,31 @@ defmodule Rtmp.ClientSession.HandlerTest do
       }
     }} when timestamp > 0
 
+    send_connect_success(session, "success123")    
+    assert_receive {:event, %Events.ConnectionResponseReceived{
+      was_accepted: true,
+      response_text: "success123"
+    }}
+  end
+
+  test "Window ack size sent after successful connection request", context do
+    session = context[:session]
+    options = context[:options]
+
+    expected_win_size = options.window_ack_size
+
+    :timer.sleep(100) # To verify non_zero timestamps in responses
+
+    assert :ok == Handler.request_connection(session, "my_app")
+    send_connect_success(session)
+    assert_receive {:message, %DetailedMessage{
+      stream_id: 0,
+      timestamp: timestamp,
+      content: %Messages.WindowAcknowledgementSize{size: ^expected_win_size}
+    }} when timestamp > 0
+  end
+
+  defp send_connect_success(session, description \\ "success") do
     result = %DetailedMessage{
       stream_id: 0,
       timestamp: 100,
@@ -77,17 +99,12 @@ defmodule Rtmp.ClientSession.HandlerTest do
         additional_values: [%{
           "level" => "status",
           "code" => "NetConnection.Connect.Success",
-          "description" => "success123",
+          "description" => description,
           "objectEncoding" => 0
         }]
       }
     }
 
     assert :ok == Handler.handle_rtmp_input(session, result)
-    assert_receive {:event, %Events.ConnectionResponseReceived{
-      was_accepted: true,
-      response_text: "success123"
-    }}
-
   end
 end
