@@ -40,7 +40,8 @@ defmodule Rtmp.ClientSession.Handler do
               current_status: :started,
               connected_app_name: nil,
               last_transaction_id: 0,
-              open_transactions: %{}
+              open_transactions: %{},
+              active_streams: %{}
   end
 
   defmodule Transaction do
@@ -49,6 +50,15 @@ defmodule Rtmp.ClientSession.Handler do
     defstruct id: nil,
               type: nil,
               data: nil
+  end
+
+  defmodule ActiveStream do
+    @moduledoc false
+
+    defstruct id: nil,
+              type: nil,
+              state: :created,
+              stream_key: nil
   end
 
   @spec start_link(Rtmp.connection_id, Configuration.t) :: {:ok, session_handler_process}
@@ -200,7 +210,7 @@ defmodule Rtmp.ClientSession.Handler do
       state.protocol_handler_pid == nil -> raise("No protocol handler set")
       state.protocol_handler_module == nil -> raise("No protocol handler set")
       true ->
-        state = do_handle(state, message)
+        state = do_handle_rtmp_input(state, message)
         {:noreply, state}
     end
   end
@@ -217,12 +227,24 @@ defmodule Rtmp.ClientSession.Handler do
     end
   end
 
+  def handle_cast({:request_playback, stream_key}, state) do
+    case state.current_status do
+      :connected ->
+        state = send_create_stream_command(state, :playback, stream_key)
+        {:noreply, state}
+
+      _ ->
+        _ = Logger.warn("#{state.connection_id}: Attempted requesting playback while in #{state.current_status} state, ignoring...")
+        {:noreply, state}
+    end
+  end
+
   def handle_info(message, state) do
     _ = Logger.info("#{state.connection_id}: Session handler process received unknown erlang message: #{inspect(message)}")
     {:noreply, state}
   end
 
-  defp do_handle(state, message = %DetailedMessage{content: %Messages.Amf0Command{}}) do
+  defp do_handle_rtmp_input(state, message = %DetailedMessage{content: %Messages.Amf0Command{}}) do
     handle_command(state,
                    message.stream_id,
                    message.content.command_name,
@@ -231,7 +253,7 @@ defmodule Rtmp.ClientSession.Handler do
                    message.content.additional_values)
   end
 
-  defp do_handle(state, message = %DetailedMessage{content: %{__struct__: message_type}}) do
+  defp do_handle_rtmp_input(state, message = %DetailedMessage{content: %{__struct__: message_type}}) do
     simple_name = String.replace(to_string(message_type), "Elixir.Rtmp.Protocol.Messages.", "")
 
     _ = Logger.warn("#{state.connection_id}: Unable to handle #{simple_name} message on stream id #{message.stream_id}")
@@ -248,8 +270,28 @@ defmodule Rtmp.ClientSession.Handler do
         state = %{state | open_transactions: Map.delete(state.open_transactions, transaction_id)}
         case transaction.type do
           :connect -> handle_connect_result(state, transaction, command_object, additional_values)
+          :create_stream -> handle_create_stream_result(state, transaction, command_object, additional_values)
         end
     end
+  end
+
+  defp handle_command(state, stream_id, "onStatus", _transaction_id, _command_object, [arguments = %{}]) do
+    case arguments["code"] do
+      "NetStream.Play.Start" -> handle_play_start(state, stream_id, arguments["description"])
+
+      nil ->
+        _ = Logger.warn("#{state.connection_id}: onStatus sent by server with no code argument")
+        state
+    end
+  end
+
+  defp handle_command(state, stream_id, command_name, transaction_id, _command_obj, _args) do
+    unless is_ignorable_command(command_name) do
+      _ = Logger.warn("#{state.connection_id}: Unable to handle command '#{command_name}' " <>
+        "(stream id '#{stream_id}', transaction_id: #{transaction_id})")
+    end
+
+    state
   end
 
   defp handle_connect_result(state, transaction, _command_object, [arguments = %{}]) do
@@ -292,6 +334,82 @@ defmodule Rtmp.ClientSession.Handler do
       current_status: :connecting,
       open_transactions: Map.put(state.open_transactions, transaction.id, transaction)
     }
+  end
+
+  defp send_create_stream_command(state, purpose, stream_key) do
+    {transaction, state} = form_transaction(state, :create_stream, {purpose, %{:stream_key => stream_key}})
+    command = %Messages.Amf0Command{
+      command_name: "createStream",
+      transaction_id: transaction.id
+    }
+
+    :ok = send_output_message(state, command, 0, false)
+    %{state | 
+      current_status: :connecting,
+      open_transactions: Map.put(state.open_transactions, transaction.id, transaction)
+    }
+  end
+
+  defp handle_create_stream_result(state, transaction, _, [stream_id]) do
+    if Map.has_key?(state.active_streams, stream_id) do
+      raise("#{state.connection_id}: Server created stream #{stream_id} but we were already tracking a stream with that id")
+    end
+
+    {purpose, %{:stream_key => stream_key}} = transaction.data
+    active_stream = %ActiveStream{
+      id: stream_id,
+      type: purpose, 
+      stream_key: stream_key
+    }
+
+    all_active_streams = Map.put(state.active_streams, stream_id, active_stream)
+    state = %{state | active_streams: all_active_streams}
+
+    case purpose do
+      :playback ->
+        buffer_length_message = %Messages.UserControl{
+          type: :set_buffer_length,
+          buffer_length: state.configuration.playback_buffer_length_ms,
+          stream_id: stream_id
+        }
+
+        {transaction, state} = form_transaction(state, :play, stream_key)
+        play_message = %Messages.Amf0Command{
+          command_name: "play",
+          transaction_id: transaction.id,
+          command_object: nil,
+          additional_values: [stream_key]
+        }
+
+        :ok = send_output_message(state, buffer_length_message, 0, false)
+        :ok = send_output_message(state, play_message, stream_id, false)
+
+        state
+    end    
+  end
+
+  defp handle_play_start(state, stream_id, status_text) do
+    case Map.get(state.active_streams, stream_id) do
+      nil -> 
+        _ = Logger.debug("#{state.connection_id}: Play start command received for non-tracked stream id #{stream_id}")
+        state
+
+      active_stream = %ActiveStream{} ->
+        case active_stream.state do
+          :created ->
+            active_stream = %{active_stream | state: :playing}
+            all_active_streams = Map.put(state.active_streams, stream_id, active_stream)
+            state = %{state | active_streams: all_active_streams}
+
+            event = %Rtmp.ClientSession.Events.PlayResponseReceived{
+              was_accepted: true,
+              response_text: status_text
+            }
+
+            :ok = raise_event(state, event)
+            state
+        end
+    end
   end
 
   defp form_transaction(state, type, data) do
@@ -345,5 +463,7 @@ defmodule Rtmp.ClientSession.Handler do
   defp raise_event(state, event) do
     raise_event(state, [event])
   end
+
+  defp is_ignorable_command(_), do: false
   
 end
