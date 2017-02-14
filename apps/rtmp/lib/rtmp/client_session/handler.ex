@@ -268,21 +268,27 @@ defmodule Rtmp.ClientSession.Handler do
 
   defp do_handle_rtmp_input(state, message = %DetailedMessage{content: %Messages.AudioData{}}) do
     active_stream = Map.fetch!(state.active_streams, message.stream_id)
-    if active_stream.state != :playing do
-      error_message = "Client received audio data on stream in state #{active_stream.state}"
-      raise("#{state.connection_id}: #{error_message}")
+    cond do
+      active_stream.state == :closed ->
+        # Assume this just came in as we closed the stream, so ignore it
+        state
+
+      active_stream.state != :playing ->
+        error_message = "Client received audio data on stream in state #{active_stream.state}"
+        raise("#{state.connection_id}: #{error_message}")
+
+      true ->
+        event = %Events.AudioVideoDataReceived{
+          stream_key: active_stream.stream_key,
+          data_type: :audio,
+          data: message.content.data,
+          timestamp: message.timestamp,
+          received_at_timestamp: message.deserialization_system_time
+        }
+
+        raise_event(state, event)
+        state
     end
-
-    event = %Events.AudioVideoDataReceived{
-      stream_key: active_stream.stream_key,
-      data_type: :audio,
-      data: message.content.data,
-      timestamp: message.timestamp,
-      received_at_timestamp: message.deserialization_system_time
-    }
-
-    raise_event(state, event)
-    state
   end
 
   defp do_handle_rtmp_input(state, message = %DetailedMessage{content: %Messages.Amf0Command{}}) do
@@ -301,21 +307,27 @@ defmodule Rtmp.ClientSession.Handler do
 
   defp do_handle_rtmp_input(state, message = %DetailedMessage{content: %Messages.VideoData{}}) do
     active_stream = Map.fetch!(state.active_streams, message.stream_id)
-    if active_stream.state != :playing do
-      error_message = "Client received video data on stream in state #{active_stream.state}"
-      raise("#{state.connection_id}: #{error_message}")
+    cond do
+      active_stream.state == :closed ->
+        # Assume this just came in as we closed the stream, so ignore it
+        state
+
+      active_stream.state != :playing ->
+        error_message = "Client received audio data on stream in state #{active_stream.state}"
+        raise("#{state.connection_id}: #{error_message}")
+
+      true ->
+        event = %Events.AudioVideoDataReceived{
+          stream_key: active_stream.stream_key,
+          data_type: :video,
+          data: message.content.data,
+          timestamp: message.timestamp,
+          received_at_timestamp: message.deserialization_system_time
+        }
+
+        raise_event(state, event)
+        state
     end
-
-    event = %Events.AudioVideoDataReceived{
-      stream_key: active_stream.stream_key,
-      data_type: :video,
-      data: message.content.data,
-      timestamp: message.timestamp,
-      received_at_timestamp: message.deserialization_system_time
-    }
-
-    raise_event(state, event)
-    state
   end
 
   defp do_handle_rtmp_input(state, message = %DetailedMessage{content: %{__struct__: message_type}}) do
@@ -378,6 +390,10 @@ defmodule Rtmp.ClientSession.Handler do
         :ok = send_output_message(state, message, 0, false) 
         state
     end
+  end
+
+  defp handle_data(state, stream = %ActiveStream{state: :closed}, ['onMetaData', metadata = %{}]) do
+    state
   end
 
   defp handle_data(state, stream = %ActiveStream{state: :playing}, ['onMetaData', metadata = %{}]) do
