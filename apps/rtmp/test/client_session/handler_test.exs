@@ -45,7 +45,7 @@ defmodule Rtmp.ClientSession.HandlerTest do
     options = context[:options]
     expected_win_size = options.window_ack_size
 
-    :timer.sleep(10) # To verify non_zero timestamps in responses
+    :timer.sleep(20) # To verify non_zero timestamps in responses
 
     assert :ok == Handler.request_connection(session, "my_app")
     expect_connection_request_rtmp_message("my_app", options.flash_version)
@@ -123,7 +123,7 @@ defmodule Rtmp.ClientSession.HandlerTest do
   end
 
   defp get_connected_session(context) do
-    :timer.sleep(10) # for non-zero timestamp checking
+    :timer.sleep(20) # for non-zero timestamp checking
 
     test_context = %TestContext{
       session: context[:session],
