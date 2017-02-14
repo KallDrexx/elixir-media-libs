@@ -122,6 +122,52 @@ defmodule Rtmp.ClientSession.HandlerTest do
     }}
   end
 
+  test "Active playback raises events for audio data received", context do
+    %TestContext{
+      session: session,
+      stream_key: stream_key,
+      active_stream_id: stream_id
+    } = get_playback_session(context);
+
+    simulated_audio_message = %DetailedMessage{
+      timestamp: 512,
+      stream_id: stream_id,
+      content: %Messages.AudioData{data: <<100::12>>}
+    }
+
+    assert :ok == Handler.handle_rtmp_input(session, simulated_audio_message)
+    assert_receive {:event, %Events.AudioVideoDataReceived{
+      stream_key: ^stream_key,
+      data_type: :audio,
+      data: <<100::12>>,
+      timestamp: 512,
+      received_at_timestamp: received_at_timestamp,      
+    }} when received_at_timestamp > 0
+  end
+
+  test "Active playback raises events for video data received", context do
+    %TestContext{
+      session: session,
+      stream_key: stream_key,
+      active_stream_id: stream_id
+    } = get_playback_session(context);
+
+    simulated_audio_message = %DetailedMessage{
+      timestamp: 512,
+      stream_id: stream_id,
+      content: %Messages.VideoData{data: <<100::12>>}
+    }
+
+    assert :ok == Handler.handle_rtmp_input(session, simulated_audio_message)
+    assert_receive {:event, %Events.AudioVideoDataReceived{
+      stream_key: ^stream_key,
+      data_type: :video,
+      data: <<100::12>>,
+      timestamp: 512,
+      received_at_timestamp: received_at_timestamp,      
+    }} when received_at_timestamp > 0
+  end
+
   defp get_connected_session(context) do
     :timer.sleep(20) # for non-zero timestamp checking
 

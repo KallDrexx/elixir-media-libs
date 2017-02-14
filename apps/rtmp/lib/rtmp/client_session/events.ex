@@ -71,16 +71,14 @@ defmodule Rtmp.ClientSession.Events do
     """
 
     @type t :: %__MODULE__{
-      app_name: Rtmp.app_name,
       stream_key: Rtmp.stream_key,
       data_type: :audio | :video,
       data: binary,
       timestamp: non_neg_integer,
-      received_at_timestamp: pos_integer
+      received_at_timestamp: pos_integer,
     }
 
-    defstruct app_name: nil,
-              stream_key: nil,
+    defstruct stream_key: nil,
               data_type: nil, 
               data: <<>>,
               timestamp: nil,
