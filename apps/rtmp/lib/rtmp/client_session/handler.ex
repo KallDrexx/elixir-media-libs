@@ -253,6 +253,11 @@ defmodule Rtmp.ClientSession.Handler do
                    message.content.additional_values)
   end
 
+  defp do_handle_rtmp_input(state, message = %DetailedMessage{content: %Messages.Amf0Data{}}) do
+    active_stream = Map.fetch!(state.active_streams, message.stream_id)
+    handle_data(state, active_stream, message.content.parameters)
+  end
+
   defp do_handle_rtmp_input(state, message = %DetailedMessage{content: %{__struct__: message_type}}) do
     simple_name = String.replace(to_string(message_type), "Elixir.Rtmp.Protocol.Messages.", "")
 
@@ -313,6 +318,35 @@ defmodule Rtmp.ClientSession.Handler do
         :ok = send_output_message(state, message, 0, false) 
         state
     end
+  end
+
+  defp handle_data(state, stream = %ActiveStream{state: :playing}, ['onMetaData', metadata = %{}]) do
+    event = %Events.StreamMetaDataReceived{
+      stream_key: stream.stream_key,
+      meta_data: %Rtmp.StreamMetadata{
+        video_width: metadata["width"],
+        video_height: metadata["height"],
+        video_codec: metadata["videocodecid"],
+        video_frame_rate: metadata["framerate"],
+        video_bitrate_kbps: metadata["videodatarate"],
+        audio_codec: metadata["audiocodecid"],
+        audio_bitrate_kbps: metadata["audiodatarate"],
+        audio_sample_rate: metadata["audiosamplerate"],
+        audio_channels: metadata["audiochannels"],
+        audio_is_stereo: metadata["stereo"],
+        encoder: metadata["encoder"]
+      }
+    }
+
+    raise_event(state, event)
+    state
+  end
+
+  defp handle_data(state, stream, data) do
+    _ = Logger.info("#{state.connection_id}: No known way to handle incoming data on stream id '#{stream.id}' " <>
+      "in state #{stream.state}.  Data: #{inspect data}")
+
+    state
   end
 
   defp send_connect_command(state, app_name) do

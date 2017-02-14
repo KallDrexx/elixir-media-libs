@@ -57,10 +57,12 @@ defmodule Rtmp.ClientSession.Events do
     """
 
     @type t :: %__MODULE__{
-      meta_data: Rtmp.StreamMetadata.t
+      meta_data: Rtmp.StreamMetadata.t,
+      stream_key: Rtmp.stream_key
     }
 
-    defstruct meta_data: nil
+    defstruct meta_data: nil,
+              stream_key: nil
   end
 
   defmodule AudioVideoDataReceived do

@@ -10,7 +10,9 @@ defmodule Rtmp.ClientSession.HandlerTest do
   defmodule TestContext do
     defstruct session: nil,
               options: nil,
-              app_name: nil
+              app_name: nil,
+              stream_key: nil,
+              active_stream_id: nil
   end
 
   def send_event(pid, event) do
@@ -48,7 +50,7 @@ defmodule Rtmp.ClientSession.HandlerTest do
     assert :ok == Handler.request_connection(session, "my_app")
     expect_connection_request_rtmp_message("my_app", options.flash_version)
 
-    send_connect_response(session, true, "success123")
+    simulate_connect_response(session, true, "success123")
     expect_connection_response_received_event(true, "success123")
 
     # connection success should trigger ack size command
@@ -71,13 +73,53 @@ defmodule Rtmp.ClientSession.HandlerTest do
     assert :ok == Handler.request_playback(session, stream_key)
     transaction_id = expect_create_stream_rtmp_message()
 
-    send_create_stream_response(session, transaction_id, created_stream_id)    
+    simulate_create_stream_response(session, transaction_id, created_stream_id)    
     expect_buffer_length_rtmp_message(created_stream_id, options.playback_buffer_length_ms)
     play_transaction_id = expect_play_rtmp_message(created_stream_id, stream_key)
 
     description = "Started playing"
-    send_play_response(session, play_transaction_id, created_stream_id, true, description)
+    simulate_play_response(session, play_transaction_id, created_stream_id, true, description)
     expect_play_response_received_event(true, description)
+  end
+
+  test "Active playback raises events for stream metadata changes", context do
+    %TestContext{
+      session: session,
+      stream_key: stream_key,
+      active_stream_id: stream_id
+    } = get_playback_session(context);
+
+    simulated_metadata = %DetailedMessage{
+      stream_id: stream_id,
+      content: %Messages.Amf0Data{parameters: [
+        'onMetaData',
+        %{
+          "height" => 720,
+          "width" => 1280,
+          "audiochannels" => 2,
+          "audiocodecid" => "mp4a",
+          "audiodatarate" => 96,
+          "framerate" => 30,
+          "videocodecid" => "avc1",
+          "videodatarate" => 1000
+        }
+      ]}
+    }
+
+    assert :ok == Handler.handle_rtmp_input(session, simulated_metadata)
+    assert_receive {:event, %Events.StreamMetaDataReceived{
+      stream_key: ^stream_key,
+      meta_data: %Rtmp.StreamMetadata{
+        video_height: 720,
+        video_width: 1280,
+        video_codec: "avc1",
+        video_frame_rate: 30,
+        video_bitrate_kbps: 1000,
+        audio_channels: 2,
+        audio_codec: "mp4a",
+        audio_bitrate_kbps: 96
+      }
+    }}
   end
 
   defp get_connected_session(context) do
@@ -86,19 +128,42 @@ defmodule Rtmp.ClientSession.HandlerTest do
     test_context = %TestContext{
       session: context[:session],
       options: context[:options],
-      app_name: "app_name"
+      app_name: "test_name"
     }
 
     assert :ok == Handler.request_connection(test_context.session, test_context.app_name)
 
     expect_connection_request_rtmp_message(test_context.app_name, test_context.options.flash_version)
-    send_connect_response(test_context.session, true)
+    simulate_connect_response(test_context.session, true)
     expect_connection_response_received_event(true)
 
     test_context
   end
 
-  defp send_connect_response(session, is_success, description \\ "success") do
+  defp get_playback_session(context) do
+    test_context = get_connected_session(context)    
+
+    stream_key = "abcdefg"
+    created_stream_id = 5
+
+    assert :ok == Handler.request_playback(test_context.session, stream_key)
+    transaction_id = expect_create_stream_rtmp_message()
+
+    simulate_create_stream_response(test_context.session, transaction_id, created_stream_id)    
+    expect_buffer_length_rtmp_message(created_stream_id, test_context.options.playback_buffer_length_ms)
+    play_transaction_id = expect_play_rtmp_message(created_stream_id, stream_key)
+
+    description = "Started playing"
+    simulate_play_response(test_context.session, play_transaction_id, created_stream_id, true, description)
+    expect_play_response_received_event(true, description)
+
+    %{test_context | 
+      stream_key: stream_key,
+      active_stream_id: created_stream_id
+    }
+  end
+
+  defp simulate_connect_response(session, is_success, description \\ "success") do
     case is_success do
       true ->
         command = %DetailedMessage{
@@ -124,7 +189,7 @@ defmodule Rtmp.ClientSession.HandlerTest do
     end
   end
 
-  defp send_create_stream_response(session, transaction_id, stream_id) do
+  defp simulate_create_stream_response(session, transaction_id, stream_id) do
     create_stream_response = %DetailedMessage{
       stream_id: 0,
       content: %Messages.Amf0Command{
@@ -138,7 +203,7 @@ defmodule Rtmp.ClientSession.HandlerTest do
     assert :ok == Handler.handle_rtmp_input(session, create_stream_response)
   end
 
-  defp send_play_response(session, _transaction_id, stream_id, was_accepted, description) do
+  defp simulate_play_response(session, _transaction_id, stream_id, was_accepted, description) do
     if was_accepted do
       start_command = %DetailedMessage{
         stream_id: stream_id,
