@@ -168,6 +168,23 @@ defmodule Rtmp.ClientSession.HandlerTest do
     }} when received_at_timestamp > 0
   end
 
+  test "Can stop playback", context do
+    %TestContext{
+      session: session,
+      stream_key: stream_key,
+      active_stream_id: stream_id
+    } = get_playback_session(context);
+
+    assert :ok == Handler.stop_playback(session, stream_key)
+    assert_receive {:message, %DetailedMessage{
+      stream_id: ^stream_id,
+      content: %Messages.Amf0Command{
+        command_name: "closeStream",
+        command_object: nil
+      }
+    }}
+  end
+
   defp get_connected_session(context) do
     :timer.sleep(20) # for non-zero timestamp checking
 

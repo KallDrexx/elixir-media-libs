@@ -41,7 +41,8 @@ defmodule Rtmp.ClientSession.Handler do
               connected_app_name: nil,
               last_transaction_id: 0,
               open_transactions: %{},
-              active_streams: %{}
+              active_streams: %{},
+              stream_key_to_stream_id_map: %{}
   end
 
   defmodule Transaction do
@@ -235,6 +236,27 @@ defmodule Rtmp.ClientSession.Handler do
 
       _ ->
         _ = Logger.warn("#{state.connection_id}: Attempted requesting playback while in #{state.current_status} state, ignoring...")
+        {:noreply, state}
+    end
+  end
+
+  def handle_cast({:stop_playback, stream_key}, state) do
+    case Map.fetch(state.stream_key_to_stream_id_map, stream_key) do
+      {:ok, stream_id} ->
+        close_stream_command = %Messages.Amf0Command{command_name: "closeStream"}
+        :ok = send_output_message(state, close_stream_command, stream_id, false)
+
+        active_stream = Map.fetch!(state.active_streams, stream_id)
+        active_stream = %{active_stream | state: :closed}
+        state = %{state | 
+          active_streams: Map.put(state.active_streams, stream_id, active_stream),
+          stream_key_to_stream_id_map: Map.delete(state.stream_key_to_stream_id_map, stream_key)
+        }
+
+        {:noreply, state}
+
+      :error ->
+        # we aren't doing anything on this stream key, so just ignore
         {:noreply, state}
     end
   end
@@ -435,7 +457,11 @@ defmodule Rtmp.ClientSession.Handler do
     }
 
     all_active_streams = Map.put(state.active_streams, stream_id, active_stream)
-    state = %{state | active_streams: all_active_streams}
+    stream_key_to_stream_id_map = Map.put(state.stream_key_to_stream_id_map, stream_key, stream_id)
+    state = %{state | 
+      active_streams: all_active_streams,
+      stream_key_to_stream_id_map: stream_key_to_stream_id_map
+    }
 
     case purpose do
       :playback ->
