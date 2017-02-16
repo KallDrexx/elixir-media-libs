@@ -65,14 +65,14 @@ defmodule Rtmp.ClientSession.HandlerTest do
     %TestContext{
       session: session,
       options: options
-    } = get_connected_session(context)    
+    } = get_connected_session(context)
 
     stream_key = "abcdefg"
     created_stream_id = 5
 
     assert :ok == Handler.request_playback(session, stream_key)
-    transaction_id = expect_create_stream_rtmp_message()
 
+    transaction_id = expect_create_stream_rtmp_message()
     simulate_create_stream_response(session, transaction_id, created_stream_id)    
     expect_buffer_length_rtmp_message(created_stream_id, options.playback_buffer_length_ms)
     play_transaction_id = expect_play_rtmp_message(created_stream_id, stream_key)
@@ -185,6 +185,24 @@ defmodule Rtmp.ClientSession.HandlerTest do
     }}
   end
 
+  test "Accepted publishing request workflow", context do
+    %TestContext{
+      session: session,
+    } = get_connected_session(context)
+
+    stream_key = "abcdefg"
+    created_stream_id = 5
+
+    assert :ok == Handler.request_publish(session, stream_key, :live)
+    transaction_id = expect_create_stream_rtmp_message()
+    
+    simulate_create_stream_response(session, transaction_id, created_stream_id)
+    transaction_id = expect_publish_rtmp_message(created_stream_id, stream_key, "live")
+    
+    simulate_publish_response(session, transaction_id, created_stream_id, true, "success")
+    expect_publish_response_received_event(stream_key, true, "success")
+  end
+
   defp get_connected_session(context) do
     :timer.sleep(20) # for non-zero timestamp checking
 
@@ -286,6 +304,26 @@ defmodule Rtmp.ClientSession.HandlerTest do
     end
   end
 
+  defp simulate_publish_response(session, _transaction_id, stream_id, was_accepted, description) do
+    if was_accepted do
+      start_command = %DetailedMessage{
+        stream_id: stream_id,
+        content: %Messages.Amf0Command{
+          command_name: "onStatus",
+          transaction_id: 0,
+          command_object: nil,
+          additional_values: [%{
+            "level" => "status",
+            "code" => "NetStream.Publish.Start",
+            "description" => description
+          }]
+        }
+      }
+
+      assert :ok == Handler.handle_rtmp_input(session, start_command)
+    end
+  end
+
   defp expect_connection_request_rtmp_message(app_name, flash_version) do
     assert_receive {:message, %DetailedMessage{
       stream_id: 0,
@@ -363,6 +401,35 @@ defmodule Rtmp.ClientSession.HandlerTest do
       }}
     else
       assert_receive {:event, %Events.PlayResponseReceived{
+        was_accepted: ^was_accepted,
+        response_text: ^description
+      }}
+    end
+  end
+
+  defp expect_publish_rtmp_message(stream_id, stream_key, type) do
+    assert_receive {:message, %DetailedMessage{
+      stream_id: ^stream_id,
+      content: %Messages.Amf0Command{
+        command_name: "publish",
+        transaction_id: transaction_id,
+        command_object: nil,
+        additional_values: [^stream_key, ^type]
+      }
+    }}
+
+    transaction_id
+  end
+
+  defp expect_publish_response_received_event(stream_key, was_accepted, description) do
+    if description == nil do
+      assert_receive {:event, %Events.PublishResponseReceived{
+        stream_key: ^stream_key,
+        was_accepted: ^was_accepted,
+      }}
+    else
+      assert_receive {:event, %Events.PublishResponseReceived{
+        stream_key: ^stream_key,
         was_accepted: ^was_accepted,
         response_text: ^description
       }}

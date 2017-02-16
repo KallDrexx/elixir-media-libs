@@ -133,9 +133,7 @@ defmodule Rtmp.ClientSession.Handler do
   Sends a request to the server that the client wishes to publish data on the specified stream key.
   The response will come as a `Rtmp.ClientSession.Events.PublishResponseReceived` response being raised
   """
-  def request_publish(pid, stream_key, publish_type) do
-    GenServer.cast(pid, {:request_publish, stream_key, publish_type})
-  end  
+  def request_publish(pid, stream_key, :live), do: GenServer.cast(pid, {:request_publish, stream_key, :live})
 
   @spec publish_metadata(session_handler_process, Rtmp.stream_key, Rtmp.StreamMetadata.t) :: :ok
   @doc """
@@ -261,6 +259,18 @@ defmodule Rtmp.ClientSession.Handler do
     end
   end
 
+  def handle_cast({:request_publish, stream_key, publish_type}, state) do
+    case state.current_status do
+      :connected ->
+        state = send_create_stream_command(state, {:publish, publish_type}, stream_key)
+        {:noreply, state}
+
+      _ ->
+        _ = Logger.warn("#{state.connection_id}: Attempted requesting publishing while in #{state.current_status} state, ignoring...")
+        {:noreply, state}
+    end
+  end
+
   def handle_info(message, state) do
     _ = Logger.info("#{state.connection_id}: Session handler process received unknown erlang message: #{inspect(message)}")
     {:noreply, state}
@@ -355,6 +365,7 @@ defmodule Rtmp.ClientSession.Handler do
   defp handle_command(state, stream_id, "onStatus", _transaction_id, _command_object, [arguments = %{}]) do
     case arguments["code"] do
       "NetStream.Play.Start" -> handle_play_start(state, stream_id, arguments["description"])
+      "NetStream.Publish.Start" -> handle_publish_start(state, stream_id, arguments["description"])
 
       nil ->
         _ = Logger.warn("#{state.connection_id}: onStatus sent by server with no code argument")
@@ -392,7 +403,7 @@ defmodule Rtmp.ClientSession.Handler do
     end
   end
 
-  defp handle_data(state, stream = %ActiveStream{state: :closed}, ['onMetaData', metadata = %{}]) do
+  defp handle_data(state, _stream = %ActiveStream{state: :closed}, ['onMetaData', _metadata = %{}]) do
     state
   end
 
@@ -499,6 +510,20 @@ defmodule Rtmp.ClientSession.Handler do
         :ok = send_output_message(state, play_message, stream_id, false)
 
         state
+
+      {:publish, type} ->
+        type_as_string = if type == :live, do: "live", else: ""
+
+        {transaction, state} = form_transaction(state, :publish, stream_key)
+        publish_message = %Messages.Amf0Command{
+          command_name: "publish",
+          transaction_id: transaction.id,
+          command_object: nil,
+          additional_values: [stream_key, type_as_string]
+        }
+
+        :ok = send_output_message(state, publish_message, stream_id, false)
+        state
     end    
   end
 
@@ -516,6 +541,31 @@ defmodule Rtmp.ClientSession.Handler do
             state = %{state | active_streams: all_active_streams}
 
             event = %Rtmp.ClientSession.Events.PlayResponseReceived{
+              was_accepted: true,
+              response_text: status_text
+            }
+
+            :ok = raise_event(state, event)
+            state
+        end
+    end
+  end
+
+  defp handle_publish_start(state, stream_id, status_text) do
+    case Map.get(state.active_streams, stream_id) do
+      nil -> 
+        _ = Logger.debug("#{state.connection_id}: Publish start command received for non-tracked stream id #{stream_id}")
+        state
+
+      active_stream = %ActiveStream{} ->
+        case active_stream.state do
+          :created ->
+            active_stream = %{active_stream | state: :publishing}
+            all_active_streams = Map.put(state.active_streams, stream_id, active_stream)
+            state = %{state | active_streams: all_active_streams}
+
+            event = %Rtmp.ClientSession.Events.PublishResponseReceived{
+              stream_key: active_stream.stream_key,
               was_accepted: true,
               response_text: status_text
             }

@@ -43,11 +43,13 @@ defmodule Rtmp.ClientSession.Events do
     """
 
     @type t :: %__MODULE__{
+      stream_key: Rtmp.stream_key,
       was_accepted: boolean,      
-      response_text: String.t
+      response_text: String.t,
     }
 
-    defstruct was_accepted: nil,
+    defstruct stream_key: nil,
+              was_accepted: nil,
               response_text: nil
   end
 
