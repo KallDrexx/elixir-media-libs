@@ -185,6 +185,53 @@ defmodule Rtmp.ClientSession.HandlerTest do
     }}
   end
 
+  test "Active publisher can send stream metadata to server", context do
+    %TestContext{
+      session: session,
+      stream_key: stream_key,
+      active_stream_id: stream_id,
+    } = get_publishing_session(context)
+
+    metadata = %Rtmp.StreamMetadata{
+      video_width: 100,
+      video_height: 101,
+      video_codec: "vc",
+      video_frame_rate: 30,
+      video_bitrate_kbps: 102,
+      audio_codec: "ac",
+      audio_bitrate_kbps: 103,
+      audio_sample_rate: 104,
+      audio_channels: 105,
+      audio_is_stereo: true,
+      encoder: "encoder",
+    }
+
+    assert :ok == Handler.publish_metadata(session, stream_key, metadata)
+    assert_receive {:message, %DetailedMessage{
+      stream_id: ^stream_id,
+      timestamp: timestamp,
+      content: %Messages.Amf0Data{
+        parameters: [
+          "@setDataFrame",
+          "onMetaData",
+          %{
+            "width" => 100,
+            "height" => 101,
+            "videocodecid" => "vc",
+            "framerate" => 30,
+            "videodatarate" => 102,
+            "audiocodecid" => "ac",
+            "audiodatarate" => 103,
+            "audiosamplerate" => 104,
+            "audiochannels" => 105,
+            "stereo" => true,
+            "encoder" => "encoder"
+          }
+        ]
+      }
+    }} when timestamp > 0
+  end
+
   test "Accepted publishing request workflow", context do
     %TestContext{
       session: session,
@@ -237,6 +284,27 @@ defmodule Rtmp.ClientSession.HandlerTest do
     description = "Started playing"
     simulate_play_response(test_context.session, play_transaction_id, created_stream_id, true, description)
     expect_play_response_received_event(true, description)
+
+    %{test_context | 
+      stream_key: stream_key,
+      active_stream_id: created_stream_id
+    }
+  end
+
+  defp get_publishing_session(context) do
+    test_context = get_connected_session(context)
+
+    stream_key = "abcdefg"
+    created_stream_id = 5
+
+    assert :ok == Handler.request_publish(test_context.session, stream_key, :live)
+    transaction_id = expect_create_stream_rtmp_message()
+    
+    simulate_create_stream_response(test_context.session, transaction_id, created_stream_id)
+    transaction_id = expect_publish_rtmp_message(created_stream_id, stream_key, "live")
+    
+    simulate_publish_response(test_context.session, transaction_id, created_stream_id, true, "success")
+    expect_publish_response_received_event(stream_key, true, "success")
 
     %{test_context | 
       stream_key: stream_key,

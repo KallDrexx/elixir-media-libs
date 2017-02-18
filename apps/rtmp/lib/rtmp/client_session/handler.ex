@@ -140,7 +140,7 @@ defmodule Rtmp.ClientSession.Handler do
   Sends new metadata to the server over the specified stream key.  This is ignored if we are not
   in an active publishing session on that stream key
   """
-  def publish_metadata(pid, stream_key, metadata) do
+  def publish_metadata(pid, stream_key, metadata = %Rtmp.StreamMetadata{}) do
     GenServer.cast(pid, {:publish_metadata, stream_key, metadata})
   end
 
@@ -267,6 +267,37 @@ defmodule Rtmp.ClientSession.Handler do
 
       _ ->
         _ = Logger.warn("#{state.connection_id}: Attempted requesting publishing while in #{state.current_status} state, ignoring...")
+        {:noreply, state}
+    end
+  end
+
+  def handle_cast({:publish_metadata, stream_key, metadata}, state) do
+    stream_id = Map.fetch!(state.stream_key_to_stream_id_map, stream_key)
+    active_stream = Map.fetch!(state.active_streams, stream_id)
+    case active_stream.state do
+      :publishing ->
+        data = %{}
+        data = if metadata.video_width != nil, do: Map.put(data, "width", metadata.video_width), else: data
+        data = if metadata.video_height != nil, do: Map.put(data, "height", metadata.video_height), else: data
+        data = if metadata.video_codec != nil, do: Map.put(data, "videocodecid", metadata.video_codec), else: data
+        data = if metadata.video_frame_rate != nil, do: Map.put(data, "framerate", metadata.video_frame_rate), else: data
+        data = if metadata.video_bitrate_kbps != nil, do: Map.put(data, "videodatarate", metadata.video_bitrate_kbps), else: data
+        data = if metadata.audio_codec != nil, do: Map.put(data, "audiocodecid", metadata.audio_codec), else: data
+        data = if metadata.audio_bitrate_kbps != nil, do: Map.put(data, "audiodatarate", metadata.audio_bitrate_kbps), else: data
+        data = if metadata.audio_sample_rate != nil, do: Map.put(data, "audiosamplerate", metadata.audio_sample_rate), else: data
+        data = if metadata.audio_channels != nil, do: Map.put(data, "audiochannels", metadata.audio_channels), else: data
+        data = if metadata.audio_is_stereo != nil, do: Map.put(data, "stereo", metadata.audio_is_stereo), else: data
+        data = if metadata.encoder != nil, do: Map.put(data, "encoder", metadata.encoder), else: data
+
+        message = %Messages.Amf0Data{
+          parameters: ["@setDataFrame", "onMetaData", data]
+        }
+
+        send_output_message(state, message, stream_id, false)
+        {:noreply, state}
+
+      _ -> 
+        _ = Logger.debug("#{state.connection_id}: Attempted to send metadata via a stream in the #{active_stream.state}")
         {:noreply, state}
     end
   end
