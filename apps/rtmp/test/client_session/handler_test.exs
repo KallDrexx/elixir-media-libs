@@ -280,6 +280,34 @@ defmodule Rtmp.ClientSession.HandlerTest do
     }}
   end
 
+  test "Can stop publishing", context do
+    %TestContext{
+      session: session,
+      stream_key: stream_key,
+      active_stream_id: stream_id
+    } = get_playback_session(context);
+
+    assert :ok == Handler.stop_publish(session, stream_key)
+    assert_receive {:message, %DetailedMessage{
+      stream_id: ^stream_id,
+      timestamp: timestamp,
+      content: %Messages.Amf0Command{
+        command_name: "FCUnpublish",
+        command_object: nil,
+        additional_values: [^stream_key]
+      }
+    }} when timestamp > 0
+
+    assert_receive {:message, %DetailedMessage{
+      stream_id: ^stream_id,
+      content: %Messages.Amf0Command{
+        command_name: "deleteStream",
+        command_object: nil,
+        additional_values: [^stream_id]
+      }
+    }}
+  end
+
   defp get_connected_session(context) do
     :timer.sleep(20) # for non-zero timestamp checking
 

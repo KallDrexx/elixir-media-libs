@@ -332,6 +332,43 @@ defmodule Rtmp.ClientSession.Handler do
     end
   end
 
+  def handle_cast({:stop_publish, stream_key}, state) do
+    case Map.fetch(state.stream_key_to_stream_id_map, stream_key) do
+      {:ok, stream_id} ->
+        {fc_unpublish_transaction, state} = form_transaction(state, :fc_unpublish, stream_key)
+        {delete_stream_transaction, state} = form_transaction(state, :delete_stream, stream_id)
+
+        fc_unpublish = %Messages.Amf0Command{
+          command_name: "FCUnpublish",
+          transaction_id: fc_unpublish_transaction,
+          command_object: nil,
+          additional_values: [stream_key]
+        }
+
+        delete_stream = %Messages.Amf0Command{
+          command_name: "deleteStream",
+          transaction_id: delete_stream_transaction,
+          command_object: nil,
+          additional_values: [stream_id]
+        }
+
+        :ok = send_output_message(state, [fc_unpublish, delete_stream], stream_id, false)
+
+        active_stream = Map.fetch!(state.active_streams, stream_id)
+        active_stream = %{active_stream | state: :closed}
+        state = %{state | 
+          active_streams: Map.put(state.active_streams, stream_id, active_stream),
+          stream_key_to_stream_id_map: Map.delete(state.stream_key_to_stream_id_map, stream_key)
+        }
+
+        {:noreply, state}
+
+      :error ->
+        # we aren't doing anything on this stream key, so just ignore
+        {:noreply, state}
+    end
+  end
+
   def handle_info(message, state) do
     _ = Logger.info("#{state.connection_id}: Session handler process received unknown erlang message: #{inspect(message)}")
     {:noreply, state}
