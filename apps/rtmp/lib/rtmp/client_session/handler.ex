@@ -144,13 +144,17 @@ defmodule Rtmp.ClientSession.Handler do
     GenServer.cast(pid, {:publish_metadata, stream_key, metadata})
   end
 
-  @spec publish_av_data(session_handler_process, Rtmp.stream_key, av_type, binary) :: :ok
+  @spec publish_av_data(session_handler_process, Rtmp.stream_key, av_type, Rtmp.timestamp, binary) :: :ok
   @doc """
   Sends audio or video data to the server over the specified stream key.  This is ignored if we are not
   in an active publishing session for that stream key.
   """
-  def publish_av_data(pid, stream_key, av_type, data) do
-    GenServer.cast(pid, {:publish_av_data, stream_key, av_type, data})
+  def publish_av_data(pid, stream_key, :video, timestamp, data) do
+    GenServer.cast(pid, {:publish_av_data, stream_key, :video, timestamp, data})
+  end
+
+  def publish_av_data(pid, stream_key, :audio, timestamp, data) do
+    GenServer.cast(pid, {:publish_av_data, stream_key, :audio, timestamp, data})
   end
 
   @spec stop_publish(session_handler_process, Rtmp.stream_key) :: :ok
@@ -297,6 +301,32 @@ defmodule Rtmp.ClientSession.Handler do
         {:noreply, state}
 
       _ -> 
+        _ = Logger.debug("#{state.connection_id}: Attempted to send metadata via a stream in the #{active_stream.state}")
+        {:noreply, state}
+    end
+  end
+
+  def handle_cast({:publish_av_data, stream_key, av_type, timestamp, data}, state) do
+    stream_id = Map.fetch!(state.stream_key_to_stream_id_map, stream_key)
+    active_stream = Map.fetch!(state.active_streams, stream_id)
+
+    case active_stream.state do
+      :publishing ->
+        inner_message = case av_type do
+          :audio -> %Messages.AudioData{data: data}
+          :video -> %Messages.VideoData{data: data}
+        end
+
+        outer_message = %DetailedMessage{
+          stream_id: stream_id,
+          timestamp: timestamp,
+          content: inner_message
+        }
+
+        :ok = state.protocol_handler_module.send_message(state.protocol_handler_pid, outer_message)
+        {:noreply, state}
+
+      _ ->
         _ = Logger.debug("#{state.connection_id}: Attempted to send metadata via a stream in the #{active_stream.state}")
         {:noreply, state}
     end

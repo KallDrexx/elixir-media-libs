@@ -185,6 +185,24 @@ defmodule Rtmp.ClientSession.HandlerTest do
     }}
   end
 
+  test "Accepted publishing request workflow", context do
+    %TestContext{
+      session: session,
+    } = get_connected_session(context)
+
+    stream_key = "abcdefg"
+    created_stream_id = 5
+
+    assert :ok == Handler.request_publish(session, stream_key, :live)
+    transaction_id = expect_create_stream_rtmp_message()
+    
+    simulate_create_stream_response(session, transaction_id, created_stream_id)
+    transaction_id = expect_publish_rtmp_message(created_stream_id, stream_key, "live")
+    
+    simulate_publish_response(session, transaction_id, created_stream_id, true, "success")
+    expect_publish_response_received_event(stream_key, true, "success")
+  end
+
   test "Active publisher can send stream metadata to server", context do
     %TestContext{
       session: session,
@@ -232,22 +250,34 @@ defmodule Rtmp.ClientSession.HandlerTest do
     }} when timestamp > 0
   end
 
-  test "Accepted publishing request workflow", context do
+  test "Active publisher can send audio data to server", context do
     %TestContext{
       session: session,
-    } = get_connected_session(context)
+      stream_key: stream_key,
+      active_stream_id: stream_id,
+    } = get_publishing_session(context)
 
-    stream_key = "abcdefg"
-    created_stream_id = 5
+    assert :ok == Handler.publish_av_data(session, stream_key, :audio, 512, <<123::23>>)
+    assert_receive {:message, %DetailedMessage{
+      stream_id: ^stream_id,
+      timestamp: 512,
+      content: %Messages.AudioData{data: <<123::23>>},
+    }}
+  end
 
-    assert :ok == Handler.request_publish(session, stream_key, :live)
-    transaction_id = expect_create_stream_rtmp_message()
-    
-    simulate_create_stream_response(session, transaction_id, created_stream_id)
-    transaction_id = expect_publish_rtmp_message(created_stream_id, stream_key, "live")
-    
-    simulate_publish_response(session, transaction_id, created_stream_id, true, "success")
-    expect_publish_response_received_event(stream_key, true, "success")
+  test "Active publisher can send video data to server", context do
+    %TestContext{
+      session: session,
+      stream_key: stream_key,
+      active_stream_id: stream_id,
+    } = get_publishing_session(context)
+
+    assert :ok == Handler.publish_av_data(session, stream_key, :video, 512, <<123::23>>)
+    assert_receive {:message, %DetailedMessage{
+      stream_id: ^stream_id,
+      timestamp: 512,
+      content: %Messages.VideoData{data: <<123::23>>},
+    }}
   end
 
   defp get_connected_session(context) do
