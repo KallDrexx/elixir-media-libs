@@ -178,11 +178,13 @@ defmodule Rtmp.ClientSession.HandlerTest do
     assert :ok == Handler.stop_playback(session, stream_key)
     assert_receive {:message, %DetailedMessage{
       stream_id: ^stream_id,
+      timestamp: timestamp,
       content: %Messages.Amf0Command{
-        command_name: "closeStream",
-        command_object: nil
+        command_name: "deleteStream",
+        command_object: nil,
+        additional_values: [^stream_id]
       }
-    }}
+    }} when timestamp > 0
   end
 
   test "Accepted publishing request workflow", context do
@@ -300,12 +302,13 @@ defmodule Rtmp.ClientSession.HandlerTest do
 
     assert_receive {:message, %DetailedMessage{
       stream_id: ^stream_id,
+      timestamp: timestamp,
       content: %Messages.Amf0Command{
         command_name: "deleteStream",
         command_object: nil,
         additional_values: [^stream_id]
       }
-    }}
+    }} when timestamp > 0
   end
 
   defp get_connected_session(context) do

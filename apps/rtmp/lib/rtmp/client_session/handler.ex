@@ -245,11 +245,19 @@ defmodule Rtmp.ClientSession.Handler do
   def handle_cast({:stop_playback, stream_key}, state) do
     case Map.fetch(state.stream_key_to_stream_id_map, stream_key) do
       {:ok, stream_id} ->
-        close_stream_command = %Messages.Amf0Command{command_name: "closeStream"}
-        :ok = send_output_message(state, close_stream_command, stream_id, false)
+        {delete_stream_transaction, state} = form_transaction(state, :delete_stream, stream_id)
+
+        delete_stream = %Messages.Amf0Command{
+          command_name: "deleteStream",
+          transaction_id: delete_stream_transaction,
+          command_object: nil,
+          additional_values: [stream_id]
+        }
+
+        :ok = send_output_message(state, delete_stream, stream_id, false)
 
         active_stream = Map.fetch!(state.active_streams, stream_id)
-        active_stream = %{active_stream | state: :closed}
+        active_stream = %{active_stream | state: :deleted}
         state = %{state | 
           active_streams: Map.put(state.active_streams, stream_id, active_stream),
           stream_key_to_stream_id_map: Map.delete(state.stream_key_to_stream_id_map, stream_key)
@@ -355,7 +363,7 @@ defmodule Rtmp.ClientSession.Handler do
         :ok = send_output_message(state, [fc_unpublish, delete_stream], stream_id, false)
 
         active_stream = Map.fetch!(state.active_streams, stream_id)
-        active_stream = %{active_stream | state: :closed}
+        active_stream = %{active_stream | state: :deleted}
         state = %{state | 
           active_streams: Map.put(state.active_streams, stream_id, active_stream),
           stream_key_to_stream_id_map: Map.delete(state.stream_key_to_stream_id_map, stream_key)
