@@ -15,7 +15,9 @@ defmodule GenRtmpClient.Mixfile do
   end
 
   def application do
-    [extra_applications: [:logger]]
+    [
+      extra_applications: [:logger]
+    ]
   end
 
   defp deps do
