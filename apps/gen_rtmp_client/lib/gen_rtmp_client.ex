@@ -13,10 +13,11 @@ defmodule GenRtmpClient do
   
   @type adopter_module :: module
   @type adopter_state :: any
+  @type adopter_args :: any
   @type adopter_response :: {:ok, adopter_state}
   @type rtmp_client_pid :: pid
 
-  @callback init(GenRtmpClient.ConnectionInfo.t) :: {:ok, adopter_state}
+  @callback init(GenRtmpClient.ConnectionInfo.t, adopter_args) :: {:ok, adopter_state}
   @callback handle_connection_response(SessionEvents.ConnectionResponseReceived.t, adopter_state) :: adopter_response
   @callback handle_play_response(SessionEvents.PlayResponseReceived.t, adopter_state) :: adopter_response
   @callback handle_publish_response(SessionEvents.PublishResponseReceived.t, adopter_state) :: adopter_response
@@ -28,16 +29,17 @@ defmodule GenRtmpClient do
     @moduledoc false
 
     defstruct adopter_module: nil,
+              adopter_state: nil,
               connection_info: nil
   end
 
-  @spec start_link(adopter_module, GenRtmpClient.ConnectionInfo.t) :: GenServer.on_start
+  @spec start_link(adopter_module, GenRtmpClient.ConnectionInfo.t, adopter_args) :: GenServer.on_start
   @doc """
   Starts a new RTMP connection to the specified server.  The client's logic is managed by the module
   specified by the adopter_module, which is expected to adopt the `GenRtmpClient` behaviour.
   """
-  def start_link(adopter_module, connection_info = %GenRtmpClient.ConnectionInfo{}) do
-    GenServer.start_link(__MODULE__, [adopter_module, connection_info])
+  def start_link(adopter_module, connection_info = %GenRtmpClient.ConnectionInfo{}, adopter_args) do
+    GenServer.start_link(__MODULE__, [adopter_module, connection_info, adopter_args])
   end
 
   @spec disconnect(rtmp_client_pid) :: :ok
@@ -75,8 +77,14 @@ defmodule GenRtmpClient do
     GenServer.cast(rtmp_client_pid, {:publish_av_data, stream_key, type, timestamp, data})
   end
 
-  def init([_adopter_module, connection_info]) do
+  def init([adopter_module, connection_info, adopter_args]) do
     IO.puts("Started client #{connection_info.connection_id}")
-    {:ok, []}
+    adopter_state = adopter_module.init(connection_info, adopter_args)
+
+    {:ok, %State{
+      adopter_module: adopter_module,
+      adopter_state: adopter_state,
+      connection_info: connection_info
+    }}
   end
 end

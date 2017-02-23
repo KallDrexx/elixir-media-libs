@@ -14,7 +14,7 @@ defmodule SimpleRtmpPlayer do
     IO.puts("App: #{connection_info.app_name}")
     IO.puts("Stream Key: #{key}")
 
-    {:ok, _client_pid} = GenRtmpClient.start_link(SimpleRtmpPlayer.Client, connection_info)
+    {:ok, _client_pid} = GenRtmpClient.start_link(SimpleRtmpPlayer.Client, connection_info, key)
     loop()
   end
 
