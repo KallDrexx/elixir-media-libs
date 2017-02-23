@@ -16,13 +16,20 @@ defmodule GenRtmpClient do
   @type adopter_response :: {:ok, adopter_state}
   @type rtmp_client_pid :: pid
 
-  @callback handle_initialization(SessionEvents.ConnectionResponseReceived.t) :: {:ok, adopter_state}
+  @callback init(GenRtmpClient.ConnectionInfo.t) :: {:ok, adopter_state}
   @callback handle_connection_response(SessionEvents.ConnectionResponseReceived.t, adopter_state) :: adopter_response
   @callback handle_play_response(SessionEvents.PlayResponseReceived.t, adopter_state) :: adopter_response
   @callback handle_publish_response(SessionEvents.PublishResponseReceived.t, adopter_state) :: adopter_response
   @callback handle_metadata_received(SessionEvents.StreamMetaDataReceived.t, adopter_state) :: adopter_response
   @callback handle_av_data_received(SessionEvents.AudioVideoDataReceived.t, adopter_state) :: adopter_response
   @callback handle_disconnection(adopter_state) :: {:stop, adopter_state} | {:reconnect, adopter_state}
+
+  defmodule State do
+    @moduledoc false
+
+    defstruct adopter_module: nil,
+              connection_info: nil
+  end
 
   @spec start_link(adopter_module, GenRtmpClient.ConnectionInfo.t) :: GenServer.on_start
   @doc """

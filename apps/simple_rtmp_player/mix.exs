@@ -1,9 +1,9 @@
-defmodule GenRtmpClient.Mixfile do
+defmodule SimpleRtmpPlayer.Mixfile do
   use Mix.Project
 
   def project do
     [
-      app: :gen_rtmp_client,
+      app: :simple_rtmp_player,
       version: "0.1.0",
       build_path: "../../_build",
       config_path: "../../config/config.exs",
@@ -12,17 +12,21 @@ defmodule GenRtmpClient.Mixfile do
       elixir: "~> 1.4",
       build_embedded: Mix.env == :prod,
       start_permanent: Mix.env == :prod,
-      deps: deps()
+      deps: deps(),
+      escript: [
+        main_module: SimpleRtmpPlayer,
+        name: "simple_rtmp_player.escript"
+      ]
     ]
   end
 
   def application do
-    [
-      extra_applications: [:logger]
-    ]
+    [extra_applications: [:logger]]
   end
 
   defp deps do
-    [{:rtmp, in_umbrella: true}]
+    [
+      {:gen_rtmp_client, in_umbrella: true}
+    ]
   end
 end
