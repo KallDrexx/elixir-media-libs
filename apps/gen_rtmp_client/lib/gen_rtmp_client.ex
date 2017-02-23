@@ -16,6 +16,7 @@ defmodule GenRtmpClient do
   @type adopter_args :: any
   @type adopter_response :: {:ok, adopter_state}
   @type rtmp_client_pid :: pid
+  @type disconnection_reason :: :closed | :inet.posix
 
   @callback init(GenRtmpClient.ConnectionInfo.t, adopter_args) :: {:ok, adopter_state}
   @callback handle_connection_response(SessionEvents.ConnectionResponseReceived.t, adopter_state) :: adopter_response
@@ -23,14 +24,16 @@ defmodule GenRtmpClient do
   @callback handle_publish_response(SessionEvents.PublishResponseReceived.t, adopter_state) :: adopter_response
   @callback handle_metadata_received(SessionEvents.StreamMetaDataReceived.t, adopter_state) :: adopter_response
   @callback handle_av_data_received(SessionEvents.AudioVideoDataReceived.t, adopter_state) :: adopter_response
-  @callback handle_disconnection(adopter_state) :: {:stop, adopter_state} | {:reconnect, adopter_state}
+  @callback handle_disconnection(disconnection_reason, adopter_state) :: {:stop, adopter_state} | {:reconnect, adopter_state}
 
   defmodule State do
     @moduledoc false
 
     defstruct adopter_module: nil,
               adopter_state: nil,
-              connection_info: nil
+              connection_info: nil,
+              socket: nil,
+              handshake_state: nil
   end
 
   @spec start_link(adopter_module, GenRtmpClient.ConnectionInfo.t, adopter_args) :: GenServer.on_start
@@ -81,10 +84,40 @@ defmodule GenRtmpClient do
     IO.puts("Started client #{connection_info.connection_id}")
     adopter_state = adopter_module.init(connection_info, adopter_args)
 
-    {:ok, %State{
+    state = %State{
       adopter_module: adopter_module,
       adopter_state: adopter_state,
       connection_info: connection_info
-    }}
+    }
+
+    case connect_to_server(state) do
+      {:permanently_disconnected, _state} -> {:stop, :permanently_disconnected}
+      {:ok, state} -> {:ok, state}
+    end
   end
+
+  defp connect_to_server(state) do
+    case :gen_tcp.connect(String.to_charlist(state.connection_info.host), state.connection_info.port, get_socket_options()) do
+      {:error, reason} -> notify_disconnection(state, reason)
+      {:ok, socket} ->
+        {handshake_state, %Rtmp.Handshake.ParseResult{bytes_to_send: bytes_to_send}} = Rtmp.Handshake.new(:digest)
+        :ok = :gen_tcp.send(socket, bytes_to_send)
+
+        state = %{state | 
+          socket: socket,
+          handshake_state: handshake_state
+        }
+
+        {:ok, state}
+    end
+  end
+
+  defp notify_disconnection(state, reason) do
+    case state.adopter_module.handle_disconnection(reason, state.adopter_state) do
+      {:stop, adopter_state} -> {:permanently_disconnected, %{state | adopter_state: adopter_state}}
+      {:reconnect, adopter_state} -> connect_to_server(%{state | adopter_state: adopter_state})
+    end
+  end
+
+  defp get_socket_options(), do: Keyword.new(active: :once, packet: :raw, buffer: 4096)
 end

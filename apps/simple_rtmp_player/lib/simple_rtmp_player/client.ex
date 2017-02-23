@@ -41,8 +41,8 @@ defmodule SimpleRtmpPlayer.Client do
     {:ok, state}
   end
 
-  def handle_disconnection(state) do
-    _ = Logger.debug("Disconnected")
+  def handle_disconnection(reason, state) do
+    _ = Logger.debug("Disconnected: #{inspect(reason)}")
     {:stop, state}
   end
 

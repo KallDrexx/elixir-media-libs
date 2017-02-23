@@ -4,7 +4,7 @@ defmodule SimpleRtmpPlayer do
     {host, port, app, key} = parse_args(args)
     connection_info = %GenRtmpClient.ConnectionInfo{
       host: host,
-      port: port,
+      port: String.to_integer(port),
       app_name: app,
       connection_id: "test-player"
     }
