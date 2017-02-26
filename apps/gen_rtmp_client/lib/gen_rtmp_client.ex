@@ -7,6 +7,7 @@ defmodule GenRtmpClient do
   business logic of how their RTMP client should behave. 
   """
 
+  require Logger
   use GenServer
 
   alias Rtmp.ClientSession.Events, as: SessionEvents
@@ -29,11 +30,14 @@ defmodule GenRtmpClient do
   defmodule State do
     @moduledoc false
 
-    defstruct adopter_module: nil,
+    defstruct connection_status: :disconnected,
+              adopter_module: nil,
               adopter_state: nil,
               connection_info: nil,
               socket: nil,
-              handshake_state: nil
+              handshake_state: nil,
+              protocol_handler_pid: nil,
+              session_handler_pid: nil
   end
 
   @spec start_link(adopter_module, GenRtmpClient.ConnectionInfo.t, adopter_args) :: GenServer.on_start
@@ -87,13 +91,61 @@ defmodule GenRtmpClient do
     state = %State{
       adopter_module: adopter_module,
       adopter_state: adopter_state,
-      connection_info: connection_info
+      connection_info: connection_info,
     }
 
     case connect_to_server(state) do
       {:permanently_disconnected, _state} -> {:stop, :permanently_disconnected}
       {:ok, state} -> {:ok, state}
     end
+  end
+
+  def handle_info({:tcp, _, binary}, state = %State{connection_status: :handshaking}) do
+    case Rtmp.Handshake.process_bytes(state.handshake_state, binary) do
+      {handshake_state, result = %Rtmp.Handshake.ParseResult{current_state: :waiting_for_data}} ->
+        if byte_size(result.bytes_to_send) > 0, do: :gen_tcp.send(state.socket, result.bytes_to_send)
+
+        new_state = %{state | handshake_state: handshake_state}
+        :inet.setopts(state.socket, get_socket_options())
+        {:noreply, new_state}
+      
+      {handshake_state, result = %Rtmp.Handshake.ParseResult{current_state: :success}} ->
+        if byte_size(result.bytes_to_send) > 0, do: :gen_tcp.send(state.socket, result.bytes_to_send)
+
+        {_, %Rtmp.Handshake.HandshakeResult{remaining_binary: remaining_binary}}
+          = Rtmp.Handshake.get_handshake_result(handshake_state)
+
+        {:ok, protocol_pid} = Rtmp.Protocol.Handler.start_link(state.connection_info.connection_id, self(), __MODULE__)
+        {:ok, session_pid} = Rtmp.ClientSession.Handler.start_link(state.connection_info.connection_id, %Rtmp.ClientSession.Configuration{})
+
+        :ok = Rtmp.Protocol.Handler.set_session(protocol_pid, session_pid, Rtmp.ClientSession.Handler)
+        :ok = Rtmp.ClientSession.Handler.set_protocol_handler(session_pid, protocol_pid, Rtmp.Protocol.Handler)
+        :ok = Rtmp.ClientSession.Handler.set_event_handler(session_pid, self(), __MODULE__)
+        :ok = Rtmp.Protocol.Handler.notify_input(protocol_pid, remaining_binary)
+
+        state = %{state |
+          handshake_state: nil,
+          connection_status: :open,
+          protocol_handler_pid: protocol_pid,
+          session_handler_pid: session_pid,
+        }
+
+        _ = Logger.info "#{state.connection_info.connection_id}: handshake complete"
+
+        :inet.setopts(state.socket, get_socket_options())
+        {:noreply, state}
+
+      {_, %Rtmp.Handshake.ParseResult{current_state: :failure}} ->
+        _ = Logger.info "#{state.connection_info.connection_id}: Client failed the handshake, disconnecting..."
+
+        :gen_tcp.close(state.socket)
+        {:noreply, state}
+    end
+  end
+
+  def handle_info(message, state) do
+    _ = Logger.debug("#{state.connection_info.connection_id}: Unknown message received: #{inspect(message)}")
+    {:noreply, state}
   end
 
   defp connect_to_server(state) do
@@ -105,7 +157,8 @@ defmodule GenRtmpClient do
 
         state = %{state | 
           socket: socket,
-          handshake_state: handshake_state
+          handshake_state: handshake_state,
+          connection_status: :handshaking
         }
 
         {:ok, state}
@@ -113,11 +166,13 @@ defmodule GenRtmpClient do
   end
 
   defp notify_disconnection(state, reason) do
+    state = %{state | status: :disconnected}
+
     case state.adopter_module.handle_disconnection(reason, state.adopter_state) do
       {:stop, adopter_state} -> {:permanently_disconnected, %{state | adopter_state: adopter_state}}
       {:reconnect, adopter_state} -> connect_to_server(%{state | adopter_state: adopter_state})
     end
   end
 
-  defp get_socket_options(), do: Keyword.new(active: :once, packet: :raw, buffer: 4096)
+  defp get_socket_options(), do: [:binary | Keyword.new(active: :once, packet: :raw, buffer: 4096)]
 end

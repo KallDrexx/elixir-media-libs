@@ -10,8 +10,7 @@ defmodule SimpleRtmpPlayer.Client do
   end
 
   def init(connection_info, stream_key) do
-    _ = Logger.debug("Initialized: #{inspect(connection_info)}")
-    _ = Logger.debug("Stream key: #{stream_key}")
+    _ = Logger.debug("Initialized: #{inspect(connection_info)} with stream key: #{stream_key}")
     state = %State{connection_info: connection_info, stream_key: stream_key}
     {:ok, state}
   end
