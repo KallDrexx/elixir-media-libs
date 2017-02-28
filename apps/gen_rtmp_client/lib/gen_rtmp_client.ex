@@ -26,6 +26,7 @@ defmodule GenRtmpClient do
   @callback handle_metadata_received(SessionEvents.StreamMetaDataReceived.t, adopter_state) :: adopter_response
   @callback handle_av_data_received(SessionEvents.AudioVideoDataReceived.t, adopter_state) :: adopter_response
   @callback handle_disconnection(disconnection_reason, adopter_state) :: {:stop, adopter_state} | {:reconnect, adopter_state}
+  @callback byte_io_totals_updated(SessionEvents.NewByteIOTotals.t, adopter_state) :: adopter_response
 
   defmodule State do
     @moduledoc false
@@ -84,6 +85,14 @@ defmodule GenRtmpClient do
     GenServer.cast(rtmp_client_pid, {:publish_av_data, stream_key, type, timestamp, data})
   end
 
+  def send_event(pid, event) do
+    GenServer.cast(pid, {:session_event, event})
+  end
+
+  def send_data(pid, binary) do
+    GenServer.cast(pid, {:rtmp_output, binary})
+  end
+
   def init([adopter_module, connection_info, adopter_args]) do
     IO.puts("Started client #{connection_info.connection_id}")
     adopter_state = adopter_module.init(connection_info, adopter_args)
@@ -100,7 +109,20 @@ defmodule GenRtmpClient do
     end
   end
 
+  def handle_cast({:rtmp_output, binary}, state) do
+    :gen_tcp.send(state.socket, binary)
+
+    {:noreply, state}
+  end
+
+  def handle_cast({:session_event, event}, state) do
+    state = handle_event(event, state)
+    {:noreply, state}
+  end
+
   def handle_info({:tcp, _, binary}, state = %State{connection_status: :handshaking}) do
+    :inet.setopts(state.socket, get_socket_options())
+
     case Rtmp.Handshake.process_bytes(state.handshake_state, binary) do
       {handshake_state, result = %Rtmp.Handshake.ParseResult{current_state: :waiting_for_data}} ->
         if byte_size(result.bytes_to_send) > 0, do: :gen_tcp.send(state.socket, result.bytes_to_send)
@@ -132,7 +154,7 @@ defmodule GenRtmpClient do
 
         _ = Logger.info "#{state.connection_info.connection_id}: handshake complete"
 
-        :inet.setopts(state.socket, get_socket_options())
+        :ok = send_connect_command(state)
         {:noreply, state}
 
       {_, %Rtmp.Handshake.ParseResult{current_state: :failure}} ->
@@ -143,9 +165,19 @@ defmodule GenRtmpClient do
     end
   end
 
+  def handle_info({:tcp, _, binary}, state) do
+    :ok = Rtmp.Protocol.Handler.notify_input(state.protocol_handler_pid, binary)
+    :inet.setopts(state.socket, get_socket_options())
+    {:noreply, state}
+  end
+
   def handle_info(message, state) do
     _ = Logger.debug("#{state.connection_info.connection_id}: Unknown message received: #{inspect(message)}")
     {:noreply, state}
+  end
+
+  defp send_connect_command(state) do
+    Rtmp.ClientSession.Handler.request_connection(state.session_handler_pid, state.connection_info.app_name)
   end
 
   defp connect_to_server(state) do
@@ -172,6 +204,16 @@ defmodule GenRtmpClient do
       {:stop, adopter_state} -> {:permanently_disconnected, %{state | adopter_state: adopter_state}}
       {:reconnect, adopter_state} -> connect_to_server(%{state | adopter_state: adopter_state})
     end
+  end
+
+  defp handle_event(event = %SessionEvents.NewByteIOTotals{}, state) do
+    {:ok, adopter_state} = state.adopter_module.byte_io_totals_updated(event, state.adopter_state)
+    %{state | adopter_state: adopter_state}    
+  end
+
+  defp handle_event(event = %SessionEvents.ConnectionResponseReceived{}, state) do
+    {:ok, adopter_state} = state.adopter_module.handle_connection_response(event, state.adopter_state)
+    %{state | adopter_state: adopter_state}
   end
 
   defp get_socket_options(), do: [:binary | Keyword.new(active: :once, packet: :raw, buffer: 4096)]

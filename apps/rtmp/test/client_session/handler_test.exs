@@ -381,7 +381,7 @@ defmodule Rtmp.ClientSession.HandlerTest do
           timestamp: 100,
           content: %Messages.Amf0Command{
             command_name: "_result",
-            transaction_id: 1,
+            transaction_id: 1.0,
             command_object: %{
               "fmsVer" => "fms_ver",
               "capabilities" => 31
@@ -459,7 +459,7 @@ defmodule Rtmp.ClientSession.HandlerTest do
       timestamp: timestamp,
       content: %Messages.Amf0Command{
         command_name: "connect",
-        transaction_id: 1,
+        transaction_id: 1.0,
         command_object: %{
           "app" => ^app_name,
           "flashVer" => ^flash_version,

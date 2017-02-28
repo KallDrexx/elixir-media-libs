@@ -45,4 +45,9 @@ defmodule SimpleRtmpPlayer.Client do
     {:stop, state}
   end
 
+  def byte_io_totals_updated(event, state) do
+    _ = Logger.debug("IO totals updated: #{inspect(event)}")
+    {:ok, state}
+  end
+
 end

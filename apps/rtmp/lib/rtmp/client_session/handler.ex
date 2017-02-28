@@ -39,10 +39,13 @@ defmodule Rtmp.ClientSession.Handler do
               event_receiver_module: nil,
               current_status: :started,
               connected_app_name: nil,
-              last_transaction_id: 0,
+              last_transaction_id: 0.0,
               open_transactions: %{},
               active_streams: %{},
-              stream_key_to_stream_id_map: %{}
+              stream_key_to_stream_id_map: %{},
+              bytes_sent: 0,
+              bytes_received: 0,
+              byte_count_changed_timer: nil
   end
 
   defmodule Transaction do
@@ -377,6 +380,34 @@ defmodule Rtmp.ClientSession.Handler do
     end
   end
 
+  def handle_cast({:byte_count_update, in_or_out, total}, state) do
+    state = case in_or_out do
+      :bytes_sent -> %{state | bytes_sent: total}
+      :bytes_received -> %{state | bytes_received: total}
+    end
+
+    state = case state.byte_count_changed_timer do
+      nil -> 
+        :erlang.send_after(500, self(), :send_io_notifications)
+        %{state | byte_count_changed_timer: :active}
+
+      _ -> state
+    end
+
+    {:noreply, state}
+  end
+
+  def handle_info(:send_io_notifications, state) do
+    event = %Events.NewByteIOTotals{
+      bytes_sent: state.bytes_sent,
+      bytes_received: state.bytes_received
+    }
+
+    state = %{state | byte_count_changed_timer: nil}
+    raise_event(state, event)
+    {:noreply, state}
+  end
+
   def handle_info(message, state) do
     _ = Logger.info("#{state.connection_id}: Session handler process received unknown erlang message: #{inspect(message)}")
     {:noreply, state}
@@ -684,7 +715,7 @@ defmodule Rtmp.ClientSession.Handler do
 
   defp form_transaction(state, type, data) do
     transaction = %Transaction{
-      id: state.last_transaction_id + 1,
+      id: state.last_transaction_id + 1.0,
       type: type,
       data: data
     }
