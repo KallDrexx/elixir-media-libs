@@ -5,7 +5,7 @@ defmodule Rtmp.ClientSession.Events do
     Rtmp.ClientSession.Events.PublishResponseReceived.t |
     Rtmp.ClientSession.Events.PlayResponseReceived.t |
     Rtmp.ClientSession.Events.StreamMetaDataReceived.t |
-    Rtmp.ClientSession.Events.AudioVideoDataReceived.t  
+    Rtmp.ClientSession.Events.AudioVideoDataReceived.t
 
   defmodule ConnectionResponseReceived do
     @moduledoc """
@@ -29,11 +29,13 @@ defmodule Rtmp.ClientSession.Events do
 
     @type t :: %__MODULE__{
       was_accepted: boolean,      
-      response_text: String.t
+      response_text: String.t,
+      stream_key: Rtmp.stream_key
     }
 
     defstruct was_accepted: nil,
-              response_text: nil
+              response_text: nil,
+              stream_key: nil
   end
 
   defmodule PublishResponseReceived do

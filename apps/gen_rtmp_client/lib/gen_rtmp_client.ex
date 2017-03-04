@@ -95,7 +95,7 @@ defmodule GenRtmpClient do
 
   def init([adopter_module, connection_info, adopter_args]) do
     IO.puts("Started client #{connection_info.connection_id}")
-    adopter_state = adopter_module.init(connection_info, adopter_args)
+    {:ok, adopter_state} = adopter_module.init(connection_info, adopter_args)
 
     state = %State{
       adopter_module: adopter_module,
@@ -112,6 +112,11 @@ defmodule GenRtmpClient do
   def handle_cast({:rtmp_output, binary}, state) do
     :gen_tcp.send(state.socket, binary)
 
+    {:noreply, state}
+  end
+
+  def handle_cast({:start_playback, stream_key}, state) do
+    :ok = Rtmp.ClientSession.Handler.request_playback(state.session_handler_pid, stream_key)
     {:noreply, state}
   end
 
@@ -206,6 +211,11 @@ defmodule GenRtmpClient do
     end
   end
 
+  defp handle_event(event = %SessionEvents.AudioVideoDataReceived{}, state) do
+    {:ok, adopter_state} = state.adopter_module.handle_av_data_received(event, state.adopter_state)
+    %{state | adopter_state: adopter_state}
+  end
+
   defp handle_event(event = %SessionEvents.NewByteIOTotals{}, state) do
     {:ok, adopter_state} = state.adopter_module.byte_io_totals_updated(event, state.adopter_state)
     %{state | adopter_state: adopter_state}    
@@ -213,6 +223,11 @@ defmodule GenRtmpClient do
 
   defp handle_event(event = %SessionEvents.ConnectionResponseReceived{}, state) do
     {:ok, adopter_state} = state.adopter_module.handle_connection_response(event, state.adopter_state)
+    %{state | adopter_state: adopter_state}
+  end
+
+  defp handle_event(event = %SessionEvents.PlayResponseReceived{}, state) do
+    {:ok, adopter_state} = state.adopter_module.handle_play_response(event, state.adopter_state)
     %{state | adopter_state: adopter_state}
   end
 

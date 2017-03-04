@@ -79,7 +79,7 @@ defmodule Rtmp.ClientSession.HandlerTest do
 
     description = "Started playing"
     simulate_play_response(session, play_transaction_id, created_stream_id, true, description)
-    expect_play_response_received_event(true, description)
+    expect_play_response_received_event(true, description, stream_key)
   end
 
   test "Active playback raises events for stream metadata changes", context do
@@ -159,6 +159,54 @@ defmodule Rtmp.ClientSession.HandlerTest do
     }
 
     assert :ok == Handler.handle_rtmp_input(session, simulated_video_message)
+    assert_receive {:event, %Events.AudioVideoDataReceived{
+      stream_key: ^stream_key,
+      data_type: :video,
+      data: <<100::12>>,
+      timestamp: 512,
+      received_at_timestamp: received_at_timestamp,      
+    }} when received_at_timestamp > 0
+  end
+
+  test "Can receive audio and video data prior to receiving play confirmation", context do
+    %TestContext{
+      session: session,
+      options: options
+    } = get_connected_session(context)
+
+    stream_key = "abcdefg"
+    created_stream_id = 5
+
+    assert :ok == Handler.request_playback(session, stream_key)
+
+    transaction_id = expect_create_stream_rtmp_message()
+    simulate_create_stream_response(session, transaction_id, created_stream_id)    
+    expect_buffer_length_rtmp_message(created_stream_id, options.playback_buffer_length_ms)
+    expect_play_rtmp_message(created_stream_id, stream_key)
+
+    simulated_audio_message = %DetailedMessage{
+      timestamp: 512,
+      stream_id: created_stream_id,
+      content: %Messages.AudioData{data: <<100::12>>}
+    }
+
+    simulated_video_message = %DetailedMessage{
+      timestamp: 512,
+      stream_id: created_stream_id,
+      content: %Messages.VideoData{data: <<100::12>>}
+    }
+
+    assert :ok == Handler.handle_rtmp_input(session, simulated_video_message)
+    assert :ok == Handler.handle_rtmp_input(session, simulated_audio_message)
+
+    assert_receive {:event, %Events.AudioVideoDataReceived{
+      stream_key: ^stream_key,
+      data_type: :audio,
+      data: <<100::12>>,
+      timestamp: 512,
+      received_at_timestamp: received_at_timestamp,      
+    }} when received_at_timestamp > 0
+
     assert_receive {:event, %Events.AudioVideoDataReceived{
       stream_key: ^stream_key,
       data_type: :video,
@@ -344,7 +392,7 @@ defmodule Rtmp.ClientSession.HandlerTest do
 
     description = "Started playing"
     simulate_play_response(test_context.session, play_transaction_id, created_stream_id, true, description)
-    expect_play_response_received_event(true, description)
+    expect_play_response_received_event(true, description, stream_key)
 
     %{test_context | 
       stream_key: stream_key,
@@ -523,15 +571,17 @@ defmodule Rtmp.ClientSession.HandlerTest do
     transaction_id
   end
 
-  defp expect_play_response_received_event(was_accepted, description) do
+  defp expect_play_response_received_event(was_accepted, description, stream_key) do
     if description == nil do
       assert_receive {:event, %Events.PlayResponseReceived{
         was_accepted: ^was_accepted,
+        stream_key: ^stream_key
       }}
     else
       assert_receive {:event, %Events.PlayResponseReceived{
         was_accepted: ^was_accepted,
-        response_text: ^description
+        response_text: ^description,
+        stream_key: ^stream_key
       }}
     end
   end

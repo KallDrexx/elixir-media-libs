@@ -1,12 +1,16 @@
 defmodule SimpleRtmpPlayer.Client do
   @behaviour GenRtmpClient
 
+  alias Rtmp.ClientSession.Events, as: Events
+
   require Logger
 
   defmodule State do
     defstruct status: :started,
               connection_info: nil,
-              stream_key: nil
+              stream_key: nil,
+              av_bytes_received: 0,
+              last_av_announcement: 0
   end
 
   def init(connection_info, stream_key) do
@@ -15,8 +19,12 @@ defmodule SimpleRtmpPlayer.Client do
     {:ok, state}
   end
 
-  def handle_connection_response(response, state) do
-    _ = Logger.debug("Connection response received: #{inspect(response)}")
+  def handle_connection_response(%Events.ConnectionResponseReceived{was_accepted: true}, state) do
+    _ = Logger.debug("Connection accepted, requesting playback on stream key")
+
+    GenRtmpClient.start_playback(self(), state.stream_key)
+
+    state = %{state | status: :connected}
     {:ok, state}
   end
 
@@ -35,8 +43,16 @@ defmodule SimpleRtmpPlayer.Client do
     {:ok, state}
   end
 
-  def handle_av_data_received(av_data, state) do
-    _ = Logger.debug("AV received: #{inspect(av_data)}")
+  def handle_av_data_received(av_message, state) do
+    state = %{state | av_bytes_received: state.av_bytes_received + byte_size(av_message.data)}
+    state = cond do
+      state.av_bytes_received - state.last_av_announcement > 10_1000 ->
+        _ = Logger.debug("Received #{state.av_bytes_received} bytes of a/v data")
+        %{state | last_av_announcement: state.av_bytes_received}
+
+      true -> state
+    end
+
     {:ok, state}
   end
 

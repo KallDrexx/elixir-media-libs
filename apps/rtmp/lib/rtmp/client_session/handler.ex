@@ -414,14 +414,18 @@ defmodule Rtmp.ClientSession.Handler do
   end
 
   defp do_handle_rtmp_input(state, message = %DetailedMessage{content: %Messages.AudioData{}}) do
+    # Note: some servers return audio/video data prior to the playback request
+    # to be officially confirmed.  So we need to allow a/v data to be returned
+    # both when in a confirmed playback state or in a requeted playback state
+
     active_stream = Map.fetch!(state.active_streams, message.stream_id)
     cond do
       active_stream.state == :closed ->
         # Assume this just came in as we closed the stream, so ignore it
         state
 
-      active_stream.state != :playing ->
-        error_message = "Client received audio data on stream in state #{active_stream.state}"
+      active_stream.state != :playing && active_stream.state != :playback_requested ->
+        error_message = "Client received audio data on stream in the #{active_stream.state} state"
         raise("#{state.connection_id}: #{error_message}")
 
       true ->
@@ -453,13 +457,17 @@ defmodule Rtmp.ClientSession.Handler do
   end
 
   defp do_handle_rtmp_input(state, message = %DetailedMessage{content: %Messages.VideoData{}}) do
+    # Note: some servers return audio/video data prior to the playback request
+    # to be officially confirmed.  So we need to allow a/v data to be returned
+    # both when in a confirmed playback state or in a requeted playback state
+
     active_stream = Map.fetch!(state.active_streams, message.stream_id)
     cond do
       active_stream.state == :closed ->
         # Assume this just came in as we closed the stream, so ignore it
         state
 
-      active_stream.state != :playing ->
+      active_stream.state != :playing && active_stream.state != :playback_requested ->
         error_message = "Client received audio data on stream in state #{active_stream.state}"
         raise("#{state.connection_id}: #{error_message}")
 
@@ -506,6 +514,10 @@ defmodule Rtmp.ClientSession.Handler do
 
       nil ->
         _ = Logger.warn("#{state.connection_id}: onStatus sent by server with no code argument")
+        state
+
+      command ->
+        _ = Logger.warn("#{state.connection_id}: onStatus command of '#{command}' received but no known way to handle it")
         state
     end
   end
@@ -609,6 +621,8 @@ defmodule Rtmp.ClientSession.Handler do
   end
 
   defp handle_create_stream_result(state, transaction, _, [stream_id]) do
+    stream_id = trunc(stream_id) # ints are required for stream ids due to serialization
+
     if Map.has_key?(state.active_streams, stream_id) do
       raise("#{state.connection_id}: Server created stream #{stream_id} but we were already tracking a stream with that id")
     end
@@ -620,15 +634,14 @@ defmodule Rtmp.ClientSession.Handler do
       stream_key: stream_key
     }
 
-    all_active_streams = Map.put(state.active_streams, stream_id, active_stream)
-    stream_key_to_stream_id_map = Map.put(state.stream_key_to_stream_id_map, stream_key, stream_id)
-    state = %{state | 
-      active_streams: all_active_streams,
-      stream_key_to_stream_id_map: stream_key_to_stream_id_map
-    }
+    state = upsert_active_stream(state, active_stream)    
 
     case purpose do
       :playback ->
+
+        active_stream = %{active_stream | state: :playback_requested}
+        state = upsert_active_stream(state, active_stream)
+
         buffer_length_message = %Messages.UserControl{
           type: :set_buffer_length,
           buffer_length: state.configuration.playback_buffer_length_ms,
@@ -672,14 +685,15 @@ defmodule Rtmp.ClientSession.Handler do
 
       active_stream = %ActiveStream{} ->
         case active_stream.state do
-          :created ->
+          x when x == :created or x == :playback_requested ->
             active_stream = %{active_stream | state: :playing}
             all_active_streams = Map.put(state.active_streams, stream_id, active_stream)
             state = %{state | active_streams: all_active_streams}
 
             event = %Rtmp.ClientSession.Events.PlayResponseReceived{
               was_accepted: true,
-              response_text: status_text
+              response_text: status_text,
+              stream_key: active_stream.stream_key
             }
 
             :ok = raise_event(state, event)
@@ -763,6 +777,16 @@ defmodule Rtmp.ClientSession.Handler do
 
   defp raise_event(state, event) do
     raise_event(state, [event])
+  end
+
+  defp upsert_active_stream(state, active_stream) do
+    all_active_streams = Map.put(state.active_streams, active_stream.id, active_stream)
+    stream_key_to_stream_id_map = Map.put(state.stream_key_to_stream_id_map, active_stream.stream_key, active_stream.id)
+    
+    %{state | 
+      active_streams: all_active_streams,
+      stream_key_to_stream_id_map: stream_key_to_stream_id_map
+    }
   end
 
   defp is_ignorable_command(_), do: false
