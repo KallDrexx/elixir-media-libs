@@ -529,19 +529,7 @@ defmodule Rtmp.ClientSession.Handler do
   end
 
   defp handle_command(state, stream_id, "onStatus", _transaction_id, _command_object, [arguments = %{}]) do
-    case arguments["code"] do
-      "NetStream.Play.Start" -> handle_play_start(state, stream_id, arguments["description"])
-      "NetStream.Play.Reset" -> handle_play_reset(state, stream_id, arguments["description"])
-      "NetStream.Publish.Start" -> handle_publish_start(state, stream_id, arguments["description"])
-
-      nil ->
-        _ = Logger.warn("#{state.connection_id}: onStatus sent by server with no code argument")
-        state
-
-      command ->
-        _ = Logger.warn("#{state.connection_id}: onStatus command of '#{command}' received but no known way to handle it")
-        state
-    end
+    handle_onStatus_message(state, stream_id, arguments)
   end
 
   defp handle_command(state, stream_id, command_name, transaction_id, _command_obj, _args) do
@@ -603,6 +591,10 @@ defmodule Rtmp.ClientSession.Handler do
   defp handle_data(state, _stream, ["|RtmpSampleAccess" | _]) do
     # ignore
     state
+  end
+
+  defp handle_data(state, stream_id, ["onStatus", arguments = %{}]) do
+    handle_onStatus_message(state, stream_id, arguments)
   end
 
   defp handle_data(state, stream, data) do
@@ -784,6 +776,23 @@ defmodule Rtmp.ClientSession.Handler do
             :ok = send_output_message(state, ack, 0, false)
             %{state | last_ack_sent_at: state.bytes_received}
         end
+    end
+  end
+
+  defp handle_onStatus_message(state, stream_id, arguments) do
+    case arguments["code"] do
+      "NetStream.Play.Start" -> handle_play_start(state, stream_id, arguments["description"])
+      "NetStream.Play.Reset" -> handle_play_reset(state, stream_id, arguments["description"])
+      "NetStream.Publish.Start" -> handle_publish_start(state, stream_id, arguments["description"])
+      "NetStream.Data.Start" -> state # ignore
+
+      nil ->
+        _ = Logger.warn("#{state.connection_id}: onStatus sent by server with no code argument")
+        state
+
+      command ->
+        _ = Logger.warn("#{state.connection_id}: onStatus command of '#{command}' received but no known way to handle it")
+        state
     end
   end
 
