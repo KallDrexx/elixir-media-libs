@@ -458,6 +458,20 @@ defmodule Rtmp.ClientSession.Handler do
     handle_data(state, active_stream, message.content.parameters)
   end
 
+  defp do_handle_rtmp_input(state, %DetailedMessage{content: %Messages.SetPeerBandwidth{}}) do
+    # Ignore for now
+    state
+  end
+
+  defp do_handle_rtmp_input(state, message = %DetailedMessage{content: %Messages.UserControl{}}) do
+    case message.content.type do
+      :stream_begin -> state # ignore
+      _ ->
+        _ = Logger.debug("#{state.connection_id}: Unhandleable user control message received with type #{message.content.type}")
+        state
+    end
+  end
+
   defp do_handle_rtmp_input(state, %DetailedMessage{content: %Messages.WindowAcknowledgementSize{size: size}}) do
     state = %{state | server_ack_size: size}
     state
@@ -810,6 +824,7 @@ defmodule Rtmp.ClientSession.Handler do
     }
   end
 
+  defp is_ignorable_command("onBWDone"), do: true
   defp is_ignorable_command(_), do: false
   
 end
