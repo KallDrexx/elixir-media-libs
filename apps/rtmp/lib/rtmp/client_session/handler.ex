@@ -600,6 +600,11 @@ defmodule Rtmp.ClientSession.Handler do
     state
   end
 
+  defp handle_data(state, _stream, ["|RtmpSampleAccess" | _]) do
+    # ignore
+    state
+  end
+
   defp handle_data(state, stream, data) do
     _ = Logger.info("#{state.connection_id}: No known way to handle incoming data on stream id '#{stream.id}' " <>
       "in state #{stream.state}.  Data: #{inspect data}")
