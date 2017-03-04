@@ -22,6 +22,7 @@ defmodule GenRtmpClient do
   @callback init(GenRtmpClient.ConnectionInfo.t, adopter_args) :: {:ok, adopter_state}
   @callback handle_connection_response(SessionEvents.ConnectionResponseReceived.t, adopter_state) :: adopter_response
   @callback handle_play_response(SessionEvents.PlayResponseReceived.t, adopter_state) :: adopter_response
+  @callback handle_play_reset(SessionEvents.PlayResetReceived.t, adopter_state) :: adopter_response
   @callback handle_publish_response(SessionEvents.PublishResponseReceived.t, adopter_state) :: adopter_response
   @callback handle_metadata_received(SessionEvents.StreamMetaDataReceived.t, adopter_state) :: adopter_response
   @callback handle_av_data_received(SessionEvents.AudioVideoDataReceived.t, adopter_state) :: adopter_response
@@ -223,6 +224,11 @@ defmodule GenRtmpClient do
 
   defp handle_event(event = %SessionEvents.ConnectionResponseReceived{}, state) do
     {:ok, adopter_state} = state.adopter_module.handle_connection_response(event, state.adopter_state)
+    %{state | adopter_state: adopter_state}
+  end
+
+  defp handle_event(event = %SessionEvents.PlayResetReceived{}, state) do
+    {:ok, adopter_state} = state.adopter_module.handle_play_reset(event, state.adopter_state)
     %{state | adopter_state: adopter_state}
   end
 

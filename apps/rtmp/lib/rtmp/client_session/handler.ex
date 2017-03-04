@@ -531,6 +531,7 @@ defmodule Rtmp.ClientSession.Handler do
   defp handle_command(state, stream_id, "onStatus", _transaction_id, _command_object, [arguments = %{}]) do
     case arguments["code"] do
       "NetStream.Play.Start" -> handle_play_start(state, stream_id, arguments["description"])
+      "NetStream.Play.Reset" -> handle_play_reset(state, stream_id, arguments["description"])
       "NetStream.Publish.Start" -> handle_publish_start(state, stream_id, arguments["description"])
 
       nil ->
@@ -708,12 +709,31 @@ defmodule Rtmp.ClientSession.Handler do
         case active_stream.state do
           x when x == :created or x == :playback_requested ->
             active_stream = %{active_stream | state: :playing}
-            all_active_streams = Map.put(state.active_streams, stream_id, active_stream)
-            state = %{state | active_streams: all_active_streams}
+            state = upsert_active_stream(state, active_stream)
 
             event = %Rtmp.ClientSession.Events.PlayResponseReceived{
               was_accepted: true,
               response_text: status_text,
+              stream_key: active_stream.stream_key
+            }
+
+            :ok = raise_event(state, event)
+            state
+        end
+    end
+  end
+
+  defp handle_play_reset(state, stream_id, description) do
+    case Map.get(state.active_streams, stream_id) do
+      nil -> 
+        _ = Logger.debug("#{state.connection_id}: Play reset command received for non-tracked stream id #{stream_id}")
+        state
+
+      active_stream = %ActiveStream{} ->
+        case active_stream.state do
+          x when x == :created or x == :playback_requested or x == :playing ->
+            event = %Rtmp.ClientSession.Events.PlayResetReceived{
+              description: description,
               stream_key: active_stream.stream_key
             }
 

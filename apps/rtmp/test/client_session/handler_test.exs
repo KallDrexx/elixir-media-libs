@@ -440,6 +440,36 @@ defmodule Rtmp.ClientSession.HandlerTest do
     }} when timestamp > 0
   end
 
+  test "NetPlay.Reset events are bubbled up", context do
+    %TestContext{
+      session: session,
+      stream_key: stream_key,
+      active_stream_id: stream_id
+    } = get_playback_session(context);
+
+    description = "abc";
+
+    reset_command = %DetailedMessage{
+      stream_id: stream_id,
+      content: %Messages.Amf0Command{
+        command_name: "onStatus",
+        transaction_id: 0,
+        command_object: nil,
+        additional_values: [%{
+          "level" => "status",
+          "code" => "NetStream.Play.Reset",
+          "description" => description
+        }]
+      }
+    }
+
+    assert :ok == Handler.handle_rtmp_input(session, reset_command)
+    assert_receive {:event, %Events.PlayResetReceived{
+      stream_key: ^stream_key,
+      description: ^description
+    }}
+  end
+
   defp get_connected_session(context) do
     :timer.sleep(20) # for non-zero timestamp checking
 

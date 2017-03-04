@@ -33,6 +33,11 @@ defmodule SimpleRtmpPlayer.Client do
     {:ok, state}
   end
 
+  def handle_play_reset(event = %Events.PlayResetReceived{}, state) do
+    _ = Logger.debug("Play reset received: #{event.description}")
+    {:ok, state}
+  end
+
   def handle_publish_response(response, state) do
     _ = Logger.debug("Publish response received: #{inspect(response)}")
     {:ok, state}

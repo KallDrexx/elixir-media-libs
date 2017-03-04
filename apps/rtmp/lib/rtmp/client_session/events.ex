@@ -6,7 +6,8 @@ defmodule Rtmp.ClientSession.Events do
     Rtmp.ClientSession.Events.PlayResponseReceived.t |
     Rtmp.ClientSession.Events.StreamMetaDataReceived.t |
     Rtmp.ClientSession.Events.AudioVideoDataReceived.t |
-    Rtmp.ClientSession.Events.NewByteIOTotals.t
+    Rtmp.ClientSession.Events.NewByteIOTotals.t |
+    Rtmp.ClientSession.Events.PlayResetReceived.t
 
   defmodule ConnectionResponseReceived do
     @moduledoc """
@@ -103,5 +104,15 @@ defmodule Rtmp.ClientSession.Events do
 
     defstruct bytes_received: 0,
               bytes_sent: 0
+  end
+
+  defmodule PlayResetReceived do
+    @type t :: %__MODULE__{
+      stream_key: Rtmp.stream_key,
+      description: String.t
+    }
+
+    defstruct stream_key: nil,
+              description: nil
   end
 end
