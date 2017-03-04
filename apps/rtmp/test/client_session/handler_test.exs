@@ -359,6 +359,87 @@ defmodule Rtmp.ClientSession.HandlerTest do
     }} when timestamp > 0
   end
 
+  test "Sends acknowledgement after receiving at least server specified byte count", context do
+    window_ack_size = %DetailedMessage{
+      stream_id: 0,
+      content: %Messages.WindowAcknowledgementSize{size: 5000}
+    }
+
+    %TestContext{session: session} = get_connected_session(context)
+    
+    assert :ok == Handler.handle_rtmp_input(session, window_ack_size)
+    assert :ok == Handler.notify_byte_count(session, :bytes_received, 6000)
+    assert_receive {:message, %DetailedMessage{
+      stream_id: 0,
+      timestamp: timestamp,
+      content: %Messages.Acknowledgement{sequence_number: 6000}
+    }} when timestamp > 0
+  end
+
+  test "No acknowlegement received if received less than server specified byte count", context do
+    window_ack_size = %DetailedMessage{
+      stream_id: 0,
+      content: %Messages.WindowAcknowledgementSize{size: 5000}
+    }
+
+    %TestContext{session: session} = get_connected_session(context)
+
+    assert :ok == Handler.handle_rtmp_input(session, window_ack_size)
+    assert :ok == Handler.notify_byte_count(session, :bytes_received, 4999)
+    refute_receive {:message, %DetailedMessage{
+      stream_id: 0,
+      content: %Messages.Acknowledgement{}
+    }}
+  end
+
+  test "Only one acknowledgement received if 2nd byte count doens't pass window size", context do
+    window_ack_size = %DetailedMessage{
+      stream_id: 0,
+      content: %Messages.WindowAcknowledgementSize{size: 5000}
+    }
+
+    %TestContext{session: session} = get_connected_session(context)
+
+    assert :ok == Handler.handle_rtmp_input(session, window_ack_size)
+    assert :ok == Handler.notify_byte_count(session, :bytes_received, 6000)
+    assert_receive {:message, %DetailedMessage{
+      stream_id: 0,
+      timestamp: timestamp,
+      content: %Messages.Acknowledgement{sequence_number: 6000}
+    }} when timestamp > 0
+
+    assert :ok == Handler.notify_byte_count(session, :bytes_received, 4999)
+    refute_receive {:message, %DetailedMessage{
+      stream_id: 0,
+      content: %Messages.Acknowledgement{}
+    }}
+  end
+
+  test "Second acknowledgement received when byte count exceeds next window size", context do
+    window_ack_size = %DetailedMessage{
+      stream_id: 0,
+      content: %Messages.WindowAcknowledgementSize{size: 5000}
+    }
+
+    %TestContext{session: session} = get_connected_session(context)
+
+    assert :ok == Handler.handle_rtmp_input(session, window_ack_size)
+    assert :ok == Handler.notify_byte_count(session, :bytes_received, 6000)
+    assert_receive {:message, %DetailedMessage{
+      stream_id: 0,
+      timestamp: timestamp,
+      content: %Messages.Acknowledgement{sequence_number: 6000}
+    }} when timestamp > 0
+
+    assert :ok == Handler.notify_byte_count(session, :bytes_received, 4999)
+    assert :ok == Handler.notify_byte_count(session, :bytes_received, 1000)
+    assert_receive {:message, %DetailedMessage{
+      stream_id: 0,
+      timestamp: timestamp,
+      content: %Messages.Acknowledgement{sequence_number: 11999}
+    }} when timestamp > 0
+  end
+
   defp get_connected_session(context) do
     :timer.sleep(20) # for non-zero timestamp checking
 

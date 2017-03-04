@@ -45,7 +45,9 @@ defmodule Rtmp.ClientSession.Handler do
               stream_key_to_stream_id_map: %{},
               bytes_sent: 0,
               bytes_received: 0,
-              byte_count_changed_timer: nil
+              byte_count_changed_timer: nil,
+              server_ack_size: nil,
+              last_ack_sent_at: 0
   end
 
   defmodule Transaction do
@@ -383,7 +385,7 @@ defmodule Rtmp.ClientSession.Handler do
   def handle_cast({:byte_count_update, in_or_out, total}, state) do
     state = case in_or_out do
       :bytes_sent -> %{state | bytes_sent: total}
-      :bytes_received -> %{state | bytes_received: total}
+      :bytes_received -> %{state | bytes_received: state.bytes_received + total} |> send_ack_if_required()        
     end
 
     state = case state.byte_count_changed_timer do
@@ -454,6 +456,11 @@ defmodule Rtmp.ClientSession.Handler do
   defp do_handle_rtmp_input(state, message = %DetailedMessage{content: %Messages.Amf0Data{}}) do
     active_stream = Map.fetch!(state.active_streams, message.stream_id)
     handle_data(state, active_stream, message.content.parameters)
+  end
+
+  defp do_handle_rtmp_input(state, %DetailedMessage{content: %Messages.WindowAcknowledgementSize{size: size}}) do
+    state = %{state | server_ack_size: size}
+    state
   end
 
   defp do_handle_rtmp_input(state, message = %DetailedMessage{content: %Messages.VideoData{}}) do
@@ -723,6 +730,20 @@ defmodule Rtmp.ClientSession.Handler do
 
             :ok = raise_event(state, event)
             state
+        end
+    end
+  end
+
+  defp send_ack_if_required(state) do
+    case state.server_ack_size do
+      nil -> state
+      size ->
+        case state.bytes_received - state.last_ack_sent_at > size do
+          false -> state
+          true ->
+            ack = %Messages.Acknowledgement{sequence_number: state.bytes_received}
+            :ok = send_output_message(state, ack, 0, false)
+            %{state | last_ack_sent_at: state.bytes_received}
         end
     end
   end

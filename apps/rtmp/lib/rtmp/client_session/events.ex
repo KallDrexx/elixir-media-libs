@@ -5,7 +5,8 @@ defmodule Rtmp.ClientSession.Events do
     Rtmp.ClientSession.Events.PublishResponseReceived.t |
     Rtmp.ClientSession.Events.PlayResponseReceived.t |
     Rtmp.ClientSession.Events.StreamMetaDataReceived.t |
-    Rtmp.ClientSession.Events.AudioVideoDataReceived.t
+    Rtmp.ClientSession.Events.AudioVideoDataReceived.t |
+    Rtmp.ClientSession.Events.NewByteIOTotals.t
 
   defmodule ConnectionResponseReceived do
     @moduledoc """
