@@ -121,6 +121,11 @@ defmodule GenRtmpClient do
     {:noreply, state}
   end
 
+  def handle_cast({:start_publish, stream_key, type}, state) do
+    :ok = Rtmp.ClientSession.Handler.request_publish(state.session_handler_pid, stream_key, type)
+    {:noreply, state}
+  end
+
   def handle_cast({:session_event, event}, state) do
     state = handle_event(event, state)
     {:noreply, state}
@@ -234,6 +239,11 @@ defmodule GenRtmpClient do
 
   defp handle_event(event = %SessionEvents.PlayResponseReceived{}, state) do
     {:ok, adopter_state} = state.adopter_module.handle_play_response(event, state.adopter_state)
+    %{state | adopter_state: adopter_state}
+  end
+
+  defp handle_event(event = %SessionEvents.PublishResponseReceived{}, state) do
+    {:ok, adopter_state} = state.adopter_module.handle_publish_response(event, state.adopter_state)
     %{state | adopter_state: adopter_state}
   end
 
