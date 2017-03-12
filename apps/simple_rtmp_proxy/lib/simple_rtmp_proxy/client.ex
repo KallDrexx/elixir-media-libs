@@ -59,7 +59,11 @@ defmodule SimpleRtmpProxy.Client do
 
   def handle_disconnection(reason, state) do
     _ = Logger.debug("#{state.connection_info.connection_id}: Disconnected - #{inspect(reason)}")
-    {:retry, state}
+
+    case reason do
+      :stopping -> {:stop, state}
+      _ -> {:retry, state}
+    end
   end
 
   def byte_io_totals_updated(_event, state) do

@@ -140,7 +140,11 @@ defmodule GenRtmpServer.Protocol do
   end
 
   def handle_info({:tcp_closed, _}, state = %State{}) do
-    _ = Logger.info "#{state.session_id}: socket closed" 
+    _ = Logger.info "#{state.session_id}: socket closed"
+
+    {:ok, adopter_state} = state.gen_rtmp_server_adopter.handle_disconnection(state.adopter_state)
+    state = %{state | adopter_state: adopter_state}
+
     {:stop, :normal, state}
   end
 

@@ -106,6 +106,12 @@ defmodule GenRtmpServer do
   and is thus being passed along to the module adopting this behaviour.
   """
   @callback handle_message(any, adopter_state) :: {:ok, adopter_state}
+
+  @doc """
+  Called when the TCP socket is closed.  Allows for any last minute cleanup before
+  the process is killed
+  """
+  @callback handle_disconnection(adopter_state) :: {:ok, adopter_state}
   
   @spec start_link(module(), %GenRtmpServer.RtmpOptions{}, adopter_arguments) :: Supervisor.on_start
   @doc """

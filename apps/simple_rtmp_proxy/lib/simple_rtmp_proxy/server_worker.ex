@@ -137,6 +137,15 @@ defmodule SimpleRtmpProxy.ServerWorker do
     {:ok, state}
   end
 
+  def handle_disconnection(state = %State{}) do
+    if state.client_pid != nil do
+      _ = Logger.debug("#{state.session_id}: Stopping client due to disconnection")
+      :ok = GenRtmpClient.stop_client(state.client_pid)
+    end
+
+    {:ok, state}
+  end
+
   def code_change(_, state = %State{}) do
     {:ok, state}
   end

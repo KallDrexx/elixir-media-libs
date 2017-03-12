@@ -17,7 +17,7 @@ defmodule GenRtmpClient do
   @type adopter_args :: any
   @type adopter_response :: {:ok, adopter_state}
   @type rtmp_client_pid :: pid
-  @type disconnection_reason :: :closed | :inet.posix
+  @type disconnection_reason :: :stopping | :closed | :inet.posix
 
   @callback init(GenRtmpClient.ConnectionInfo.t, adopter_args) :: {:ok, adopter_state}
   @callback handle_connection_response(SessionEvents.ConnectionResponseReceived.t, adopter_state) :: adopter_response
@@ -39,7 +39,8 @@ defmodule GenRtmpClient do
               socket: nil,
               handshake_state: nil,
               protocol_handler_pid: nil,
-              session_handler_pid: nil
+              session_handler_pid: nil,
+              is_being_stopped: false
   end
 
   @spec start_link(adopter_module, GenRtmpClient.ConnectionInfo.t, adopter_args) :: GenServer.on_start
@@ -51,9 +52,11 @@ defmodule GenRtmpClient do
     GenServer.start_link(__MODULE__, [adopter_module, connection_info, adopter_args])
   end
 
-  @spec disconnect(rtmp_client_pid) :: :ok
-  def disconnect(rtmp_client_pid) do
-    GenServer.cast(rtmp_client_pid, :disconnect)
+
+  @spec stop_client(rtmp_client_pid) :: :ok
+  @doc "Tells an RTMP client to disconnect without retrying and permanently stop"
+  def stop_client(pid) do
+    GenServer.cast(pid, :stop_client)
   end
 
   @spec start_playback(rtmp_client_pid, Rtmp.stream_key) :: :ok
@@ -130,6 +133,13 @@ defmodule GenRtmpClient do
     {:noreply, state}
   end
 
+  def handle_cast(:stop_client, state) do
+    state = %{state | is_being_stopped: true}
+    :gen_tcp.shutdown(state.socket, :read_write)
+
+    {:noreply, state}
+  end
+
   def handle_info({:tcp, _, binary}, state = %State{connection_status: :handshaking}) do
     :inet.setopts(state.socket, get_socket_options())
 
@@ -182,9 +192,11 @@ defmodule GenRtmpClient do
   end
 
   def handle_info({:tcp_closed, _}, state) do
-    case notify_disconnection(state, :closed) do
-      {:permanently_disconnected, _state} ->
-        {:stop, :permanently_disconnected}
+    reason = if state.is_being_stopped, do: :stopping, else: :closed
+
+    case notify_disconnection(state, reason) do
+      {:permanently_disconnected, state} ->
+        {:stop, :normal, state}
 
       {:ok, state} ->
         # reconnected
@@ -222,8 +234,11 @@ defmodule GenRtmpClient do
     state = %{state | connection_status: :disconnected}
 
     case state.adopter_module.handle_disconnection(reason, state.adopter_state) do
-      {:stop, adopter_state} -> {:permanently_disconnected, %{state | adopter_state: adopter_state}}
-      {:reconnect, adopter_state} -> connect_to_server(%{state | adopter_state: adopter_state})
+      {:stop, adopter_state} -> 
+        {:permanently_disconnected, %{state | adopter_state: adopter_state}}
+
+      {:retry, adopter_state} -> 
+        connect_to_server(%{state | adopter_state: adopter_state})
     end
   end
 
