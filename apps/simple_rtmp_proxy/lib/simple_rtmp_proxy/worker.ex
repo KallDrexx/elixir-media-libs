@@ -19,20 +19,34 @@ defmodule SimpleRtmpProxy.Worker do
               stream_key: nil,
               metadata: nil,
               video_sequence_header: nil,
-              audio_sequence_header: nil
+              audio_sequence_header: nil,
+              client_info: nil
   end
 
-  def start_link() do
-    options = %GenRtmpServer.RtmpOptions{log_mode: :none}
-    GenRtmpServer.start_link(__MODULE__, options)
+  defmodule ClientInfo do
+    @moduledoc false
+
+    defstruct host: nil,
+              port: nil,
+              app_name: nil
   end
 
-  def init(session_id, client_ip) do
+  def start_link(in_port, host, out_port, app) do
+    options = %GenRtmpServer.RtmpOptions{port: in_port}
+    GenRtmpServer.start_link(__MODULE__, options, [host, out_port, app])
+  end
+
+  def init(session_id, client_ip, [host, port, app_name]) do
     _ = Logger.info "#{session_id}: simple rtmp proxy session started"
 
     state = %State{
       session_id: session_id,
-      client_ip: client_ip
+      client_ip: client_ip,
+      client_info: %ClientInfo{
+        host: host,
+        port: port,
+        app_name: app_name
+      }
     }
 
     {:ok, state}

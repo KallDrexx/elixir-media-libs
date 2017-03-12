@@ -38,7 +38,7 @@ defmodule SimpleRtmpServer.Worker do
     GenRtmpServer.start_link(__MODULE__, options)
   end
 
-  def init(session_id, client_ip) do
+  def init(session_id, client_ip, _args) do
     _ = Logger.info "#{session_id}: simple rtmp server session started"
 
     state = %State{

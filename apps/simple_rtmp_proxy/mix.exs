@@ -12,14 +12,16 @@ defmodule SimpleRtmpProxy.Mixfile do
       elixir: "~> 1.4",
       build_embedded: Mix.env == :prod,
       start_permanent: Mix.env == :prod,
-      deps: deps()
+      deps: deps(),
+      escript: [
+        main_module: SimpleRtmpProxy,
+        name: "simple_rtmp_proxy.escript"
+      ],
     ]
   end
 
   def application do
-    # Specify extra applications you'll use from Erlang/Elixir
-    [extra_applications: [:logger],
-     mod: {SimpleRtmpProxy, []}]
+    [extra_applications: [:logger]]
   end
 
   defp deps do

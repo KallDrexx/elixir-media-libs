@@ -25,12 +25,13 @@ defmodule GenRtmpServer.Protocol do
               gen_rtmp_server_adopter: nil,
               adopter_state: nil,
               session_config: nil,
-              log_files: %{}
+              log_files: %{},
+              adopter_args: nil
   end
 
   @doc "Starts the protocol for the accepted socket"
-  def start_link(ref, socket, transport, [module, options = %GenRtmpServer.RtmpOptions{}]) do
-    :proc_lib.start_link(__MODULE__, :init, [ref, socket, transport, module, options])
+  def start_link(ref, socket, transport, [module, options = %GenRtmpServer.RtmpOptions{}, adopter_args]) do
+    :proc_lib.start_link(__MODULE__, :init, [ref, socket, transport, module, options, adopter_args])
   end
 
   def send_event(pid, event) do
@@ -41,7 +42,7 @@ defmodule GenRtmpServer.Protocol do
     GenServer.cast(pid, {:rtmp_output, binary})
   end
 
-  def init(ref, socket, transport, module, options) do
+  def init(ref, socket, transport, module, options, adopter_args) do
     :ok = :proc_lib.init_ack({:ok, self()})
     :ok = :ranch.accept_ack(ref)
 
@@ -64,7 +65,8 @@ defmodule GenRtmpServer.Protocol do
       handshake_instance: handshake_instance,
       session_id: session_id,
       gen_rtmp_server_adopter: module,
-      session_config: session_config
+      session_config: session_config,
+      adopter_args: adopter_args,
     }
 
     set_socket_options(state)
@@ -104,7 +106,7 @@ defmodule GenRtmpServer.Protocol do
         :ok = Rtmp.ServerSession.Handler.set_rtmp_output_handler(session_pid, protocol_pid, Rtmp.Protocol.Handler)
         :ok = Rtmp.ServerSession.Handler.set_event_handler(session_pid, self(), __MODULE__)
 
-        {:ok, adopter_state} = state.gen_rtmp_server_adopter.init(state.session_id, get_ip_address(state.socket))
+        {:ok, adopter_state} = state.gen_rtmp_server_adopter.init(state.session_id, get_ip_address(state.socket), state.adopter_args)
         :ok = Rtmp.Protocol.Handler.notify_input(protocol_pid, remaining_binary)
         :ok = Rtmp.ServerSession.Handler.send_stream_zero_begin(session_pid)
 

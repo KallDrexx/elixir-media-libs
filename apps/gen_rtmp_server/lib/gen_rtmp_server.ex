@@ -20,9 +20,10 @@ defmodule GenRtmpServer do
   @type outbound_data :: GenRtmpServer.AudioVideoData.t | GenRtmpServer.MetaData.t
   @type stream_id :: non_neg_integer
   @type forced_timestamp :: non_neg_integer | nil
+  @type adopter_arguments :: [...]
 
   @doc "Called when a new RTMP client connects"
-  @callback init(session_id, client_ip) :: {:ok, adopter_state}
+  @callback init(session_id, client_ip, adopter_arguments) :: {:ok, adopter_state}
 
   @doc "Called when the client is requesting a connection to the specified application name"
   @callback connection_requested(Rtmp.ServerSession.Events.ConnectionRequested.t, adopter_state)
@@ -106,11 +107,11 @@ defmodule GenRtmpServer do
   """
   @callback handle_message(any, adopter_state) :: {:ok, adopter_state}
   
-  @spec start_link(module(), %GenRtmpServer.RtmpOptions{}) :: Supervisor.on_start
+  @spec start_link(module(), %GenRtmpServer.RtmpOptions{}, adopter_arguments) :: Supervisor.on_start
   @doc """
   Starts the generic RTMP server using the provided RTMP options
   """
-  def start_link(module, options = %GenRtmpServer.RtmpOptions{}) do
+  def start_link(module, options = %GenRtmpServer.RtmpOptions{}, additional_args \\ []) do
     {:ok, _} = Application.ensure_all_started(:ranch)
 
     _ = Logger.info "Starting RTMP listener on port #{options.port}"
@@ -120,9 +121,7 @@ defmodule GenRtmpServer do
                           :ranch_tcp, 
                           [port: options.port],
                           GenRtmpServer.Protocol,
-                          [module, options])
-
-    
+                          [module, options, additional_args])
   end
 
   @spec send_message(pid, outbound_data, stream_id, forced_timestamp) :: :ok
