@@ -95,7 +95,6 @@ defmodule GenRtmpClient do
   end
 
   def init([adopter_module, connection_info, adopter_args]) do
-    IO.puts("Started client #{connection_info.connection_id}")
     {:ok, adopter_state} = adopter_module.init(connection_info, adopter_args)
 
     state = %State{
@@ -182,6 +181,17 @@ defmodule GenRtmpClient do
     {:noreply, state}
   end
 
+  def handle_info({:tcp_closed, _}, state) do
+    case notify_disconnection(state, :closed) do
+      {:permanently_disconnected, _state} ->
+        {:stop, :permanently_disconnected}
+
+      {:ok, state} ->
+        # reconnected
+        {:noreply, state}      
+    end
+  end
+
   def handle_info(message, state) do
     _ = Logger.debug("#{state.connection_info.connection_id}: Unknown message received: #{inspect(message)}")
     {:noreply, state}
@@ -209,7 +219,7 @@ defmodule GenRtmpClient do
   end
 
   defp notify_disconnection(state, reason) do
-    state = %{state | status: :disconnected}
+    state = %{state | connection_status: :disconnected}
 
     case state.adopter_module.handle_disconnection(reason, state.adopter_state) do
       {:stop, adopter_state} -> {:permanently_disconnected, %{state | adopter_state: adopter_state}}
