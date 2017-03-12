@@ -1,4 +1,4 @@
-defmodule SimpleRtmpProxy.Worker do
+defmodule SimpleRtmpProxy.ServerWorker do
   @moduledoc """
   Simple implementation of a RTMP server that relays video to another
   RTMP server.
@@ -20,7 +20,8 @@ defmodule SimpleRtmpProxy.Worker do
               metadata: nil,
               video_sequence_header: nil,
               audio_sequence_header: nil,
-              client_info: nil
+              client_info: nil,
+              client_pid: nil
   end
 
   defmodule ClientInfo do
@@ -113,7 +114,9 @@ defmodule SimpleRtmpProxy.Worker do
             _ = Logger.debug("#{state.session_id}: Video sequence header received")
             %{state | video_sequence_header: event.data }
         end
-    end 
+    end
+
+    state = start_client_if_ready(state) 
 
     {:ok, state}
   end
@@ -141,6 +144,24 @@ defmodule SimpleRtmpProxy.Worker do
   def handle_message(message, state = %State{}) do
     _ = Logger.debug("#{state.session_id}: Unknown message received: #{inspect(message)}")
     {:ok, state}
+  end
+
+  defp start_client_if_ready(state) do
+    cond do
+      state.client_pid != nil -> state
+      state.video_sequence_header == nil -> state
+      state.audio_sequence_header == nil -> state
+      true ->
+        connection_info = %GenRtmpClient.ConnectionInfo{
+          host: state.client_info.host,
+          port: state.client_info.port,
+          app_name: state.client_info.app_name,
+          connection_id: state.session_id <> "_client"
+        }
+        {:ok, client_pid} = GenRtmpClient.start_link(SimpleRtmpProxy.Client, connection_info, state.stream_key)
+        
+        %{state | client_pid: client_pid}
+    end
   end
 
   defp is_video_sequence_header(<<0x17, 0x00, _::binary>>), do: true

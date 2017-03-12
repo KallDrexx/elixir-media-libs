@@ -7,7 +7,7 @@ defmodule SimpleRtmpProxy do
     in_port = String.to_integer(in_port)
     out_port = String.to_integer(out_port)
 
-    children = [worker(SimpleRtmpProxy.Worker, [in_port, host, out_port, app])]
+    children = [worker(SimpleRtmpProxy.ServerWorker, [in_port, host, out_port, app])]
     opts = [strategy: :one_for_one, name: SimpleRtmpProxy.Supervisor]
     Supervisor.start_link(children, opts)
 
