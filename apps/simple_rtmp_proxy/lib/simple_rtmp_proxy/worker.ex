@@ -15,7 +15,11 @@ defmodule SimpleRtmpProxy.Worker do
     @moduledoc false
 
     defstruct session_id: nil,
-              client_ip: nil
+              client_ip: nil,
+              stream_key: nil,
+              metadata: nil,
+              video_sequence_header: nil,
+              audio_sequence_header: nil
   end
 
   def start_link() do
@@ -38,8 +42,15 @@ defmodule SimpleRtmpProxy.Worker do
     {:accepted, state}
   end
 
-  def publish_requested(%RtmpEvents.PublishStreamRequested{}, state = %State{}) do
-    {:accepted, state}
+  def publish_requested(event = %RtmpEvents.PublishStreamRequested{}, state = %State{}) do
+    case state.stream_key do
+      nil ->
+        state = %{state | stream_key: event.stream_key}
+        {:accepted, state}
+
+      _ ->
+        {{:rejected, :ignore, "Publish already in progress on stream key #{state.stream_key}"}, state}
+    end
   end
 
   def publish_finished(%RtmpEvents.PublishingFinished{}, state = %State{}) do
@@ -54,11 +65,42 @@ defmodule SimpleRtmpProxy.Worker do
     {:ok, state}
   end
 
-  def metadata_received(%RtmpEvents.StreamMetaDataChanged{}, state = %State{}) do
+  def metadata_received(event = %RtmpEvents.StreamMetaDataChanged{}, state = %State{}) do
+    if event.stream_key != state.stream_key do
+      message = "#{state.session_id}: Received stream metadata on stream key #{event.stream_key} but " <>
+                "currently publishing on stream key #{state.stream_key}"
+      raise(message)
+    end
+
+    state = %{state | metadata: event.meta_data }
     {:ok, state}
   end
 
-  def audio_video_data_received(%RtmpEvents.AudioVideoDataReceived{}, state = %State{}) do
+  def audio_video_data_received(event = %RtmpEvents.AudioVideoDataReceived{}, state = %State{}) do
+    if event.stream_key != state.stream_key do
+      message = "#{state.session_id}: Received a/v data on stream key #{event.stream_key} but " <>
+                "currently publishing on stream key #{state.stream_key}"
+      raise(message)
+    end
+
+    state = case event.data_type do
+      :audio ->
+        case is_audio_sequence_header(event.data) do
+          false -> state
+          true -> 
+            _ = Logger.debug("#{state.session_id}: Audio sequence header received")
+            %{state | audio_sequence_header: event.data}
+        end
+
+      :video ->
+        case is_video_sequence_header(event.data) do
+          false -> state
+          true -> 
+            _ = Logger.debug("#{state.session_id}: Video sequence header received")
+            %{state | video_sequence_header: event.data }
+        end
+    end 
+
     {:ok, state}
   end
 
@@ -86,5 +128,11 @@ defmodule SimpleRtmpProxy.Worker do
     _ = Logger.debug("#{state.session_id}: Unknown message received: #{inspect(message)}")
     {:ok, state}
   end
+
+  defp is_video_sequence_header(<<0x17, 0x00, _::binary>>), do: true
+  defp is_video_sequence_header(_), do: false
+
+  defp is_audio_sequence_header(<<0xaf, 0x00, _::binary>>), do: true
+  defp is_audio_sequence_header(_), do: false
 
 end
