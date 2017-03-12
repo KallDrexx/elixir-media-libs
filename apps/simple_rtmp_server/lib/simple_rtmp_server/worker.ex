@@ -253,6 +253,10 @@ defmodule SimpleRtmpServer.Worker do
     {:ok, state}
   end
 
+  def handle_disconnection(state) do
+    {:ok, state}
+  end
+
   def handle_message({:av_data, event = %RtmpEvents.AudioVideoDataReceived{}}, state = %State{}) do
     activity_key = generate_activity_key(event.app_name, event.stream_key)
 
