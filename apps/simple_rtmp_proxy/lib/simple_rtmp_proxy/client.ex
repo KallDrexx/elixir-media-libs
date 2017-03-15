@@ -9,14 +9,27 @@ defmodule SimpleRtmpProxy.Client do
 
     defstruct status: :started,
               connection_info: nil,
-              stream_key: nil
+              stream_key: nil,
+              video_header: nil,
+              audio_header: nil,
+              metadata: nil,
+              has_sent_keyframe: false
   end
 
-  def init(connection_info, stream_key) do
+  @spec relay_av_data(pid, Rtmp.ClientSession.Handler.av_type, Rtmp.timestamp, binary) :: :ok
+  def relay_av_data(pid, type, timestamp, data) do
+    _ = send(pid, {:relay_av, type, timestamp, data})
+    :ok
+  end
+
+  def init(connection_info, [stream_key, video_header, audio_header, metadata]) do
     _ = Logger.debug("#{connection_info.connection_id}: client initialized for stream key #{stream_key}")
     state = %State{
       connection_info: connection_info,
-      stream_key: stream_key
+      stream_key: stream_key,
+      video_header: video_header,
+      audio_header: audio_header,
+      metadata: metadata
     }
 
     {:ok, state}
@@ -53,6 +66,10 @@ defmodule SimpleRtmpProxy.Client do
   def handle_publish_response(event = %Events.PublishResponseReceived{was_accepted: true}, state) do
     _ = Logger.debug("#{state.connection_info.connection_id}: Publish accepted for stream key #{event.stream_key}")
 
+    :ok = GenRtmpClient.publish_metadata(self(), state.stream_key, state.metadata)
+    :ok = GenRtmpClient.publish_av_data(self(), state.stream_key, :audio, 0, state.audio_header)
+    :ok = GenRtmpClient.publish_av_data(self(), state.stream_key, :video, 0, state.video_header)
+
     state = %{state | status: :publishing}
     {:ok, state}
   end
@@ -69,4 +86,36 @@ defmodule SimpleRtmpProxy.Client do
   def byte_io_totals_updated(_event, state) do
     {:ok, state}
   end
+
+  def handle_message({:relay_av, type, timestamp, data}, state = %State{status: :publishing}) do
+    should_relay_data = case {state.has_sent_keyframe, type, is_keyframe(data)} do
+      {true, _, _} -> true
+      {false, :video, true} -> true
+      {false, _, _} -> false
+    end
+
+    state = case should_relay_data do
+      false -> state
+
+      true ->
+        :ok = GenRtmpClient.publish_av_data(self(), state.stream_key, type, timestamp, data)
+        %{state | has_sent_keyframe: true}      
+    end
+
+    {:ok, state}
+  end
+
+  def handle_message({:relay_av, _type, _timestamp, _data}, state) do
+    # ignore since we aren't publishing
+    {:ok, state}
+  end
+
+  def handle_message(message, state) do
+    _ = Logger.debug("#{state.connection_info.connection_id}: Unknown message received: #{inspect(message)}")
+
+    {:ok, state}
+  end
+
+  defp is_keyframe(<<0x17, _::binary>>), do: true
+  defp is_keyframe(_), do: false
 end

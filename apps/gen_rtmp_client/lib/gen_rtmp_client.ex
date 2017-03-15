@@ -28,6 +28,7 @@ defmodule GenRtmpClient do
   @callback handle_av_data_received(SessionEvents.AudioVideoDataReceived.t, adopter_state) :: adopter_response
   @callback handle_disconnection(disconnection_reason, adopter_state) :: {:stop, adopter_state} | {:reconnect, adopter_state}
   @callback byte_io_totals_updated(SessionEvents.NewByteIOTotals.t, adopter_state) :: adopter_response
+  @callback handle_message(any, adopter_state) :: adopter_response
 
   defmodule State do
     @moduledoc false
@@ -51,7 +52,6 @@ defmodule GenRtmpClient do
   def start_link(adopter_module, connection_info = %GenRtmpClient.ConnectionInfo{}, adopter_args) do
     GenServer.start_link(__MODULE__, [adopter_module, connection_info, adopter_args])
   end
-
 
   @spec stop_client(rtmp_client_pid) :: :ok
   @doc "Tells an RTMP client to disconnect without retrying and permanently stop"
@@ -125,6 +125,16 @@ defmodule GenRtmpClient do
 
   def handle_cast({:start_publish, stream_key, type}, state) do
     :ok = Rtmp.ClientSession.Handler.request_publish(state.session_handler_pid, stream_key, type)
+    {:noreply, state}
+  end
+
+  def handle_cast({:publish_metadata, stream_key, metadata}, state) do
+    :ok = Rtmp.ClientSession.Handler.publish_metadata(state.session_handler_pid, stream_key, metadata)
+    {:noreply, state}
+  end
+
+  def handle_cast({:publish_av_data, stream_key, type, timestamp, data}, state) do
+    :ok = Rtmp.ClientSession.Handler.publish_av_data(state.session_handler_pid, stream_key, type, timestamp, data)
     {:noreply, state}
   end
 
@@ -205,7 +215,9 @@ defmodule GenRtmpClient do
   end
 
   def handle_info(message, state) do
-    _ = Logger.debug("#{state.connection_info.connection_id}: Unknown message received: #{inspect(message)}")
+    {:ok, adopter_state} = state.adopter_module.handle_message(message, state.adopter_state)
+    state = %{state | adopter_state: adopter_state}
+
     {:noreply, state}
   end
 

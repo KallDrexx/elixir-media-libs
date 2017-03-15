@@ -116,7 +116,10 @@ defmodule SimpleRtmpProxy.ServerWorker do
         end
     end
 
-    state = start_client_if_ready(state) 
+    state = start_client_if_ready(state)
+    if state.client_pid != nil do
+      :ok = SimpleRtmpProxy.Client.relay_av_data(state.client_pid, event.data_type, event.timestamp, event.data)
+    end
 
     {:ok, state}
   end
@@ -160,6 +163,8 @@ defmodule SimpleRtmpProxy.ServerWorker do
       state.client_pid != nil -> state
       state.video_sequence_header == nil -> state
       state.audio_sequence_header == nil -> state
+      state.metadata == nil -> state
+
       true ->
         connection_info = %GenRtmpClient.ConnectionInfo{
           host: state.client_info.host,
@@ -167,7 +172,15 @@ defmodule SimpleRtmpProxy.ServerWorker do
           app_name: state.client_info.app_name,
           connection_id: state.session_id <> "_client"
         }
-        {:ok, client_pid} = GenRtmpClient.start_link(SimpleRtmpProxy.Client, connection_info, state.stream_key)
+
+        client_args = [
+          state.stream_key,
+          state.video_sequence_header,
+          state.audio_sequence_header,
+          state.metadata
+        ]
+
+        {:ok, client_pid} = GenRtmpClient.start_link(SimpleRtmpProxy.Client, connection_info, client_args)
         
         %{state | client_pid: client_pid}
     end
