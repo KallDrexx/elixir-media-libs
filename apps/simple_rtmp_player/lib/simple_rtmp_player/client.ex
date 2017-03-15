@@ -71,4 +71,9 @@ defmodule SimpleRtmpPlayer.Client do
     {:ok, state}
   end
 
+  def handle_message(message, state) do
+    _ = Logger.warn("#{state.connection_info.connection_id}: Unable to handle client message: #{message}")
+    {:ok, state}
+  end
+
 end
