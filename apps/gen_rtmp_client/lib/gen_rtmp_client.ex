@@ -60,39 +60,47 @@ defmodule GenRtmpClient do
   end
 
   @spec start_playback(rtmp_client_pid, Rtmp.stream_key) :: :ok
+  @doc "Requests playback capabilities on the specified stream key"
   def start_playback(rtmp_client_pid, stream_key) do
     GenServer.cast(rtmp_client_pid, {:start_playback, stream_key})
   end
 
   @spec stop_playback(rtmp_client_pid, Rtmp.stream_key) :: :ok
+  @doc "Stops playback on the specified stream key"
   def stop_playback(rtmp_client_pid, stream_key) do
     GenServer.cast(rtmp_client_pid, {:stop_playback, stream_key})
   end
 
   @spec start_publish(rtmp_client_pid, Rtmp.stream_key, Rtmp.ClientSession.Handler.publish_type) :: :ok
+  @doc "Requests publish capabilities for the specified stream key"
   def start_publish(rtmp_client_pid, stream_key, type) do
     GenServer.cast(rtmp_client_pid, {:start_publish, stream_key, type})
   end
 
   @spec stop_publish(rtmp_client_pid, Rtmp.stream_key) :: :ok
+  @doc "Stops publishing on the specified stream key"
   def stop_publish(rtmp_client_pid, stream_key) do
     GenServer.cast(rtmp_client_pid, {:stop_publish, stream_key})
   end
 
   @spec publish_metadata(rtmp_client_pid, Rtmp.stream_key, Rtmp.StreamMetadata.t) :: :ok
+  @doc "Sends new metadata information to the server for the specified stream key"
   def publish_metadata(rtmp_client_pid, stream_key, metadata) do
     GenServer.cast(rtmp_client_pid, {:publish_metadata, stream_key, metadata})
   end
 
   @spec publish_av_data(rtmp_client_pid, Rtmp.stream_key, Rtmp.ClientSession.Handler.av_type, Rtmp.timestamp, binary) :: :ok
+  @doc "Sends audio or video data to the server for the specified stream key"
   def publish_av_data(rtmp_client_pid, stream_key, type, timestamp, data) do
     GenServer.cast(rtmp_client_pid, {:publish_av_data, stream_key, type, timestamp, data})
   end
 
+  @doc false
   def send_event(pid, event) do
     GenServer.cast(pid, {:session_event, event})
   end
 
+  @doc false
   def send_data(pid, binary) do
     GenServer.cast(pid, {:rtmp_output, binary})
   end
