@@ -12,6 +12,8 @@ defmodule GenRtmpClient.Mixfile do
       elixir: "~> 1.4",
       build_embedded: Mix.env == :prod,
       start_permanent: Mix.env == :prod,
+      package: package(),
+      description: "Behaviour to make it easy to create custom RTMP clients",
       deps: deps()
     ]
   end
@@ -23,6 +25,30 @@ defmodule GenRtmpClient.Mixfile do
   end
 
   defp deps do
-    [{:rtmp, in_umbrella: true}]
+    [
+      {:ex_doc, "~> 0.14", only: [:dev, :publish, :umbrella]} |
+      get_umbrella_dependencies(Mix.env)
+    ]
+  end
+
+  defp get_umbrella_dependencies(:umbrella) do
+    [
+      {:rtmp, in_umbrella: true},
+    ]
+  end
+
+  defp get_umbrella_dependencies(_) do
+    [
+      {:rtmp, "~> 0.2.0", hex: :eml_rtmp},
+    ]
+  end
+
+  defp package do
+    [
+      name: :eml_gen_rtmp_client,
+      maintainers: ["Matthew Shapiro"],
+      licenses: ["MIT"],
+      links: %{"GitHub" => "https://github.com/KallDrexx/elixir-media-libs/tree/master/apps/gen_rtmp_client"}
+    ]
   end
 end

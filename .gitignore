@@ -10,3 +10,5 @@ doc/
 #Intellij
 **/.idea/
 *.iml
+
+*.lock
