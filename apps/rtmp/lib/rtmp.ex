@@ -4,6 +4,7 @@ defmodule Rtmp do
   @type system_time_ms :: integer
   @type app_name :: String.t
   @type stream_key :: String.t
+  @type packet_type :: :audio | :video | :misc
 
   @type deserialized_message :: Rtmp.Protocol.Messages.VideoData.t |
                                 Rtmp.Protocol.Messages.AudioData.t |
@@ -47,6 +48,14 @@ defmodule Rtmp do
       @type event :: any
 
       @callback send_event(event_receiver_pid, event) :: :ok
+    end
+
+    defmodule SocketHandler do
+      @moduledoc "Behaviour for modules receiving raw RTMP output to send"
+
+      @type socket_handler_pid :: pid
+
+      @callback send_data(pid, binary, Rtmp.packet_type) :: :ok
     end
   end
   

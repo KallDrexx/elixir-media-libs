@@ -22,9 +22,10 @@ defmodule Rtmp.Protocol.Handler do
   alias Rtmp.Protocol.RawMessage, as: RawMessage
   alias Rtmp.Protocol.DetailedMessage, as: DetailedMessage
   alias Rtmp.Protocol.Messages.SetChunkSize, as: SetChunkSize
+  alias Rtmp.Protocol.Messages.VideoData, as: VideoData
+  alias Rtmp.Protocol.Messages.AudioData, as: AudioData
 
   @type protocol_handler :: pid
-  @type socket :: any
   @type socket_transport_module :: module
   @type session_process :: pid
   @type session_handler_module :: module
@@ -47,7 +48,7 @@ defmodule Rtmp.Protocol.Handler do
               io_notification_timer: nil
   end
 
-  @spec start_link(Rtmp.connection_id, socket, socket_transport_module) :: {:ok, protocol_handler}
+  @spec start_link(Rtmp.connection_id, Rtmp.Behaviours.SocketHandler.socket_handler_pid, socket_transport_module) :: {:ok, protocol_handler}
   @doc "Starts a new protocol handler process"
   def start_link(connection_id, socket, socket_module) do
     GenServer.start_link(__MODULE__, [connection_id, socket, socket_module])
@@ -128,7 +129,13 @@ defmodule Rtmp.Protocol.Handler do
       _ -> state
     end
 
-    :ok = state.socket_module.send_data(state.socket, data)
+    packet_type = case message.content do
+      %VideoData{} -> :video
+      %AudioData{} -> :audio
+      _ -> :misc
+    end
+
+    :ok = state.socket_module.send_data(state.socket, data, packet_type)
     state = %{state | bytes_sent: state.bytes_sent + byte_size(data)}
     state = trigger_io_notification_timer(state)
 

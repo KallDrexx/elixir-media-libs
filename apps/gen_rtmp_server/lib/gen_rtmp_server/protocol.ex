@@ -5,6 +5,7 @@ defmodule GenRtmpServer.Protocol do
 
   @behaviour :ranch_protocol
   @behaviour Rtmp.Behaviours.EventReceiver
+  @behaviour Rtmp.Behaviours.SocketHandler
 
   alias Rtmp.ServerSession.Events, as: RtmpEvents
   alias Rtmp.Protocol.Messages, as: RtmpMessages
@@ -26,7 +27,11 @@ defmodule GenRtmpServer.Protocol do
               adopter_state: nil,
               session_config: nil,
               log_files: %{},
-              adopter_args: nil
+              adopter_args: nil,
+              total_bytes_sent: 0,
+              total_packets_sent: 0,
+              total_bytes_dropped: 0,
+              total_packets_dropped: 0
   end
 
   @doc "Starts the protocol for the accepted socket"
@@ -34,12 +39,14 @@ defmodule GenRtmpServer.Protocol do
     :proc_lib.start_link(__MODULE__, :init, [ref, socket, transport, module, options, adopter_args])
   end
 
+  @doc false
   def send_event(pid, event) do
     GenServer.cast(pid, {:session_event, event})
   end
 
-  def send_data(pid, binary) do
-    GenServer.cast(pid, {:rtmp_output, binary})
+  @doc false
+  def send_data(pid, binary, packet_type) do
+    GenServer.cast(pid, {:rtmp_output, binary, packet_type})
   end
 
   def init(ref, socket, transport, module, options, adopter_args) do
@@ -78,9 +85,26 @@ defmodule GenRtmpServer.Protocol do
     {:noreply, state}
   end
 
-  def handle_cast({:rtmp_output, binary}, state) do
-    state.transport.send(state.socket, binary)
-    log_io_data(state, :output, binary)
+  def handle_cast({:rtmp_output, binary, packet_type}, state) do
+    # If the network buffer becomes full due to a connection that can't handle the amount
+    # of audio/video data going out to the server, we need to compensate by dropping
+    # audio/video data as necessary in order to not back everything up.  All non-audio/video
+    # messages should not be dropped though.
+
+    # TODO: Should probably make sure sequence header packets are never dropped.
+    # Otherwise the video is useless.
+
+    can_be_dropped = case packet_type do
+      :audio -> true
+      :video -> true
+      _ -> false
+    end
+
+    state = case can_be_dropped do
+      false -> send_undroppable_packet(state, binary)
+      true -> send_droppable_packet(state, binary)
+    end
+
     {:noreply, state}
   end
 
@@ -155,6 +179,10 @@ defmodule GenRtmpServer.Protocol do
 
   def handle_info(:send_ping_request, state = %State{}) do
     :ok = Rtmp.ServerSession.Handler.send_ping_request(state.session_handler_pid)
+    {:noreply, state}
+  end
+
+  def handle_info({:inet_reply, _socket, _status}, state) do
     {:noreply, state}
   end
   
@@ -374,6 +402,35 @@ defmodule GenRtmpServer.Protocol do
   defp log_io_data(state = %State{session_config: %Rtmp.ServerSession.Configuration{io_log_mode: :raw_io}}, :output, data) do
     file = Map.fetch!(state.log_files, :output_append)
     IO.binwrite(file, data)
+  end
+
+  defp send_undroppable_packet(state, binary) do
+    :gen_tcp.send(state.socket, binary)
+    mark_packet_as_sent(state, binary)
+  end
+
+  defp send_droppable_packet(state, binary) do
+    case :erlang.port_command(state.socket, binary, [:nosuspend]) do
+      true -> mark_packet_as_sent(state, binary)
+
+      false ->
+        # Port is too busy to send, drop the packet
+        mark_packet_as_dropped(state, binary)
+    end
+  end
+
+  defp mark_packet_as_sent(state, binary) do
+    %{state |
+      total_bytes_sent: state.total_bytes_sent + byte_size(binary),
+      total_packets_sent: state.total_packets_sent + 1
+    }
+  end
+
+  defp mark_packet_as_dropped(state, binary) do
+    %{state |
+      total_bytes_dropped: state.total_bytes_dropped + byte_size(binary),
+      total_packets_dropped: state.total_packets_dropped + 1
+    }
   end
 
 end

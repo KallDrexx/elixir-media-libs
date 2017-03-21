@@ -5,10 +5,11 @@ defmodule Rtmp.Protocol.HandlerTest do
   alias Rtmp.Protocol.Handler, as: ProtocolHandler
   alias Rtmp.Protocol.DetailedMessage, as: DetailedMessage
   alias Rtmp.Protocol.Messages.VideoData, as: VideoData
+  alias Rtmp.Protocol.Messages.AudioData, as: AudioData
   alias Rtmp.Protocol.Messages.SetChunkSize, as: SetChunkSize
 
-  def send_data(pid, data) do
-    _ = send(pid, {:binary, data})
+  def send_data(pid, data, packet_type) do
+    _ = send(pid, {:binary, data, packet_type})
     :ok
   end
 
@@ -115,8 +116,8 @@ defmodule Rtmp.Protocol.HandlerTest do
     expected_binary1 = <<0::2, 21::6, 72::size(3)-unit(8), 12::size(3)-unit(8), 9::8, 55::size(4)-unit(8)-little, 152::size(12)-unit(8)>>
     expected_binary2 = <<1::2, 21::6, 10::size(3)-unit(8), 13::size(3)-unit(8), 9::8, 122::size(13)-unit(8)>>
 
-    assert_receive {:binary, ^expected_binary1}
-    assert_receive {:binary, ^expected_binary2}
+    assert_receive {:binary, ^expected_binary1, _}
+    assert_receive {:binary, ^expected_binary2, _}
   end
 
   test "Passed in message is split if greater than max chunk size" do
@@ -134,7 +135,7 @@ defmodule Rtmp.Protocol.HandlerTest do
     expected_binary2 = <<3::2, 21::6, 122::size(10)-unit(8)>>
     expected_binary = expected_binary1 <> expected_binary2
 
-    assert_receive {:binary, ^expected_binary}
+    assert_receive {:binary, ^expected_binary, _}
   end
 
   test "Sending a SetChunkSize message updates the chunk size for following chunks" do
@@ -160,8 +161,8 @@ defmodule Rtmp.Protocol.HandlerTest do
     expected_binary1 = <<0::2, 2::6, 72::size(3)-unit(8), 4::size(3)-unit(8), 1::8, 55::size(4)-unit(8)-little, 200::size(4)-unit(8)>>
     expected_binary2 = <<0::2, 21::6, 82::size(3)-unit(8), 200::size(3)-unit(8), 9::8, 55::size(4)-unit(8)-little, 122::size(200)-unit(8)>>
 
-    assert_receive {:binary, ^expected_binary1}
-    assert_receive {:binary, ^expected_binary2}
+    assert_receive {:binary, ^expected_binary1, _}
+    assert_receive {:binary, ^expected_binary2, _}
   end
 
   test "Can read multiple chunks in a single packet" do
@@ -229,4 +230,45 @@ defmodule Rtmp.Protocol.HandlerTest do
     assert_receive {:bytes_sent, ^expected_sent_size}, 1000
   end
 
+  test "Video packets passed to socket handler are flagged as video packet type" do
+    input = %DetailedMessage{
+      timestamp: 72,
+      stream_id: 55,
+      content: %VideoData{data: <<5::200>>}
+    }
+
+    assert {:ok, handler} = ProtocolHandler.start_link("id", self(), __MODULE__)
+    assert :ok = ProtocolHandler.set_session(handler, self(), __MODULE__)
+    assert :ok = ProtocolHandler.send_message(handler, input)
+
+    assert_receive {:binary, _, :video}
+  end
+
+  test "Audio packets passed to socket handler are flagged as audio packet type" do
+    input = %DetailedMessage{
+      timestamp: 72,
+      stream_id: 55,
+      content: %AudioData{data: <<6::200>>}
+    }
+
+    assert {:ok, handler} = ProtocolHandler.start_link("id", self(), __MODULE__)
+    assert :ok = ProtocolHandler.set_session(handler, self(), __MODULE__)
+    assert :ok = ProtocolHandler.send_message(handler, input)
+
+    assert_receive {:binary, _, :audio}
+  end
+
+  test "Misc rtmp messages are passed to socket handler are flagged as misc packet type" do
+    input = %DetailedMessage{
+      timestamp: 72,
+      stream_id: 55,
+      content: %SetChunkSize{size: 200}
+    }
+
+    assert {:ok, handler} = ProtocolHandler.start_link("id", self(), __MODULE__)
+    assert :ok = ProtocolHandler.set_session(handler, self(), __MODULE__)
+    assert :ok = ProtocolHandler.send_message(handler, input)
+
+    assert_receive {:binary, _, :misc}
+  end
 end
