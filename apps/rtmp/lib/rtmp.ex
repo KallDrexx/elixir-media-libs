@@ -35,10 +35,9 @@ defmodule Rtmp do
       @type session_handler_pid :: pid
       @type stream_id :: non_neg_integer
       @type forced_timestamp :: non_neg_integer | nil
-      @type io_count_direction :: :bytes_received | :bytes_sent
 
       @callback handle_rtmp_input(session_handler_pid, Rtmp.Protocol.DetailedMessage.t) :: :ok
-      @callback notify_byte_count(session_handler_pid, io_count_direction, non_neg_integer) :: :ok
+      @callback notify_byte_count(session_handler_pid, Rtmp.IoTotals.t) :: :ok
     end
 
     defmodule EventReceiver do
@@ -58,5 +57,4 @@ defmodule Rtmp do
       @callback send_data(pid, binary, Rtmp.packet_type) :: :ok
     end
   end
-  
 end

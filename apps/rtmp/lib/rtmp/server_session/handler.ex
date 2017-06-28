@@ -114,10 +114,11 @@ defmodule Rtmp.ServerSession.Handler do
     GenServer.cast(pid, :begin_stream_zero)
   end
 
-  @spec notify_byte_count(Rtmp.Behaviours.SessionHandler.session_handler_pid, Rtmp.Behaviours.SessionHandler.io_count_direction, non_neg_integer) :: :ok
-  @doc "Notifies the session handler of new input or output byte totals"
-  def notify_byte_count(pid, :bytes_received, total), do: GenServer.cast(pid, {:byte_count_update, :bytes_received, total})
-  def notify_byte_count(pid, :bytes_sent, total),     do: GenServer.cast(pid, {:byte_count_update, :bytes_sent, total})
+  @spec notify_byte_count(Rtmp.Behaviours.SessionHandler.session_handler_pid, Rtmp.IoTotals.t) :: :ok
+  @doc "Notifies the session handler of updated I/O totals"
+  def notify_byte_count(pid, io_totals = %Rtmp.IoTotals{}) do
+    GenServer.cast(pid, {:io_update, io_totals})
+  end
 
   @spec accept_request(session_handler, request_id) :: :ok
   @doc "Attempts to accept a request with the specified id"

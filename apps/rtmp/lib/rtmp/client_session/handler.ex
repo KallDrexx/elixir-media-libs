@@ -43,8 +43,7 @@ defmodule Rtmp.ClientSession.Handler do
               open_transactions: %{},
               active_streams: %{},
               stream_key_to_stream_id_map: %{},
-              bytes_sent: 0,
-              bytes_received: 0,
+              io_totals: %Rtmp.IoTotals{},
               byte_count_changed_timer: nil,
               server_ack_size: nil,
               last_ack_sent_at: 0
@@ -101,10 +100,11 @@ defmodule Rtmp.ClientSession.Handler do
     GenServer.cast(pid, {:rtmp_input, message})
   end
 
-  @spec notify_byte_count(Rtmp.Behaviours.SessionHandler.session_handler_pid, Rtmp.Behaviours.SessionHandler.io_count_direction, non_neg_integer) :: :ok
-  @doc "Notifies the session handler of new input or output byte totals"
-  def notify_byte_count(pid, :bytes_received, total), do: GenServer.cast(pid, {:byte_count_update, :bytes_received, total})
-  def notify_byte_count(pid, :bytes_sent, total),     do: GenServer.cast(pid, {:byte_count_update, :bytes_sent, total})
+  @spec notify_byte_count(Rtmp.Behaviours.SessionHandler.session_handler_pid, Rtmp.IoTotals.t) :: :ok
+  @doc "Notifies the session handler of updated I/O totals"
+  def notify_byte_count(pid, io_totals = %Rtmp.IoTotals{}) do
+    GenServer.cast(pid, {:io_update, io_totals})
+  end
 
   @spec request_connection(session_handler_process, Rtmp.app_name) :: :ok
   @doc """
@@ -382,11 +382,9 @@ defmodule Rtmp.ClientSession.Handler do
     end
   end
 
-  def handle_cast({:byte_count_update, in_or_out, total}, state) do
-    state = case in_or_out do
-      :bytes_sent -> %{state | bytes_sent: total}
-      :bytes_received -> %{state | bytes_received: state.bytes_received + total} |> send_ack_if_required()        
-    end
+  def handle_cast({:io_update, totals}, state) do
+    previous_io_totals = state.io_totals
+    state = %{state | io_totals: totals} |> send_ack_if_required()
 
     state = case state.byte_count_changed_timer do
       nil -> 
@@ -401,8 +399,8 @@ defmodule Rtmp.ClientSession.Handler do
 
   def handle_info(:send_io_notifications, state) do
     event = %Events.NewByteIOTotals{
-      bytes_sent: state.bytes_sent,
-      bytes_received: state.bytes_received
+      bytes_sent: state.io_totals.bytes_sent,
+      bytes_received: state.io_totals.bytes_received
     }
 
     state = %{state | byte_count_changed_timer: nil}
@@ -769,12 +767,12 @@ defmodule Rtmp.ClientSession.Handler do
     case state.server_ack_size do
       nil -> state
       size ->
-        case state.bytes_received - state.last_ack_sent_at > size do
+        case state.io_totals.bytes_received - state.last_ack_sent_at > size do
           false -> state
           true ->
-            ack = %Messages.Acknowledgement{sequence_number: state.bytes_received}
+            ack = %Messages.Acknowledgement{sequence_number: state.io_totals.bytes_received}
             :ok = send_output_message(state, ack, 0, false)
-            %{state | last_ack_sent_at: state.bytes_received}
+            %{state | last_ack_sent_at: state.io_totals.bytes_received}
         end
     end
   end
