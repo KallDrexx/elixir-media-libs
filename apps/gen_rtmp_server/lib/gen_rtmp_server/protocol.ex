@@ -17,8 +17,6 @@ defmodule GenRtmpServer.Protocol do
     defstruct socket: nil,
               transport: nil,
               session_id: nil,
-              bytes_read: 0,
-              bytes_sent: 0,
               handshake_completed: false,
               handshake_instance: nil,
               protocol_handler_pid: nil,
@@ -28,10 +26,8 @@ defmodule GenRtmpServer.Protocol do
               session_config: nil,
               log_files: %{},
               adopter_args: nil,
-              total_bytes_sent: 0,
-              total_packets_sent: 0,
-              total_bytes_dropped: 0,
-              total_packets_dropped: 0
+              io_totals: %Rtmp.IoTotals{},
+              io_total_notification_timer: nil
   end
 
   @doc "Starts the protocol for the accepted socket"
@@ -160,6 +156,12 @@ defmodule GenRtmpServer.Protocol do
 
     :ok = Rtmp.Protocol.Handler.notify_input(state.protocol_handler_pid, binary)
     set_socket_options(state)
+
+    state = %{state | io_totals: %{state.io_totals |
+      bytes_received: state.io_totals.bytes_received + byte_size(binary),
+      packets_received: state.io_totals.packets_received + 1
+    }}
+
     {:noreply, state}
   end
 
@@ -185,6 +187,13 @@ defmodule GenRtmpServer.Protocol do
   def handle_info({:inet_reply, _socket, _status}, state) do
     {:noreply, state}
   end
+
+  def handle_info(:report_io_to_sessions, state) do
+      :ok = Rtmp.ServerSession.Handler.notify_byte_count(state.session_handler_pid, state.io_totals)
+
+      state = %{state | io_total_notification_timer: nil}
+      {:noreply, state}
+    end
   
   def handle_info(message, state = %State{}) do
     {:ok, adopter_state} = state.gen_rtmp_server_adopter.handle_message(message, state.adopter_state)
@@ -407,30 +416,41 @@ defmodule GenRtmpServer.Protocol do
   defp send_undroppable_packet(state, binary) do
     :gen_tcp.send(state.socket, binary)
     mark_packet_as_sent(state, binary)
+    |> start_notification_timer
   end
 
   defp send_droppable_packet(state, binary) do
     case :erlang.port_command(state.socket, binary, [:nosuspend]) do
-      true -> mark_packet_as_sent(state, binary)
+      true -> mark_packet_as_sent(state, binary) |> start_notification_timer
 
       false ->
         # Port is too busy to send, drop the packet
         mark_packet_as_dropped(state, binary)
+        |> start_notification_timer
     end
   end
 
   defp mark_packet_as_sent(state, binary) do
-    %{state |
-      total_bytes_sent: state.total_bytes_sent + byte_size(binary),
-      total_packets_sent: state.total_packets_sent + 1
-    }
+    %{state | io_totals: %{state.io_totals |
+      bytes_sent: state.io_totals.bytes_sent + byte_size(binary),
+      packets_sent: state.io_totals.packets_sent + 1
+    }}
   end
 
   defp mark_packet_as_dropped(state, binary) do
-    %{state |
-      total_bytes_dropped: state.total_bytes_dropped + byte_size(binary),
-      total_packets_dropped: state.total_packets_dropped + 1
-    }
+    %{state | io_totals: %{state.io_totals |
+      bytes_dropped: state.io_totals.bytes_dropped + byte_size(binary),
+      packets_dropped: state.io_totals.packets_dropped + 1
+    }}
   end
 
+  defp start_notification_timer(state) do
+    case state.io_total_notification_timer do
+      nil ->
+        :erlang.send_after(500, self(), :report_io_to_sessions)
+        %{state | io_total_notification_timer: :active}
+
+      _ -> state
+    end
+  end
 end

@@ -48,6 +48,7 @@ defmodule Rtmp.ServerSession.Handler do
               active_streams: %{},
               bytes_sent: 0,
               bytes_received: 0,
+              io_totals: %Rtmp.IoTotals{},
               byte_count_changed_timer: nil
   end
 
@@ -230,23 +231,6 @@ defmodule Rtmp.ServerSession.Handler do
     {:noreply, state}
   end
 
-  def handle_cast({:byte_count_update, in_or_out, total}, state) do
-    state = case in_or_out do
-      :bytes_sent -> %{state | bytes_sent: total}
-      :bytes_received -> %{state | bytes_received: total}
-    end
-
-    state = case state.byte_count_changed_timer do
-      nil -> 
-        :erlang.send_after(500, self(), :send_io_notifications)
-        %{state | byte_count_changed_timer: :active}
-
-      _ -> state
-    end
-
-    {:noreply, state}
-  end
-
   def handle_cast(:send_ping_request, state) do
     timestamp = :os.system_time(:milli_seconds) - state.start_time
     message = %DetailedMessage{
@@ -263,10 +247,24 @@ defmodule Rtmp.ServerSession.Handler do
     {:noreply, state}
   end
 
+  def handle_cast({:io_update, totals}, state) do
+      state = %{state | io_totals: totals}
+
+      state = case state.byte_count_changed_timer do
+        nil ->
+          :erlang.send_after(500, self(), :send_io_notifications)
+          %{state | byte_count_changed_timer: :active}
+
+        _ -> state
+      end
+
+      {:noreply, state}
+    end
+
   def handle_info(:send_io_notifications, state) do
     event = %Events.NewByteIOTotals{
-      bytes_sent: state.bytes_sent,
-      bytes_received: state.bytes_received
+      bytes_sent: state.io_totals.bytes_sent,
+      bytes_received: state.io_totals.bytes_received
     }
 
     state = %{state | byte_count_changed_timer: nil}

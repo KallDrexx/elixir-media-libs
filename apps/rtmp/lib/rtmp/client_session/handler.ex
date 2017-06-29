@@ -383,7 +383,6 @@ defmodule Rtmp.ClientSession.Handler do
   end
 
   def handle_cast({:io_update, totals}, state) do
-    previous_io_totals = state.io_totals
     state = %{state | io_totals: totals} |> send_ack_if_required()
 
     state = case state.byte_count_changed_timer do
