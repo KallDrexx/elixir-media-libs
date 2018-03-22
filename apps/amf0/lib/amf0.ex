@@ -55,6 +55,7 @@ defmodule Amf0 do
       2 -> :"utf8-1" # TODO: support other utf8 markers
       3 -> :object
       5 -> :null
+      6 -> :undefined
       8 -> :emca_array
     end
   end
@@ -74,6 +75,10 @@ defmodule Amf0 do
   end
   
   defp get_object(:null, binary) do
+    {nil, binary}
+  end
+
+  defp get_object(:undefined, binary) do
     {nil, binary}
   end
 
